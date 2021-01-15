@@ -1,0 +1,17 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "run",
+            "command": "cargo",
+            "type": "shell",
+            "args": [
+                "run"
+            ],
+
+            "group":{ "kind": "build",
+                "isDefault": true,
+            }
+        }
+    ]
+}

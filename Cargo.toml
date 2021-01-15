@@ -13,11 +13,11 @@ crate-type = ["cdylib", "rlib"]
 name ="horizon-native"
 test = false
 bench = false
-path="src/lib.rs"
+path = "src/lib.rs"
 
 
-[target.'cfg(target_arch="x86_64")'.dependencies]
-rusty_v8 = "0.15.0"
+#[target.'cfg(target_arch="x86_64")'.dependencies]
+#rusty_v8 = "0.15.0"
 
 [features]
 default = ["console_error_panic_hook"]
@@ -34,8 +34,18 @@ nphysics3d = "0.19"
 ncollide2d = "0.27"
 nphysics2d = "0.19"
 env_logger = "0.8.2"
+futures = "0.3.12"
 
+[build-dependencies]
+anyhow = "1.0"
+fs_extra = "1.2.0"
+glob ="0.3"
+shaderc="0.7.0"
+rayon="1.5.0"
 
+[dependencies.wgpu]
+version = "0.6.2"
+features=["vulkan-portability"]
 # `wee_alloc` is a tiny allocator for wasm that is only ~1K in code size
 # compared to the default allocator's ~10K. It is slower than the default
 # allocator, however.
@@ -45,9 +55,7 @@ env_logger = "0.8.2"
 wee_alloc = { version = "0.4.5", optional = true }
 console_error_panic_hook = { version = "0.1.6", optional = true }
 
-[dependencies.wgpu]
-version = "0.6.2"
-features=["vulkan-portability"]
+
 
 # The `console_error_panic_hook` crate provides better debugging of panics by
 # logging them with `console.error`. This is great for development, but requires

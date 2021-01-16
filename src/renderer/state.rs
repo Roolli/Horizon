@@ -1,9 +1,8 @@
-use core::f64;
-
 use wgpu::{util::DeviceExt, BufferUsage};
 use winit::{event::*, window::Window};
 
-use crate::primitives::{texture, vertex::Vertex};
+use crate::renderer::primitives::{texture::Texture, vertex::Vertex};
+
 use bytemuck;
 pub struct State {
     surface: wgpu::Surface,
@@ -18,7 +17,7 @@ pub struct State {
     index_buffer: wgpu::Buffer,
     indicies_count: u32,
     diffuse_bind_group: wgpu::BindGroup,
-    diffuse_texture: texture::Texture,
+    diffuse_texture: Texture,
 }
 const VERTICES: &[Vertex] = &[
     // Changed
@@ -82,14 +81,9 @@ impl State {
 
         // TEXTURE
 
-        let diffuse_bytes = include_bytes!("../assets/happy-tree.png");
-        let diffuse_texture = crate::primitives::texture::Texture::from_bytes(
-            &device,
-            &queue,
-            diffuse_bytes,
-            "happy-tree.png",
-        )
-        .unwrap();
+        let diffuse_bytes = include_bytes!("../../assets/happy-tree.png");
+        let diffuse_texture =
+            Texture::from_bytes(&device, &queue, diffuse_bytes, "happy-tree.png").unwrap();
 
         let texture_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -131,9 +125,9 @@ impl State {
         // SHADER
 
         let vs_module =
-            device.create_shader_module(wgpu::include_spirv!("./shaders/shader.vert.spv"));
+            device.create_shader_module(wgpu::include_spirv!("../shaders/shader.vert.spv"));
         let fs_module =
-            device.create_shader_module(wgpu::include_spirv!("./shaders/shader.frag.spv"));
+            device.create_shader_module(wgpu::include_spirv!("../shaders/shader.frag.spv"));
 
         let basic_pipeline = State::create_pipeline(
             &vs_module,

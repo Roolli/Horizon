@@ -1,9 +1,9 @@
 //use wasm_bindgen::prelude::*;
 use futures::executor::block_on;
-mod primitives;
-mod state;
 
-use state::State;
+mod renderer;
+
+use crate::renderer::state::State;
 
 use winit::{
     event::*,

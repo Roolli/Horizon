@@ -1,9 +1,9 @@
-mod state;
-mod utils;
-
 //use wasm_bindgen::prelude::*;
 use futures::executor::block_on;
+mod state;
+
 use state::State;
+
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
@@ -16,7 +16,7 @@ use winit::{
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-fn main() {
+pub fn run() {
     env_logger::init();
 
     let event_loop = EventLoop::new();

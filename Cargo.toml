@@ -8,12 +8,13 @@ description="Cross-platform 2D/3D engine using WebGPU and Rust (WebAssembly for 
 
 [lib]
 crate-type = ["cdylib", "rlib"]
+path = "src/lib.rs"
 
 [[bin]]
 name ="horizon-native"
 test = false
 bench = false
-path = "src/lib.rs"
+path = "src/main.rs"
 
 
 #[target.'cfg(target_arch="x86_64")'.dependencies]

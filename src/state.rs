@@ -1,9 +1,9 @@
 use core::f64;
 
-use wgpu::{util::DeviceExt, BufferUsage, VertexBufferDescriptor};
+use wgpu::{util::DeviceExt, BufferUsage};
 use winit::{event::*, window::Window};
 
-use crate::primitives::vertex::Vertex;
+use crate::primitives::{texture, vertex::Vertex};
 use bytemuck;
 pub struct State {
     surface: wgpu::Surface,
@@ -14,31 +14,33 @@ pub struct State {
     pub size: winit::dpi::PhysicalSize<u32>,
     clear_color: wgpu::Color,
     render_pipeline: wgpu::RenderPipeline,
-    use_complex_shader: bool,
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     indicies_count: u32,
+    diffuse_bind_group: wgpu::BindGroup,
+    diffuse_texture: texture::Texture,
 }
 const VERTICES: &[Vertex] = &[
+    // Changed
     Vertex {
         position: [-0.0868241, 0.49240386, 0.0],
-        color: [0.5, 0.0, 0.5],
+        tex_coords: [0.4131759, 0.00759614],
     }, // A
     Vertex {
         position: [-0.49513406, 0.06958647, 0.0],
-        color: [0.5, 0.0, 0.5],
+        tex_coords: [0.0048659444, 0.43041354],
     }, // B
     Vertex {
         position: [-0.21918549, -0.44939706, 0.0],
-        color: [0.5, 0.0, 0.5],
+        tex_coords: [0.28081453, 0.949397057],
     }, // C
     Vertex {
         position: [0.35966998, -0.3473291, 0.0],
-        color: [0.5, 0.0, 0.5],
+        tex_coords: [0.85967, 0.84732911],
     }, // D
     Vertex {
         position: [0.44147372, 0.2347359, 0.0],
-        color: [0.5, 0.0, 0.5],
+        tex_coords: [0.9414737, 0.2652641],
     }, // E
 ];
 
@@ -78,12 +80,68 @@ impl State {
         };
         let swap_chain = device.create_swap_chain(&surface, &sc_desc);
 
+        // TEXTURE
+
+        let diffuse_bytes = include_bytes!("../assets/happy-tree.png");
+        let diffuse_texture = crate::primitives::texture::Texture::from_bytes(
+            &device,
+            &queue,
+            diffuse_bytes,
+            "happy-tree.png",
+        )
+        .unwrap();
+
+        let texture_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStage::FRAGMENT,
+                        ty: wgpu::BindingType::SampledTexture {
+                            multisampled: false,
+                            dimension: wgpu::TextureViewDimension::D2,
+                            component_type: wgpu::TextureComponentType::Uint,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStage::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler { comparison: false },
+                        count: None,
+                    },
+                ],
+                label: Some("Texture bind group layout"),
+            });
+
+        let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
+                },
+            ],
+            label: Some("Diffuse bind group"),
+        });
+        // SHADER
+
         let vs_module =
             device.create_shader_module(wgpu::include_spirv!("./shaders/shader.vert.spv"));
         let fs_module =
             device.create_shader_module(wgpu::include_spirv!("./shaders/shader.frag.spv"));
 
-        let basic_pipeline = State::create_pipeline(&vs_module, &fs_module, &device, &sc_desc);
+        let basic_pipeline = State::create_pipeline(
+            &vs_module,
+            &fs_module,
+            &device,
+            &sc_desc,
+            &texture_bind_group_layout,
+        );
 
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer Descriptor"),
@@ -112,9 +170,10 @@ impl State {
             },
             render_pipeline: basic_pipeline,
             vertex_buffer,
-            use_complex_shader: false,
             indicies_count: INDICES.len() as u32,
             index_buffer,
+            diffuse_bind_group,
+            diffuse_texture,
         }
     }
     fn create_pipeline(
@@ -122,10 +181,11 @@ impl State {
         fragment_module: &wgpu::ShaderModule,
         device: &wgpu::Device,
         swapchain_desc: &wgpu::SwapChainDescriptor,
+        texture_bind_group_layout: &wgpu::BindGroupLayout,
     ) -> wgpu::RenderPipeline {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                bind_group_layouts: &[],
+                bind_group_layouts: &[&texture_bind_group_layout],
                 label: Some("Render pipeline layout"),
                 push_constant_ranges: &[],
             });
@@ -183,47 +243,8 @@ impl State {
                     b: 1.0,
                     a: 1.0,
                 };
-
                 true
             }
-            WindowEvent::KeyboardInput { input, .. } => match input {
-                KeyboardInput {
-                    state: ElementState::Pressed,
-                    virtual_keycode: Some(VirtualKeyCode::Space),
-                    ..
-                } => {
-                    if !self.use_complex_shader {
-                        let vs_module = self.device.create_shader_module(wgpu::include_spirv!(
-                            "./shaders/shader_complex.vert.spv"
-                        ));
-                        let fs_module = self.device.create_shader_module(wgpu::include_spirv!(
-                            "./shaders/shader_complex.frag.spv"
-                        ));
-                        self.render_pipeline = State::create_pipeline(
-                            &vs_module,
-                            &fs_module,
-                            &self.device,
-                            &self.sc_descriptor,
-                        )
-                    } else {
-                        let vs_module = self.device.create_shader_module(wgpu::include_spirv!(
-                            "./shaders/shader.vert.spv"
-                        ));
-                        let fs_module = self.device.create_shader_module(wgpu::include_spirv!(
-                            "./shaders/shader.frag.spv"
-                        ));
-                        self.render_pipeline = State::create_pipeline(
-                            &vs_module,
-                            &fs_module,
-                            &self.device,
-                            &self.sc_descriptor,
-                        )
-                    }
-                    self.use_complex_shader = !self.use_complex_shader;
-                    true
-                }
-                _ => false,
-            },
             _ => false,
         }
     }
@@ -248,6 +269,7 @@ impl State {
                 depth_stencil_attachment: None,
             });
             render_pass.set_pipeline(&self.render_pipeline);
+            render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.index_buffer.slice(..));
             render_pass.draw_indexed(0..self.indicies_count, 0, 0..1);

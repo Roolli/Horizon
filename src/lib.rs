@@ -8,7 +8,7 @@ use state::State;
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
-    window::{Window, WindowBuilder},
+    window::WindowBuilder,
 };
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
 // allocator.

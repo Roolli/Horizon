@@ -1,5 +1,6 @@
 //use wasm_bindgen::prelude::*;
 use futures::executor::block_on;
+mod primitives;
 mod state;
 
 use state::State;

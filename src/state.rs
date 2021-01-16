@@ -1,6 +1,6 @@
 use core::f64;
 
-use winit::{event::WindowEvent, window::Window};
+use winit::{event::*, window::Window};
 
 pub struct State {
     surface: wgpu::Surface,
@@ -11,7 +11,9 @@ pub struct State {
     pub size: winit::dpi::PhysicalSize<u32>,
     clear_color: wgpu::Color,
     render_pipeline: wgpu::RenderPipeline,
+    use_complex_shader: bool,
 }
+
 impl State {
     pub async fn new(window: &Window) -> Self {
         let size = window.inner_size();
@@ -51,48 +53,8 @@ impl State {
         let fs_module =
             device.create_shader_module(wgpu::include_spirv!("./shaders/shader.frag.spv"));
 
-        let render_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                bind_group_layouts: &[],
-                label: Some("Render pipeline layout"),
-                push_constant_ranges: &[],
-            });
+        let basic_pipeline = State::create_pipeline(&vs_module, &fs_module, &device, &sc_desc);
 
-        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render pipeline"),
-            layout: Some(&render_pipeline_layout),
-            vertex_stage: wgpu::ProgrammableStageDescriptor {
-                module: &vs_module,
-                entry_point: "main",
-            },
-            fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
-                module: &fs_module,
-                entry_point: "main",
-            }),
-            rasterization_state: Some(wgpu::RasterizationStateDescriptor {
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: wgpu::CullMode::Back,
-                depth_bias: 0,
-                depth_bias_slope_scale: 0.0,
-                depth_bias_clamp: 0.0,
-                clamp_depth: false,
-            }),
-            color_states: &[wgpu::ColorStateDescriptor {
-                format: sc_desc.format,
-                color_blend: wgpu::BlendDescriptor::REPLACE,
-                alpha_blend: wgpu::BlendDescriptor::REPLACE,
-                write_mask: wgpu::ColorWrite::ALL,
-            }],
-            primitive_topology: wgpu::PrimitiveTopology::TriangleList,
-            depth_stencil_state: None,
-            vertex_state: wgpu::VertexStateDescriptor {
-                index_format: wgpu::IndexFormat::Uint16,
-                vertex_buffers: &[],
-            },
-            sample_count: 1,
-            sample_mask: !0,
-            alpha_to_coverage_enabled: false,
-        });
         Self {
             device,
             surface,
@@ -106,8 +68,58 @@ impl State {
                 b: 0.3,
                 a: 1.0,
             },
-            render_pipeline,
+            render_pipeline: basic_pipeline,
+            use_complex_shader: false,
         }
+    }
+    fn create_pipeline(
+        vertex_module: &wgpu::ShaderModule,
+        fragment_module: &wgpu::ShaderModule,
+        device: &wgpu::Device,
+        swapchain_desc: &wgpu::SwapChainDescriptor,
+    ) -> wgpu::RenderPipeline {
+        let render_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                bind_group_layouts: &[],
+                label: Some("Render pipeline layout"),
+                push_constant_ranges: &[],
+            });
+
+        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Render pipeline"),
+            layout: Some(&render_pipeline_layout),
+            vertex_stage: wgpu::ProgrammableStageDescriptor {
+                module: &vertex_module,
+                entry_point: "main",
+            },
+            fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
+                module: &fragment_module,
+                entry_point: "main",
+            }),
+            rasterization_state: Some(wgpu::RasterizationStateDescriptor {
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: wgpu::CullMode::Back,
+                depth_bias: 0,
+                depth_bias_slope_scale: 0.0,
+                depth_bias_clamp: 0.0,
+                clamp_depth: false,
+            }),
+            color_states: &[wgpu::ColorStateDescriptor {
+                format: swapchain_desc.format,
+                color_blend: wgpu::BlendDescriptor::REPLACE,
+                alpha_blend: wgpu::BlendDescriptor::REPLACE,
+                write_mask: wgpu::ColorWrite::ALL,
+            }],
+            primitive_topology: wgpu::PrimitiveTopology::TriangleList,
+            depth_stencil_state: None,
+            vertex_state: wgpu::VertexStateDescriptor {
+                index_format: wgpu::IndexFormat::Uint16,
+                vertex_buffers: &[],
+            },
+            sample_count: 1,
+            sample_mask: !0,
+            alpha_to_coverage_enabled: false,
+        })
     }
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         self.size = new_size;
@@ -129,6 +141,44 @@ impl State {
 
                 true
             }
+            WindowEvent::KeyboardInput { input, .. } => match input {
+                KeyboardInput {
+                    state: ElementState::Pressed,
+                    virtual_keycode: Some(VirtualKeyCode::Space),
+                    ..
+                } => {
+                    if !self.use_complex_shader {
+                        let vs_module = self.device.create_shader_module(wgpu::include_spirv!(
+                            "./shaders/shader_complex.vert.spv"
+                        ));
+                        let fs_module = self.device.create_shader_module(wgpu::include_spirv!(
+                            "./shaders/shader_complex.frag.spv"
+                        ));
+                        self.render_pipeline = State::create_pipeline(
+                            &vs_module,
+                            &fs_module,
+                            &self.device,
+                            &self.sc_descriptor,
+                        )
+                    } else {
+                        let vs_module = self.device.create_shader_module(wgpu::include_spirv!(
+                            "./shaders/shader.vert.spv"
+                        ));
+                        let fs_module = self.device.create_shader_module(wgpu::include_spirv!(
+                            "./shaders/shader.frag.spv"
+                        ));
+                        self.render_pipeline = State::create_pipeline(
+                            &vs_module,
+                            &fs_module,
+                            &self.device,
+                            &self.sc_descriptor,
+                        )
+                    }
+                    self.use_complex_shader = !self.use_complex_shader;
+                    true
+                }
+                _ => false,
+            },
             _ => false,
         }
     }

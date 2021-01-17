@@ -30,7 +30,7 @@ wasm-bindgen = "0.2.69"
 winit = "0.24.0"
 imgui-wgpu = "0.12.0"
 nalgebra = "0.24.0"
-nalgebra-glm="0.10.0"
+glm= {version="0.10.0", package="nalgebra-glm"}
 ncollide3d = "0.27.0"
 nphysics3d = "0.19"
 ncollide2d = "0.27"

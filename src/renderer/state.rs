@@ -1,9 +1,11 @@
+use crate::renderer::cam::Camera;
+use crate::renderer::primitives::{texture::Texture, vertex::Vertex};
 use wgpu::{util::DeviceExt, BufferUsage};
 use winit::{event::*, window::Window};
 
-use crate::renderer::primitives::{texture::Texture, vertex::Vertex};
-
 use bytemuck;
+
+use super::primitives::uniforms::Uniforms;
 pub struct State {
     surface: wgpu::Surface,
     device: wgpu::Device,
@@ -17,7 +19,10 @@ pub struct State {
     index_buffer: wgpu::Buffer,
     indicies_count: u32,
     diffuse_bind_group: wgpu::BindGroup,
+    uniform_buffer: wgpu::Buffer,
+    uniform_bind_group: wgpu::BindGroup,
     diffuse_texture: Texture,
+    camera: Camera,
 }
 const VERTICES: &[Vertex] = &[
     // Changed
@@ -122,6 +127,48 @@ impl State {
             ],
             label: Some("Diffuse bind group"),
         });
+
+        let cam = Camera {
+            eye: glm::vec3(0.0, 1.0, 2.0),
+            target: glm::vec3(0.0, 0.0, 0.0),
+            up: glm::vec3(0.0, 1.0, 0.0), // Unit Y vector
+            aspect_ratio: sc_desc.width as f32 / sc_desc.height as f32,
+            fov_y: 45.0,
+            z_near: 0.1,
+            z_far: 100.0,
+        };
+
+        let mut uniforms = Uniforms::new();
+        uniforms.update_view_proj_matrix(&cam);
+
+        let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+            label: Some("Uniform buffer"),
+            contents: bytemuck::cast_slice(&[uniforms]),
+        });
+
+        let uniform_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("uniform_bind_group_layout"),
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStage::VERTEX,
+                    count: None,
+                    ty: wgpu::BindingType::UniformBuffer {
+                        dynamic: false,
+                        min_binding_size: None,
+                    },
+                }],
+            });
+        let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("uniform_bind_group"),
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(uniform_buffer.slice(..)),
+            }],
+            layout: &uniform_bind_group_layout,
+        });
+
         // SHADER
 
         let vs_module =
@@ -135,6 +182,7 @@ impl State {
             &device,
             &sc_desc,
             &texture_bind_group_layout,
+            &uniform_bind_group_layout,
         );
 
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -150,6 +198,7 @@ impl State {
         });
 
         Self {
+            camera: cam,
             device,
             surface,
             queue,
@@ -168,6 +217,8 @@ impl State {
             index_buffer,
             diffuse_bind_group,
             diffuse_texture,
+            uniform_bind_group,
+            uniform_buffer,
         }
     }
     fn create_pipeline(
@@ -176,10 +227,11 @@ impl State {
         device: &wgpu::Device,
         swapchain_desc: &wgpu::SwapChainDescriptor,
         texture_bind_group_layout: &wgpu::BindGroupLayout,
+        uniform_bind_group_layout: &wgpu::BindGroupLayout,
     ) -> wgpu::RenderPipeline {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                bind_group_layouts: &[&texture_bind_group_layout],
+                bind_group_layouts: &[&texture_bind_group_layout, &uniform_bind_group_layout],
                 label: Some("Render pipeline layout"),
                 push_constant_ranges: &[],
             });
@@ -264,6 +316,7 @@ impl State {
             });
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
+            render_pass.set_bind_group(1, &self.uniform_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.index_buffer.slice(..));
             render_pass.draw_indexed(0..self.indicies_count, 0, 0..1);

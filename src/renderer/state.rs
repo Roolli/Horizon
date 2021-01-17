@@ -5,7 +5,10 @@ use winit::{event::*, window::Window};
 
 use bytemuck;
 
-use super::primitives::uniforms::Uniforms;
+use super::primitives::{
+    instance::{Instance, InstanceRaw},
+    uniforms::Uniforms,
+};
 pub struct State {
     surface: wgpu::Surface,
     device: wgpu::Device,
@@ -23,6 +26,8 @@ pub struct State {
     uniform_bind_group: wgpu::BindGroup,
     diffuse_texture: Texture,
     camera: Camera,
+    instances: Vec<Instance>,
+    instance_buffer: wgpu::Buffer,
 }
 const VERTICES: &[Vertex] = &[
     // Changed
@@ -49,6 +54,9 @@ const VERTICES: &[Vertex] = &[
 ];
 
 const INDICES: &[u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4];
+
+const NUM_INSTANCES_PER_ROW: u32 = 10;
+const NUM_INSTANCES: u32 = NUM_INSTANCES_PER_ROW * NUM_INSTANCES_PER_ROW;
 
 impl State {
     pub async fn new(window: &Window) -> Self {
@@ -83,6 +91,33 @@ impl State {
             present_mode: wgpu::PresentMode::Fifo,
         };
         let swap_chain = device.create_swap_chain(&surface, &sc_desc);
+        // INSTANCING
+
+        let instances = (0..NUM_INSTANCES_PER_ROW)
+            .flat_map(|z| {
+                (0..NUM_INSTANCES_PER_ROW).map(move |x| {
+                    let pos = glm::Vec3::new(x as f32, 0.0, z as f32)
+                        - glm::Vec3::new(
+                            NUM_INSTANCES_PER_ROW as f32 * 0.5,
+                            0.0,
+                            NUM_INSTANCES_PER_ROW as f32 * 0.5,
+                        );
+                    let rot = if pos == glm::vec3(0.0 as f32, 0.0, 0.0) {
+                        glm::quat_angle_axis(0.0, &glm::vec3(0.0, 0.0, 1.0 as f32))
+                    } else {
+                        glm::quat_angle_axis(45.0, &glm::normalize(&pos.clone()))
+                    };
+                    Instance::new(pos, rot)
+                })
+            })
+            .collect::<Vec<_>>();
+
+        let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
+        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Instance buffer"),
+            usage: wgpu::BufferUsage::VERTEX,
+            contents: bytemuck::cast_slice(&instance_data),
+        });
 
         // TEXTURE
 
@@ -127,7 +162,7 @@ impl State {
             ],
             label: Some("Diffuse bind group"),
         });
-
+        // CAMERA
         let cam = Camera {
             eye: glm::vec3(0.0, 1.0, 2.0),
             target: glm::vec3(0.0, 0.0, 0.0),
@@ -198,6 +233,8 @@ impl State {
         });
 
         Self {
+            instance_buffer,
+            instances,
             camera: cam,
             device,
             surface,
@@ -265,7 +302,7 @@ impl State {
             depth_stencil_state: None,
             vertex_state: wgpu::VertexStateDescriptor {
                 index_format: wgpu::IndexFormat::Uint16,
-                vertex_buffers: &[Vertex::desc()],
+                vertex_buffers: &[Vertex::desc(), InstanceRaw::desc()],
             },
             sample_count: 1,
             sample_mask: !0,
@@ -315,11 +352,15 @@ impl State {
                 depth_stencil_attachment: None,
             });
             render_pass.set_pipeline(&self.render_pipeline);
+
             render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
+            // camera (uniform value)
             render_pass.set_bind_group(1, &self.uniform_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            //instancing
+            render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
             render_pass.set_index_buffer(self.index_buffer.slice(..));
-            render_pass.draw_indexed(0..self.indicies_count, 0, 0..1);
+            render_pass.draw_indexed(0..self.indicies_count, 0, 0..NUM_INSTANCES);
         }
         self.queue.submit(std::iter::once(encoder.finish()));
         Ok(())

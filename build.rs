@@ -2,11 +2,8 @@ use anyhow::*;
 use fs_extra::{copy_items, dir::CopyOptions};
 use glob::glob;
 use rayon::prelude::*;
+use std::fs::{read_to_string, write};
 use std::path::PathBuf;
-use std::{
-    env,
-    fs::{read_to_string, write},
-};
 
 struct ShaderData {
     src: String,

@@ -8,10 +8,60 @@
             "args": [
                 "run"
             ],
-
-            "group":{ "kind": "build",
-                "isDefault": true,
+            "group": {
+                "kind": "build",
+                "isDefault": true
             }
+        },
+        {
+            "label": "native build",
+            "command": "cargo",
+            "args": [
+                "build",
+                " --bin",
+                "horizon-native"
+            ]
+        },
+        {
+            "label": "wasm-bindgen",
+            "command": "wasm-bindgen",
+            "args": [
+                "--out-dir",
+                "target/generated",
+                "--web",
+                "./target/wasm32-unknown-unknown/debug/horizon.wasm"
+            ]
+        },
+        {
+            "label": "wasm-build",
+            "command": "cargo",
+            "type": "shell",
+            "args": [
+                "build",
+                "--lib",
+                "--target",
+                "wasm32-unknown-unknown"
+            ],
+            "problemMatcher": [
+                "$rustc"
+            ]
+        },
+        {
+            "label": "wasm",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "set-flag",
+                "wasm-build",
+                "wasm-bindgen"
+            ],
+            "problemMatcher": [
+                "$rustc"
+            ]
         }
-    ]
+    ],
+    "options": {
+        "env": {
+            "RUSTFLAGS": "--cfg=web_sys_unstable_apis",
+        }
+    }
 }

@@ -1,5 +1,5 @@
-use horizon::run;
+use horizon::setup;
 
 fn main() {
-    run();
+    setup();
 }

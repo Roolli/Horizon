@@ -10,7 +10,7 @@ use super::{
     model::{self, DrawModel},
     primitives::{
         instance::{Instance, InstanceRaw},
-        uniforms::Uniforms,
+        uniforms::{self, Uniforms},
         vertex::ModelVertex,
     },
 };
@@ -46,7 +46,7 @@ impl State {
 
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::Default,
+                power_preference: wgpu::PowerPreference::HighPerformance,
                 compatible_surface: Some(&surface),
             })
             .await
@@ -56,15 +56,20 @@ impl State {
                 &wgpu::DeviceDescriptor {
                     features: wgpu::Features::empty(),
                     limits: wgpu::Limits::default(),
-                    shader_validation: true,
+                    shader_validation: false,
+                    label: Some("Device descriptor"),
                 },
                 None,
             )
             .await
             .unwrap();
         let sc_desc = wgpu::SwapChainDescriptor {
-            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-            format: wgpu::TextureFormat::Bgra8UnormSrgb,
+            usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
+            format: if cfg!(target_arch = "wasm32") {
+                wgpu::TextureFormat::Bgra8Unorm
+            } else {
+                wgpu::TextureFormat::Bgra8UnormSrgb
+            },
             width: size.width,
             height: size.height,
             present_mode: wgpu::PresentMode::Fifo,
@@ -107,17 +112,20 @@ impl State {
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
                         visibility: wgpu::ShaderStage::FRAGMENT,
-                        ty: wgpu::BindingType::SampledTexture {
+                        ty: wgpu::BindingType::Texture {
                             multisampled: false,
-                            dimension: wgpu::TextureViewDimension::D2,
-                            component_type: wgpu::TextureComponentType::Uint,
+                            sample_type: wgpu::TextureSampleType::Uint,
+                            view_dimension: wgpu::TextureViewDimension::D2,
                         },
                         count: None,
                     },
                     wgpu::BindGroupLayoutEntry {
                         binding: 1,
                         visibility: wgpu::ShaderStage::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler { comparison: false },
+                        ty: wgpu::BindingType::Sampler {
+                            filtering: false,
+                            comparison: false,
+                        },
                         count: None,
                     },
                 ],
@@ -151,7 +159,7 @@ impl State {
 
         let mut uniforms = Uniforms::new();
         uniforms.update_view_proj_matrix(&cam);
-
+        let uniform_size = std::mem::size_of::<Uniforms>() as wgpu::BufferAddress;
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
             label: Some("Uniform buffer"),
@@ -165,9 +173,10 @@ impl State {
                     binding: 0,
                     visibility: wgpu::ShaderStage::VERTEX,
                     count: None,
-                    ty: wgpu::BindingType::UniformBuffer {
-                        dynamic: false,
-                        min_binding_size: None,
+                    ty: wgpu::BindingType::Buffer {
+                        has_dynamic_offset: false,
+                        ty: wgpu::BufferBindingType::Uniform,
+                        min_binding_size: wgpu::BufferSize::new(uniform_size),
                     },
                 }],
             });
@@ -175,7 +184,11 @@ impl State {
             label: Some("uniform_bind_group"),
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
-                resource: wgpu::BindingResource::Buffer(uniform_buffer.slice(..)),
+                resource: wgpu::BindingResource::Buffer {
+                    buffer: &uniform_buffer,
+                    offset: 0,
+                    size: wgpu::BufferSize::new(uniform_size),
+                },
             }],
             layout: &uniform_bind_group_layout,
         });
@@ -206,7 +219,6 @@ impl State {
 
         Self {
             depth_texture: Texture::create_depth_texture(&device, &sc_desc, "depth_texture"),
-
             instances,
             camera: cam,
             device,
@@ -259,10 +271,7 @@ impl State {
             rasterization_state: Some(wgpu::RasterizationStateDescriptor {
                 front_face: wgpu::FrontFace::Ccw,
                 cull_mode: wgpu::CullMode::Back,
-                depth_bias: 0,
-                depth_bias_slope_scale: 0.0,
-                depth_bias_clamp: 0.0,
-                clamp_depth: false,
+                ..Default::default()
             }),
             color_states: &[wgpu::ColorStateDescriptor {
                 format: swapchain_desc.format,
@@ -338,7 +347,7 @@ impl State {
                 }),
             });
 
-            render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
+            //render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
             // camera (uniform value)
             render_pass.set_bind_group(1, &self.uniform_bind_group, &[]);
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));

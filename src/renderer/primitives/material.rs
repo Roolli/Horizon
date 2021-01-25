@@ -1,5 +1,3 @@
-use wgpu::BindGroup;
-
 use super::texture::Texture;
 
 pub struct Material {

@@ -104,7 +104,7 @@ impl Texture {
             min_filter: wgpu::FilterMode::Linear,
             mipmap_filter: wgpu::FilterMode::Nearest,
             compare: Some(wgpu::CompareFunction::LessEqual),
-            lod_min_clamp: -100.0,
+            lod_min_clamp: 1.0,
             lod_max_clamp: 100.0,
             ..Default::default()
         });
@@ -114,14 +114,14 @@ impl Texture {
             sampler,
         }
     }
-    pub fn load<P: AsRef<Path>>(
+    pub fn load(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        path: P,
+        buffer: &[u8],
+        label: Option<&str>,
     ) -> Result<Self, Error> {
-        let path_copy = path.as_ref().to_path_buf();
-        let label = path_copy.to_str();
-        let img = image::open(&path_copy)?;
+        let img = image::load_from_memory(buffer).unwrap();
+
         Self::from_image(&device, &queue, &img, label)
     }
 }

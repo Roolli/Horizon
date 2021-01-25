@@ -1,10 +1,9 @@
-use crate::renderer::cam::Camera;
 use crate::renderer::primitives::{texture::Texture, vertex::Vertex};
-use model::HorizonModel;
+use crate::{filesystem::modelimporter::Importer, renderer::model::HorizonModel};
+use crate::{filesystem::webfileloader::WebFileLoader, renderer::cam::Camera};
+use bytemuck;
 use wgpu::{util::DeviceExt, BufferUsage, DepthStencilStateDescriptor};
 use winit::{event::*, window::Window};
-
-use bytemuck;
 
 use super::{
     model::{self, DrawModel},
@@ -56,7 +55,7 @@ impl State {
                 &wgpu::DeviceDescriptor {
                     features: wgpu::Features::empty(),
                     limits: wgpu::Limits::default(),
-                    shader_validation: false,
+                    shader_validation: true,
                     label: Some("Device descriptor"),
                 },
                 None,
@@ -208,13 +207,16 @@ impl State {
             &texture_bind_group_layout,
             &uniform_bind_group_layout,
         );
-        let res_dir = std::path::Path::new(env!("OUT_DIR")).join("res");
-        let obj_model = model::HorizonModel::load(
+        // let res_dir = std::path::Path::new(env!("OUT_DIR")).join("res");
+        let importer = Importer::new(Box::new(WebFileLoader::new("http://localhost:8080")));
+        let obj_model = HorizonModel::load(
             &device,
             &queue,
             &texture_bind_group_layout,
-            res_dir.join("cube.obj"),
+            &importer,
+            "cube.obj",
         )
+        .await
         .unwrap();
 
         Self {
@@ -287,7 +289,7 @@ impl State {
                 stencil: wgpu::StencilStateDescriptor::default(),
             }),
             vertex_state: wgpu::VertexStateDescriptor {
-                index_format: wgpu::IndexFormat::Uint32,
+                index_format: wgpu::IndexFormat::Uint16,
                 vertex_buffers: &[ModelVertex::desc(), InstanceRaw::desc()],
             },
             sample_count: 1,
@@ -314,6 +316,8 @@ impl State {
                     b: 1.0,
                     a: 1.0,
                 };
+
+                log::info!("mouse pos is x:{} y:{}", position.x, position.y);
                 true
             }
             _ => false,

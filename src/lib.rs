@@ -3,6 +3,7 @@ use core::panic;
 //use wasm_bindgen::prelude::*;
 use futures::executor::block_on;
 
+mod filesystem;
 mod renderer;
 
 use crate::renderer::state::State;
@@ -94,6 +95,7 @@ fn run(event_loop: EventLoop<()>, mut state: State, window: winit::window::Windo
         }
         Event::MainEventsCleared => {
             window.request_redraw();
+            log::info!("redraw!");
         }
         _ => {}
     });

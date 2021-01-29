@@ -26,9 +26,9 @@ default = ["console_error_panic_hook"]
 [dependencies]
 
 winit = "0.24.0"
-imgui = {version = "0.6", features = ["wasm"]}
-imgui-wgpu = "0.8.0"
-imgui-winit-support="0.6"
+# imgui = {version = "0.6", features = ["wasm"]}
+# imgui-wgpu = "0.12.0"
+# imgui-winit-support="0.6"
 
 nalgebra = "0.24.0"
 glm= {version="0.10.0", package="nalgebra-glm"}
@@ -39,10 +39,16 @@ nphysics2d = "0.19"
 env_logger = "0.8.2"
 futures = "0.3.12"
 bytemuck=  { version = "1.5.0", features = ["derive"]}
-image = "0.23"
+
+
+
+
+
+
 anyhow = "1.0.38"
 tobj = "2.0.3"
 log = "0.4"
+async-trait = "0.1.42"
 
 [build-dependencies]
 anyhow = "1.0"
@@ -53,6 +59,7 @@ rayon="1.5.0"
 
 [target.'cfg(target_arch="wasm32")'.dependencies]
 wasm-bindgen = "0.2.69"
+wasm-timer = "0.2.5"
 console_log = "0.2.0" # TODO: move
 wee_alloc = { version = "0.4.5", optional = true }
 winit = {version ="0.24.0", features = ["web-sys"]}
@@ -144,12 +151,23 @@ web-sys = { version="=0.3.46",features = [
     "GpuVertexStateDescriptor",
     "GpuVertexAttributeDescriptor",
     "HtmlCanvasElement",
-    "Window",]}
-[patch.crates-io]
-wgpu = {path = "../wgpu-rs"}
+     'Headers',
+  'Request',
+  'RequestInit',
+  'RequestMode',
+  'Response',
+  'Window',]}
 [dependencies.wgpu]
-version = "=0.6.0"
+path = "../wgpu-rs"
 features=["vulkan-portability"]
+
+[target.'cfg(target_arch="wasm32")'.features]
+default = ["wee_alloc"]
+
+[dependencies.image]
+version= "0.23"
+default-features = false
+features = ["gif", "jpeg", "ico", "png", "pnm", "tga", "tiff", "webp", "bmp", "hdr", "dxt", "dds", "farbfeld"]
 # `wee_alloc` is a tiny allocator for wasm that is only ~1K in code size
 # compared to the default allocator's ~10K. It is slower than the default
 # allocator, however.
@@ -167,9 +185,11 @@ features=["vulkan-portability"]
 
 
 wasm-bindgen-test = "0.3.19"
+wgpu-subscriber="0.1.0"
 
 
 
 [profile.release]
 # Tell `rustc` to optimize for small code size.
 opt-level = "s"
+lto = true

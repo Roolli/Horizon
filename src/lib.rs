@@ -28,7 +28,6 @@ pub fn setup() {
     console_log::init().expect("failed to initialize logger");
     #[cfg(not(target_arch = "wasm32"))]
     env_logger::init();
-    log::info!("asd");
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
         .with_title("horizon")
@@ -95,7 +94,6 @@ fn run(event_loop: EventLoop<()>, mut state: State, window: winit::window::Windo
         }
         Event::MainEventsCleared => {
             window.request_redraw();
-            log::info!("redraw!");
         }
         _ => {}
     });

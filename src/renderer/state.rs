@@ -1,15 +1,17 @@
+use crate::renderer::cam::Camera;
 use crate::renderer::primitives::{texture::Texture, vertex::Vertex};
 use crate::{filesystem::modelimporter::Importer, renderer::model::HorizonModel};
-use crate::{filesystem::webfileloader::WebFileLoader, renderer::cam::Camera};
 use bytemuck;
 use wgpu::{util::DeviceExt, BufferUsage, DepthStencilStateDescriptor};
 use winit::{event::*, window::Window};
 
+use super::model;
+use super::primitives::uniforms;
 use super::{
-    model::{self, DrawModel},
+    model::DrawModel,
     primitives::{
         instance::{Instance, InstanceRaw},
-        uniforms::{self, Uniforms},
+        uniforms::Uniforms,
         vertex::ModelVertex,
     },
 };
@@ -40,7 +42,7 @@ impl State {
     pub async fn new(window: &Window) -> Self {
         let size = window.inner_size();
 
-        let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
+        let instance = wgpu::Instance::new(wgpu::BackendBit::all());
         let surface = unsafe { instance.create_surface(window) };
 
         let adapter = instance
@@ -55,7 +57,6 @@ impl State {
                 &wgpu::DeviceDescriptor {
                     features: wgpu::Features::empty(),
                     limits: wgpu::Limits::default(),
-                    shader_validation: true,
                     label: Some("Device descriptor"),
                 },
                 None,
@@ -63,7 +64,7 @@ impl State {
             .await
             .unwrap();
         let sc_desc = wgpu::SwapChainDescriptor {
-            usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
+            usage: wgpu::TextureUsage::RENDER_ATTACHMENT | wgpu::TextureUsage::COPY_SRC,
             format: if cfg!(target_arch = "wasm32") {
                 wgpu::TextureFormat::Bgra8Unorm
             } else {
@@ -85,7 +86,7 @@ impl State {
                     let rot = if pos == glm::vec3(0.0 as f32, 0.0, 0.0) {
                         glm::quat_angle_axis(0.0, &glm::vec3(0.0, 0.0, 1.0 as f32))
                     } else {
-                        glm::quat_angle_axis(45.0, &glm::normalize(&pos.clone()))
+                        glm::quat_angle_axis(45.0f32, &glm::normalize(&pos.clone()))
                     };
                     Instance::new(pos, rot)
                 })
@@ -113,7 +114,7 @@ impl State {
                         visibility: wgpu::ShaderStage::FRAGMENT,
                         ty: wgpu::BindingType::Texture {
                             multisampled: false,
-                            sample_type: wgpu::TextureSampleType::Uint,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: false },
                             view_dimension: wgpu::TextureViewDimension::D2,
                         },
                         count: None,
@@ -122,8 +123,8 @@ impl State {
                         binding: 1,
                         visibility: wgpu::ShaderStage::FRAGMENT,
                         ty: wgpu::BindingType::Sampler {
-                            filtering: false,
                             comparison: false,
+                            filtering: false,
                         },
                         count: None,
                     },
@@ -173,9 +174,9 @@ impl State {
                     visibility: wgpu::ShaderStage::VERTEX,
                     count: None,
                     ty: wgpu::BindingType::Buffer {
-                        has_dynamic_offset: false,
                         ty: wgpu::BufferBindingType::Uniform,
-                        min_binding_size: wgpu::BufferSize::new(uniform_size),
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
                     },
                 }],
             });
@@ -185,8 +186,8 @@ impl State {
                 binding: 0,
                 resource: wgpu::BindingResource::Buffer {
                     buffer: &uniform_buffer,
+                    size: None,
                     offset: 0,
-                    size: wgpu::BufferSize::new(uniform_size),
                 },
             }],
             layout: &uniform_bind_group_layout,
@@ -195,9 +196,9 @@ impl State {
         // SHADER
 
         let vs_module =
-            device.create_shader_module(wgpu::include_spirv!("../shaders/shader.vert.spv"));
+            device.create_shader_module(&wgpu::include_spirv!("../shaders/shader.vert.spv"));
         let fs_module =
-            device.create_shader_module(wgpu::include_spirv!("../shaders/shader.frag.spv"));
+            device.create_shader_module(&wgpu::include_spirv!("../shaders/shader.frag.spv"));
 
         let basic_pipeline = State::create_pipeline(
             &vs_module,
@@ -208,7 +209,20 @@ impl State {
             &uniform_bind_group_layout,
         );
         // let res_dir = std::path::Path::new(env!("OUT_DIR")).join("res");
-        let importer = Importer::new(Box::new(WebFileLoader::new("http://localhost:8080")));
+        // TODO: Change to some sort of IoC container where it resolves based on current arch.
+        let importer;
+        #[cfg(target_arch = "wasm32")]
+        {
+            use crate::filesystem::webfileloader::WebFileLoader;
+            importer = Importer::new(Box::new(WebFileLoader::new("http://localhost:8000")));
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            use crate::filesystem::nativefileloader::Nativefileloader;
+            importer = Importer::new(Box::new(Nativefileloader::new(
+                std::env::current_dir().unwrap(),
+            )));
+        }
         let obj_model = HorizonModel::load(
             &device,
             &queue,
@@ -289,7 +303,7 @@ impl State {
                 stencil: wgpu::StencilStateDescriptor::default(),
             }),
             vertex_state: wgpu::VertexStateDescriptor {
-                index_format: wgpu::IndexFormat::Uint16,
+                index_format: Some(wgpu::IndexFormat::Uint32),
                 vertex_buffers: &[ModelVertex::desc(), InstanceRaw::desc()],
             },
             sample_count: 1,
@@ -317,7 +331,6 @@ impl State {
                     a: 1.0,
                 };
 
-                log::info!("mouse pos is x:{} y:{}", position.x, position.y);
                 true
             }
             _ => false,
@@ -326,6 +339,8 @@ impl State {
     pub fn update(&mut self) {}
     pub fn render(&mut self) -> Result<(), wgpu::SwapChainError> {
         let frame = self.swap_chain.get_current_frame()?.output;
+
+
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -333,6 +348,7 @@ impl State {
             });
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Render pass descriptor"),
                 color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
                     attachment: &frame.view,
                     resolve_target: None,
@@ -351,9 +367,6 @@ impl State {
                 }),
             });
 
-            //render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
-            // camera (uniform value)
-            render_pass.set_bind_group(1, &self.uniform_bind_group, &[]);
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
 
             render_pass.set_pipeline(&self.render_pipeline);

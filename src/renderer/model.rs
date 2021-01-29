@@ -2,7 +2,7 @@ use std::{ops::Range, path::Path};
 
 use anyhow::Context;
 use fileloader::FileLoader;
-use wgpu::util::DeviceExt;
+use wgpu::{util::DeviceExt, IndexFormat};
 
 use crate::filesystem::{fileloader, modelimporter::Importer};
 
@@ -137,8 +137,7 @@ where
         uniforms: &'b wgpu::BindGroup,
     ) {
         self.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
-        log::warn!("element count: {} name:{}", mesh.element_count, mesh.name);
-        self.set_index_buffer(mesh.index_buffer.slice(..));
+        self.set_index_buffer(mesh.index_buffer.slice(..), IndexFormat::default());
         self.set_bind_group(0, &material.bind_group, &[]);
         self.set_bind_group(1, &uniforms, &[]);
         self.draw_indexed(0..mesh.element_count, 0, instances);

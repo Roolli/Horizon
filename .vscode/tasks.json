@@ -16,10 +16,14 @@
         {
             "label": "native build",
             "command": "cargo",
+            "type": "shell",
             "args": [
                 "build",
-                " --bin",
+                "--bin",
                 "horizon-native"
+            ],
+            "problemMatcher": [
+                "$rustc"
             ]
         },
         {
@@ -50,10 +54,58 @@
             "label": "wasm",
             "dependsOrder": "sequence",
             "dependsOn": [
-                "set-flag",
                 "wasm-build",
                 "wasm-bindgen"
             ],
+            "problemMatcher": [
+                "$rustc"
+            ]
+        },
+        {
+            "label": "wasm-build-release",
+            "command": "cargo",
+            "type": "shell",
+            "args": [
+                "build",
+                "--lib",
+                "--target",
+                "wasm32-unknown-unknown",
+                "--release"
+            ],
+            "problemMatcher": [
+                "$rustc"
+            ]
+        },
+        {
+            "label": "wasm-release",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "wasm-build-release",
+                "wasm-bindgen-release"
+            ],
+            "problemMatcher": [
+                "$rustc"
+            ]
+        },
+        {
+            "label": "wasm-bindgen-release",
+            "command": "wasm-bindgen",
+            "args": [
+                "--out-dir",
+                "target/generated",
+                "--web",
+                "./target/wasm32-unknown-unknown/release/horizon.wasm"
+            ]
+        },
+        {
+            "label": "start server",
+            "dependsOn": "wasm",
+            "command": "simple-http-server",
+            "args": [
+                "-i",
+                "target/generated"
+            ],
+            "type": "shell",
             "problemMatcher": [
                 "$rustc"
             ]

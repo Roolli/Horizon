@@ -1,12 +1,10 @@
 use crate::renderer::cam::Camera;
 use crate::renderer::primitives::{texture::Texture, vertex::Vertex};
 use crate::{filesystem::modelimporter::Importer, renderer::model::HorizonModel};
-use bytemuck;
-use wgpu::{util::DeviceExt, BufferUsage, PolygonMode};
+
+use wgpu::util::DeviceExt;
 use winit::{event::*, window::Window};
 
-use super::model;
-use super::primitives::uniforms;
 use super::{
     model::DrawModel,
     primitives::{

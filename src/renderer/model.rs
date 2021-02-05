@@ -20,7 +20,7 @@ impl HorizonModel {
         importer: &Importer,
         path: &str,
     ) -> Result<Self, anyhow::Error> {
-        let (obj_models, obj_materials) = importer.import_model(path).await.unwrap();
+        let (obj_models, obj_materials) = importer.import_obj_model(path).await.unwrap();
 
         let mut mats = Vec::new();
         for mat in obj_materials {

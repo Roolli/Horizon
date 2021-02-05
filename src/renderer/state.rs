@@ -2,7 +2,7 @@ use crate::renderer::cam::Camera;
 use crate::renderer::primitives::{texture::Texture, vertex::Vertex};
 use crate::{filesystem::modelimporter::Importer, renderer::model::HorizonModel};
 use bytemuck;
-use wgpu::{util::DeviceExt, BufferUsage, DepthStencilStateDescriptor};
+use wgpu::{util::DeviceExt, BufferUsage, PolygonMode};
 use winit::{event::*, window::Window};
 
 use super::model;
@@ -83,8 +83,8 @@ impl State {
                     let x = SPACE * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
                     let z = SPACE * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
                     let pos = glm::Vec3::new(x as f32, 0.0, z as f32);
-                    let rot = if pos == glm::vec3(0.0 as f32, 0.0, 0.0) {
-                        glm::quat_angle_axis(0.0, &glm::vec3(0.0, 0.0, 1.0 as f32))
+                    let rot = if pos == glm::vec3(0.0, 0.0, 0.0) {
+                        glm::quat_angle_axis(0.0, &glm::vec3(0.0, 0.0, 1.0))
                     } else {
                         glm::quat_angle_axis(45.0f32, &glm::normalize(&pos.clone()))
                     };
@@ -146,6 +146,7 @@ impl State {
             ],
             label: Some("Diffuse bind group"),
         });
+
         // CAMERA
         let cam = Camera {
             eye: glm::vec3(10.0, 10.0, -5.0),
@@ -220,7 +221,7 @@ impl State {
         {
             use crate::filesystem::nativefileloader::Nativefileloader;
             importer = Importer::new(Box::new(Nativefileloader::new(
-                std::env::current_dir().unwrap(),
+                std::env::current_exe().unwrap(),
             )));
         }
         let obj_model = HorizonModel::load(
@@ -272,43 +273,39 @@ impl State {
                 label: Some("Render pipeline layout"),
                 push_constant_ranges: &[],
             });
-
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render pipeline"),
             layout: Some(&render_pipeline_layout),
-            vertex_stage: wgpu::ProgrammableStageDescriptor {
+            vertex: wgpu::VertexState {
+                buffers: &[ModelVertex::desc(), InstanceRaw::desc()],
                 module: &vertex_module,
                 entry_point: "main",
             },
-            fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
+            fragment: Some(wgpu::FragmentState {
+                targets: &[swapchain_desc.format.into()],
                 module: &fragment_module,
                 entry_point: "main",
             }),
-            rasterization_state: Some(wgpu::RasterizationStateDescriptor {
+            primitive: wgpu::PrimitiveState {
                 front_face: wgpu::FrontFace::Ccw,
+                topology: wgpu::PrimitiveTopology::TriangleList,
                 cull_mode: wgpu::CullMode::Back,
+                strip_index_format: Some(wgpu::IndexFormat::Uint32),
+                polygon_mode: wgpu::PolygonMode::Fill,
+            },
+            multisample: wgpu::MultisampleState {
                 ..Default::default()
-            }),
-            color_states: &[wgpu::ColorStateDescriptor {
-                format: swapchain_desc.format,
-                color_blend: wgpu::BlendDescriptor::REPLACE,
-                alpha_blend: wgpu::BlendDescriptor::REPLACE,
-                write_mask: wgpu::ColorWrite::ALL,
-            }],
-            primitive_topology: wgpu::PrimitiveTopology::TriangleList,
-            depth_stencil_state: Some(DepthStencilStateDescriptor {
+            },
+            depth_stencil: Some(wgpu::DepthStencilState {
+                bias: wgpu::DepthBiasState {
+                    ..Default::default()
+                },
+                clamp_depth: device.features().contains(wgpu::Features::DEPTH_CLAMPING),
                 depth_compare: wgpu::CompareFunction::Less,
                 format: Texture::DEPTH_FORMAT,
                 depth_write_enabled: true,
-                stencil: wgpu::StencilStateDescriptor::default(),
+                stencil: wgpu::StencilState::default(),
             }),
-            vertex_state: wgpu::VertexStateDescriptor {
-                index_format: Some(wgpu::IndexFormat::Uint32),
-                vertex_buffers: &[ModelVertex::desc(), InstanceRaw::desc()],
-            },
-            sample_count: 1,
-            sample_mask: !0,
-            alpha_to_coverage_enabled: false,
         })
     }
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
@@ -339,7 +336,6 @@ impl State {
     pub fn update(&mut self) {}
     pub fn render(&mut self) -> Result<(), wgpu::SwapChainError> {
         let frame = self.swap_chain.get_current_frame()?.output;
-
 
         let mut encoder = self
             .device

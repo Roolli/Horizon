@@ -1,8 +1,6 @@
-use std::vec;
-
 use super::fileloader;
 use fileloader::FileLoader;
-use futures::{self, FutureExt};
+
 use tobj::LoadResult;
 pub struct Importer {
     file_loader: Box<dyn FileLoader>,
@@ -14,7 +12,7 @@ impl Importer {
     pub async fn import_model(&self, obj_file_path: &str) -> LoadResult {
         let obj_file = self.file_loader.load_file(obj_file_path).await;
         // ! REMOVE
-        let mut cube_mtl = include_bytes!("../../res/cube.mtl");
+        let cube_mtl = include_bytes!("../../res/cube.mtl");
         tobj::load_obj_buf(&mut obj_file.as_slice(), true, |p| {
             let file_name = p.to_str().unwrap();
             let result = async {

@@ -1,12 +1,6 @@
-use std::{
-    fs::File,
-    io::{BufReader, Read},
-    ops::Deref,
-    path::{Path, PathBuf},
-};
-
 use super::fileloader::FileLoader;
 use async_trait::async_trait;
+use std::{fs::File, io::Read, path::Path};
 pub struct Nativefileloader<P: AsRef<Path>> {
     rootdir: P,
 }

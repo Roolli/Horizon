@@ -207,7 +207,6 @@ impl State {
             &texture_bind_group_layout,
             &uniform_bind_group_layout,
         );
-        // let res_dir = std::path::Path::new(env!("OUT_DIR")).join("res");
         // TODO: Change to some sort of IoC container where it resolves based on current arch.
         let importer;
         #[cfg(target_arch = "wasm32")]
@@ -218,9 +217,13 @@ impl State {
         #[cfg(not(target_arch = "wasm32"))]
         {
             use crate::filesystem::nativefileloader::Nativefileloader;
-            importer = Importer::new(Box::new(Nativefileloader::new(
-                std::env::current_exe().unwrap(),
-            )));
+            let exe_dir = std::env::current_exe()
+                .unwrap()
+                .parent()
+                .unwrap()
+                .to_path_buf();
+
+            importer = Importer::new(Box::new(Nativefileloader::new(exe_dir)));
         }
         let obj_model = HorizonModel::load(
             &device,
@@ -288,7 +291,7 @@ impl State {
                 front_face: wgpu::FrontFace::Ccw,
                 topology: wgpu::PrimitiveTopology::TriangleList,
                 cull_mode: wgpu::CullMode::Back,
-                strip_index_format: Some(wgpu::IndexFormat::Uint32),
+                strip_index_format: None,
                 polygon_mode: wgpu::PolygonMode::Fill,
             },
             multisample: wgpu::MultisampleState {

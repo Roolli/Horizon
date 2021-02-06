@@ -2,7 +2,9 @@ use std::{ops::Range, path::Path};
 
 use anyhow::Context;
 use fileloader::FileLoader;
-use wgpu::{util::DeviceExt, IndexFormat};
+use image::{DynamicImage, EncodableLayout, GenericImageView, ImageBuffer, Rgb, RgbImage};
+use nalgebra::Dynamic;
+use wgpu::{util::DeviceExt, BindGroup, BindGroupDescriptor, IndexFormat};
 
 use crate::filesystem::{fileloader, modelimporter::Importer};
 
@@ -25,48 +27,70 @@ impl HorizonModel {
         let mut mats = Vec::new();
         for mat in obj_materials {
             let diffuse_path = mat.diffuse_texture;
+            if diffuse_path.is_empty() {
+                continue;
+            }
             let diffuse_texture = texture::Texture::load(
                 &device,
                 &queue,
                 importer.import_file(diffuse_path.as_str()).await.as_slice(),
                 Some(diffuse_path.as_str()),
             )?;
-            let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                layout,
-                label: None,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
-                    },
-                ],
-            });
+
+            let bind_group = Self::create_bind_group(&device, &layout, &diffuse_texture);
             mats.push(Material {
                 diffuse_texture,
                 name: mat.name,
                 bind_group,
             });
         }
+        // Create texture to represent missing texture.
+        if mats.is_empty() {
+            let mut buffer: RgbImage = ImageBuffer::new(512, 512);
+            for (x, y, pixel) in buffer.enumerate_pixels_mut() {
+                *pixel = image::Rgb([255, 0, 0]);
+            }
+            let name = format!("{}_BLANK", &path);
+            let img = DynamicImage::ImageRgb8(buffer);
+            let texture = texture::Texture::from_image(&device, &queue, &img, Some(name.as_str()))?;
+            let bind_group = Self::create_bind_group(&device, &layout, &texture);
+            mats.push(Material {
+                diffuse_texture: texture,
+                name,
+                bind_group,
+            });
+        }
+
         let mut meshes = Vec::new();
         for model in obj_models {
             let mut verticies = Vec::new();
+            assert!(
+                model.mesh.positions.len() % 3 == 0,
+                "positions isn't correct"
+            );
             for i in 0..model.mesh.positions.len() / 3 {
+                let texture_coords: [f32; 2] = if model.mesh.texcoords.is_empty() {
+                    [0.0, 0.0]
+                } else {
+                    [model.mesh.texcoords[i * 2], model.mesh.texcoords[i * 2 + 1]]
+                };
+                let normals: [f32; 3] = if model.mesh.normals.is_empty() {
+                    [0.0, 0.0, 0.0]
+                } else {
+                    [
+                        model.mesh.normals[i * 3],
+                        model.mesh.normals[i * 3 + 1],
+                        model.mesh.normals[i * 3 + 2],
+                    ]
+                };
                 verticies.push(ModelVertex {
                     position: [
                         model.mesh.positions[i * 3],
                         model.mesh.positions[i * 3 + 1],
                         model.mesh.positions[i * 3 + 2],
                     ],
-                    tex_coords: [model.mesh.texcoords[i * 2], model.mesh.texcoords[i * 2 + 1]],
-                    normals: [
-                        model.mesh.normals[i * 3],
-                        model.mesh.normals[i * 3 + 1],
-                        model.mesh.normals[i * 3 + 2],
-                    ],
+                    tex_coords: texture_coords,
+                    normals,
                 })
             }
             let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -90,7 +114,27 @@ impl HorizonModel {
 
         Ok(Self {
             materials: mats,
-            meshes: meshes,
+            meshes,
+        })
+    }
+    fn create_bind_group(
+        device: &wgpu::Device,
+        layout: &wgpu::BindGroupLayout,
+        diffuse_texture: &texture::Texture,
+    ) -> BindGroup {
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout,
+            label: None,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
+                },
+            ],
         })
     }
 }
@@ -138,7 +182,9 @@ where
     ) {
         self.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
         self.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+
         self.set_bind_group(0, &material.bind_group, &[]);
+
         self.set_bind_group(1, &uniforms, &[]);
         self.draw_indexed(0..mesh.element_count, 0, instances);
     }
@@ -154,8 +200,12 @@ where
         uniforms: &'b wgpu::BindGroup,
     ) {
         for mesh in &model.meshes {
-            let mat = &model.materials[mesh.material];
-            self.draw_mesh_instanced(mesh, instances.clone(), &mat, uniforms);
+            self.draw_mesh_instanced(
+                mesh,
+                instances.clone(),
+                &model.materials[mesh.material],
+                uniforms,
+            );
         }
     }
 }

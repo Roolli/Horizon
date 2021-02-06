@@ -14,17 +14,63 @@
             }
         },
         {
-            "label": "native build",
+            "label": "cargo native build",
             "command": "cargo",
             "type": "shell",
             "args": [
                 "build",
                 "--bin",
-                "horizon-native"
+                "horizon-native",
+                "--target",
+                "x86_64-pc-windows-msvc"
             ],
             "problemMatcher": [
                 "$rustc"
             ]
+        },
+        {
+            "label": "cargo release",
+            "command": "cargo",
+            "type": "shell",
+            "args": [
+                "build",
+                "--bin",
+                "horizon-native",
+                "--target",
+                "x86_64-pc-windows-msvc",
+                "--release",
+            ],
+            "problemMatcher": [
+                "$rustc"
+            ]
+        },
+        {
+            "label": "native release",
+            "command": "cp",
+            "type": "shell",
+            "dependsOn": [
+                "cargo release"
+            ],
+            "dependsOrder": "sequence",
+            "args": [
+                "target/x86_64-pc-windows-msvc/release/horizon-native.exe",
+                "../horizon-debug/"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "native build",
+            "command": "cp",
+            "type": "shell",
+            "dependsOn": [
+                "cargo native build"
+            ],
+            "dependsOrder": "sequence",
+            "args": [
+                "target/x86_64-pc-windows-msvc/debug/horizon-native.exe",
+                "../horizon-debug/"
+            ],
+            "problemMatcher": []
         },
         {
             "label": "wasm-bindgen",

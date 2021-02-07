@@ -96,9 +96,12 @@ impl State {
                     let z = SPACE * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
                     let pos = glm::Vec3::new(x as f32, 0.0, z as f32);
                     let rot = if pos == glm::vec3(0.0, 0.0, 0.0) {
-                        glm::quat_angle_axis(0.0, &glm::vec3(0.0, 0.0, 1.0))
+                        glm::quat_angle_axis(f32::to_radians(180.0f32), &glm::vec3(0.0, 1.0, 0.0))
                     } else {
-                        glm::quat_angle_axis(45.0f32, &glm::normalize(&pos.clone()))
+                        glm::quat_angle_axis(
+                            f32::to_radians(180.0f32),
+                            &glm::normalize(&pos.clone()),
+                        )
                     };
                     Instance::new(pos, rot)
                 })
@@ -184,7 +187,7 @@ impl State {
                 label: Some("uniform_bind_group_layout"),
                 entries: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: wgpu::ShaderStage::VERTEX,
+                    visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
                     count: None,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
@@ -208,7 +211,7 @@ impl State {
 
         // Light
         let light = Light {
-            position: [5.0, 10.0, 5.0],
+            position: [2.0, 2.0, 2.0],
             _padding: 0,
             color: [1.0, 1.0, 1.0],
         };

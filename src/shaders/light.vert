@@ -5,6 +5,7 @@ layout (location=0) out vec3 v_color;
 layout(set=0,binding=0)
 uniform Uniforms {
     mat4 u_view_proj;
+    vec3 u_view_position;
 };
 layout (set=1,binding=0)
 uniform Light {
@@ -13,9 +14,11 @@ uniform Light {
 };
 float scale = 0.25;
 
+
 void main()
-{
-    vec3 v_position = a_position * scale* u_position;
+{   
+    // transform * scale  + rotate
+    vec3 v_position = a_position * scale + u_position;
     gl_Position = u_view_proj *  vec4(v_position,1);
     v_color = u_color;
 }

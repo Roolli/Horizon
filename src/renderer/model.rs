@@ -66,7 +66,7 @@ impl HorizonModel {
             let mut verticies = Vec::new();
             assert!(
                 model.mesh.positions.len() % 3 == 0,
-                "positions isn't correct"
+                "position layout is wrong"
             );
             for i in 0..model.mesh.positions.len() / 3 {
                 let texture_coords: [f32; 2] = if model.mesh.texcoords.is_empty() {
@@ -94,13 +94,13 @@ impl HorizonModel {
                 })
             }
             let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some(&format!("{:?} Vertex buffer", path)),
+                label: Some(&format!("{} Vertex buffer", path)),
                 contents: bytemuck::cast_slice(&verticies),
                 usage: wgpu::BufferUsage::VERTEX,
             });
             let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 usage: wgpu::BufferUsage::INDEX,
-                label: Some(&format!("{:?} Index buffer", path)),
+                label: Some(&format!("{} Index buffer", path)),
                 contents: bytemuck::cast_slice(&model.mesh.indices),
             });
             meshes.push(Mesh {
@@ -148,6 +148,7 @@ where
         mesh: &'b Mesh,
         material: &'b Material,
         bind_group: &'b wgpu::BindGroup,
+        light: &'b wgpu::BindGroup,
     );
     fn draw_mesh_instanced(
         &mut self,
@@ -155,13 +156,20 @@ where
         instances: Range<u32>,
         material: &'b Material,
         uniforms: &'b wgpu::BindGroup,
+        light: &'b wgpu::BindGroup,
     );
-    fn draw_model(&mut self, model: &'b HorizonModel, uniforms: &'b wgpu::BindGroup);
+    fn draw_model(
+        &mut self,
+        model: &'b HorizonModel,
+        uniforms: &'b wgpu::BindGroup,
+        light: &'b wgpu::BindGroup,
+    );
     fn draw_model_instanced(
         &mut self,
         model: &'b HorizonModel,
         instances: Range<u32>,
         uniforms: &'b wgpu::BindGroup,
+        light: &'b wgpu::BindGroup,
     );
 }
 
@@ -169,8 +177,14 @@ impl<'a, 'b> DrawModel<'a, 'b> for wgpu::RenderPass<'a>
 where
     'b: 'a,
 {
-    fn draw_mesh(&mut self, mesh: &'b Mesh, material: &'b Material, uniforms: &'b wgpu::BindGroup) {
-        self.draw_mesh_instanced(mesh, 0..1, material, uniforms)
+    fn draw_mesh(
+        &mut self,
+        mesh: &'b Mesh,
+        material: &'b Material,
+        uniforms: &'b wgpu::BindGroup,
+        light: &'b wgpu::BindGroup,
+    ) {
+        self.draw_mesh_instanced(mesh, 0..1, material, uniforms, light)
     }
 
     fn draw_mesh_instanced(
@@ -179,6 +193,7 @@ where
         instances: Range<u32>,
         material: &'b Material,
         uniforms: &'b wgpu::BindGroup,
+        light: &'b wgpu::BindGroup,
     ) {
         self.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
         self.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
@@ -186,11 +201,17 @@ where
         self.set_bind_group(0, &material.bind_group, &[]);
 
         self.set_bind_group(1, &uniforms, &[]);
+        self.set_bind_group(2, &light, &[]);
         self.draw_indexed(0..mesh.element_count, 0, instances);
     }
 
-    fn draw_model(&mut self, model: &'b HorizonModel, uniforms: &'b wgpu::BindGroup) {
-        self.draw_model_instanced(model, 0..1, uniforms);
+    fn draw_model(
+        &mut self,
+        model: &'b HorizonModel,
+        uniforms: &'b wgpu::BindGroup,
+        light: &'b wgpu::BindGroup,
+    ) {
+        self.draw_model_instanced(model, 0..1, uniforms, light);
     }
 
     fn draw_model_instanced(
@@ -198,6 +219,7 @@ where
         model: &'b HorizonModel,
         instances: Range<u32>,
         uniforms: &'b wgpu::BindGroup,
+        light: &'b wgpu::BindGroup,
     ) {
         for mesh in &model.meshes {
             self.draw_mesh_instanced(
@@ -205,6 +227,7 @@ where
                 instances.clone(),
                 &model.materials[mesh.material],
                 uniforms,
+                light,
             );
         }
     }

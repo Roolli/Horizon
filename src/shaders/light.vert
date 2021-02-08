@@ -4,8 +4,8 @@ layout (location=0) out vec3 v_color;
 
 layout(set=0,binding=0)
 uniform Uniforms {
-    mat4 u_view_proj;
     vec3 u_view_position;
+    mat4 u_view_proj;
 };
 layout (set=1,binding=0)
 uniform Light {

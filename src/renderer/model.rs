@@ -1,12 +1,10 @@
-use std::{ops::Range, path::Path};
+use std::ops::Range;
 
-use anyhow::Context;
-use fileloader::FileLoader;
-use image::{DynamicImage, EncodableLayout, GenericImageView, ImageBuffer, Rgb, RgbImage};
-use nalgebra::Dynamic;
-use wgpu::{util::DeviceExt, BindGroup, BindGroupDescriptor, IndexFormat};
+use image::{DynamicImage, ImageBuffer};
 
-use crate::filesystem::{fileloader, modelimporter::Importer};
+use wgpu::{util::DeviceExt, BindGroup};
+
+use crate::filesystem::modelimporter::Importer;
 
 use super::primitives::{material::Material, texture};
 use super::primitives::{mesh::Mesh, vertex::ModelVertex};
@@ -46,7 +44,7 @@ impl HorizonModel {
         }
         // Create texture to represent missing texture.
         if mats.is_empty() {
-            let mut buffer: RgbImage = ImageBuffer::new(512, 512);
+            let mut buffer: image::RgbImage = ImageBuffer::new(512, 512);
             for (x, y, pixel) in buffer.enumerate_pixels_mut() {
                 *pixel = image::Rgb([255, 0, 0]);
             }

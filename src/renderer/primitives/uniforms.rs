@@ -4,8 +4,8 @@ use crate::renderer::cam::Camera;
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
 pub struct Uniforms {
-    view_proj: [[f32; 4]; 4],
     view_position: [f32; 4],
+    view_proj: [[f32; 4]; 4],
 }
 impl Uniforms {
     pub fn new() -> Self {

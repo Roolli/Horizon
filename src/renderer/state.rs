@@ -1,16 +1,10 @@
-use std::ops::Mul;
-
 use crate::renderer::cam::Camera;
 use crate::renderer::primitives::{texture::Texture, vertex::Vertex};
 use crate::{filesystem::modelimporter::Importer, renderer::model::HorizonModel};
 
-use anyhow::format_err;
-use bytemuck::{cast_slice, cast_slice_mut};
-use glm::quat_angle_axis;
 use light::DrawLight;
-use nalgebra::Matrix3x1;
-use ncollide2d::query::visitors;
-use wgpu::util::{BufferInitDescriptor, DeviceExt};
+
+use wgpu::util::DeviceExt;
 use winit::{event::*, window::Window};
 
 use super::{
@@ -46,6 +40,7 @@ pub struct State {
     light_bind_group_layout: wgpu::BindGroupLayout,
     light_buffer: wgpu::Buffer,
     light_render_pipeline: wgpu::RenderPipeline,
+    uniforms: Uniforms,
 }
 
 const NUM_INSTANCES_PER_ROW: u32 = 10;
@@ -96,12 +91,9 @@ impl State {
                     let z = SPACE * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
                     let pos = glm::Vec3::new(x as f32, 0.0, z as f32);
                     let rot = if pos == glm::vec3(0.0, 0.0, 0.0) {
-                        glm::quat_angle_axis(f32::to_radians(180.0f32), &glm::vec3(0.0, 1.0, 0.0))
+                        glm::quat_angle_axis(f32::to_radians(0.0), &glm::vec3(0.0, 0.0, 1.0))
                     } else {
-                        glm::quat_angle_axis(
-                            f32::to_radians(180.0f32),
-                            &glm::normalize(&pos.clone()),
-                        )
+                        glm::quat_angle_axis(f32::to_radians(45.0), &pos.clone().normalize())
                     };
                     Instance::new(pos, rot)
                 })
@@ -164,11 +156,11 @@ impl State {
 
         // CAMERA
         let cam = Camera {
-            eye: glm::vec3(10.0, 15.0, -10.0),
+            eye: glm::vec3(5.0, 5.0, 5.0),
             target: glm::vec3(0.0, 0.0, 0.0),
             up: glm::vec3(0.0, 1.0, 0.0), // Unit Y vector
             aspect_ratio: sc_desc.width as f32 / sc_desc.height as f32,
-            fov_y: 45.0,
+            fov_y: 90.0,
             z_near: 0.1,
             z_far: 100.0,
         };
@@ -354,6 +346,7 @@ impl State {
             light_bind_group_layout,
             light_buffer,
             light_render_pipeline,
+            uniforms,
         }
     }
     fn create_pipeline(
@@ -432,7 +425,6 @@ impl State {
     pub fn update(&mut self) {
         let old_light_pos: glm::Vec3 = self.light.position.into();
         self.light.position = glm::rotate_y_vec3(&old_light_pos, f32::to_radians(1.0f32)).into();
-
         self.queue
             .write_buffer(&self.light_buffer, 0, bytemuck::cast_slice(&[self.light]));
     }

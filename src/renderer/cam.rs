@@ -10,8 +10,13 @@ pub struct Camera {
 
 impl Camera {
     pub fn build_projection_matrix(&self) -> glm::Mat4 {
-        let view = glm::look_at(&self.eye, &self.target, &self.up);
-        let proj = glm::perspective(self.aspect_ratio, self.fov_y, self.z_near, self.z_far);
+        let view = glm::look_at_rh(&self.eye, &self.target, &self.up);
+        let proj = glm::perspective(
+            self.aspect_ratio,
+            f32::to_radians(self.fov_y),
+            self.z_near,
+            self.z_far,
+        );
         glm::Mat4::new(
             1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5, 1.0,
         ) * proj

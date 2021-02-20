@@ -12,7 +12,7 @@ use super::{
     model::DrawModel,
     primitives::{
         instance::{Instance, InstanceRaw},
-        uniforms::Uniforms,
+        uniforms::Globals,
         vertex::ModelVertex,
     },
 };
@@ -25,27 +25,25 @@ pub struct State {
     pub size: winit::dpi::PhysicalSize<u32>,
     clear_color: wgpu::Color,
     render_pipeline: wgpu::RenderPipeline,
-
-    diffuse_bind_group: wgpu::BindGroup,
     uniform_buffer: wgpu::Buffer,
     uniform_bind_group: wgpu::BindGroup,
-    diffuse_texture: Texture,
     camera: Camera,
     instances: Vec<Instance>,
     instance_buffer: wgpu::Buffer,
     depth_texture: Texture,
     obj_model: HorizonModel,
-    light: light::Light,
+    lights: Vec<light::Light>,
     light_bind_group: wgpu::BindGroup,
     light_bind_group_layout: wgpu::BindGroupLayout,
     light_buffer: wgpu::Buffer,
     light_render_pipeline: wgpu::RenderPipeline,
-    uniforms: Uniforms,
+    uniforms: Globals,
 }
 
 const NUM_INSTANCES_PER_ROW: u32 = 10;
 
 impl State {
+    const MAX_LIGHTS: usize = 10;
     pub async fn new(window: &Window) -> Self {
         let size = window.inner_size();
 
@@ -109,10 +107,6 @@ impl State {
 
         // TEXTURE
 
-        let diffuse_bytes = include_bytes!("../../assets/happy-tree.png");
-        let diffuse_texture =
-            Texture::from_bytes(&device, &queue, diffuse_bytes, "happy-tree.png").unwrap();
-
         let texture_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[
@@ -135,28 +129,32 @@ impl State {
                         },
                         count: None,
                     },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStage::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 3,
+                        visibility: wgpu::ShaderStage::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler {
+                            comparison: false,
+                            filtering: false,
+                        },
+                        count: None,
+                    },
                 ],
                 label: Some("Texture bind group layout"),
             });
 
-        let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &texture_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
-                },
-            ],
-            label: Some("Diffuse bind group"),
-        });
-
         // CAMERA
         let cam = Camera {
-            eye: glm::vec3(5.0, 5.0, 5.0),
+            eye: glm::vec3(-5.0, 5.0, -5.0),
             target: glm::vec3(0.0, 0.0, 0.0),
             up: glm::vec3(0.0, 1.0, 0.0), // Unit Y vector
             aspect_ratio: sc_desc.width as f32 / sc_desc.height as f32,
@@ -164,14 +162,37 @@ impl State {
             z_near: 0.1,
             z_far: 100.0,
         };
+        // Lights
+        let lights = vec![
+            Light {
+                position: [-2.0, 2.0, -2.0],
+                _padding: 0,
+                color: [1.0, 1.0, 1.0],
+            },
+            Light {
+                position: [15.0, 2.0, 15.0],
+                _padding: 0,
+                color: [0.5, 0.5, 1.0],
+            },
+            Light {
+                position: [10.0, 2.0, -10.0],
+                _padding: 0,
+                color: [1.0, 0.0, 1.0],
+            },
+            Light {
+                position: [5.0, 2.0, 2.0],
+                _padding: 0,
+                color: [0.0, 1.0, 1.0],
+            },
+        ];
 
-        let mut uniforms = Uniforms::new();
-        uniforms.update_view_proj_matrix(&cam);
-        let uniform_size = std::mem::size_of::<Uniforms>() as wgpu::BufferAddress;
+        let mut globals = Globals::new(lights.len() as u32);
+        globals.update_view_proj_matrix(&cam);
+        let uniform_size = std::mem::size_of::<Globals>() as wgpu::BufferAddress;
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
             label: Some("Uniform buffer"),
-            contents: bytemuck::cast_slice(&[uniforms]),
+            contents: bytemuck::cast_slice(&[globals]),
         });
 
         let uniform_bind_group_layout =
@@ -201,16 +222,15 @@ impl State {
             layout: &uniform_bind_group_layout,
         });
 
-        // Light
-        let light = Light {
-            position: [2.0, 2.0, 2.0],
-            _padding: 0,
-            color: [1.0, 1.0, 1.0],
-        };
-        let light_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let light_uniform_size =
+            (Self::MAX_LIGHTS * std::mem::size_of::<Light>()) as wgpu::BufferAddress;
+        let light_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Light Vertex Buffer"),
-            contents: bytemuck::cast_slice(&[light]),
-            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+            mapped_at_creation: false,
+            size: light_uniform_size,
+            usage: wgpu::BufferUsage::UNIFORM
+                | wgpu::BufferUsage::COPY_SRC
+                | wgpu::BufferUsage::COPY_DST,
         });
 
         let light_bind_group_layout =
@@ -221,7 +241,7 @@ impl State {
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
-                        min_binding_size: None,
+                        min_binding_size: wgpu::BufferSize::new(light_uniform_size),
                     },
                     count: None,
                 }],
@@ -335,18 +355,16 @@ impl State {
                 a: 1.0,
             },
             render_pipeline: basic_pipeline,
-            diffuse_bind_group,
-            diffuse_texture,
             instance_buffer,
             uniform_bind_group,
             uniform_buffer,
             obj_model,
-            light,
+            lights,
             light_bind_group,
             light_bind_group_layout,
             light_buffer,
             light_render_pipeline,
-            uniforms,
+            uniforms: globals,
         }
     }
     fn create_pipeline(
@@ -423,10 +441,15 @@ impl State {
         }
     }
     pub fn update(&mut self) {
-        let old_light_pos: glm::Vec3 = self.light.position.into();
-        self.light.position = glm::rotate_y_vec3(&old_light_pos, f32::to_radians(1.0f32)).into();
-        self.queue
-            .write_buffer(&self.light_buffer, 0, bytemuck::cast_slice(&[self.light]));
+        for (i, light) in self.lights.iter_mut().enumerate() {
+            let old_light_pos: glm::Vec3 = light.position.into();
+            light.position = glm::rotate_y_vec3(&old_light_pos, f32::to_radians(1.0f32)).into();
+            self.queue.write_buffer(
+                &self.light_buffer,
+                (i * std::mem::size_of::<Light>()) as wgpu::BufferAddress,
+                bytemuck::bytes_of(light),
+            );
+        }
     }
     pub fn render(&mut self) -> Result<(), wgpu::SwapChainError> {
         let frame = self.swap_chain.get_current_frame()?.output;
@@ -460,8 +483,10 @@ impl State {
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
 
             render_pass.set_pipeline(&self.light_render_pipeline);
-            render_pass.draw_light_model(
+
+            render_pass.draw_light_model_instanced(
                 &self.obj_model,
+                0..self.lights.len() as u32,
                 &self.uniform_bind_group,
                 &self.light_bind_group,
             );

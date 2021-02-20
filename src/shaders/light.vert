@@ -3,9 +3,10 @@ layout (location=0) in vec3 a_position;
 layout (location=0) out vec3 v_color;
 
 layout(set=0,binding=0)
-uniform Uniforms {
+uniform Globals {
     vec3 u_view_position;
     mat4 u_view_proj;
+    uvec4 lights_num;
 };
 layout (set=1,binding=0)
 uniform Light {

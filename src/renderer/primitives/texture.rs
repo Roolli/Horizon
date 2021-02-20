@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use anyhow::*;
-use image::GenericImageView;
+use image::{DynamicImage, GenericImageView, ImageBuffer};
 
 pub struct Texture {
     pub texture: wgpu::Texture,
@@ -16,15 +16,17 @@ impl Texture {
         queue: &wgpu::Queue,
         bytes: &[u8],
         label: &str,
+        is_normal: bool,
     ) -> Result<Self> {
         let img = image::load_from_memory(bytes)?;
-        Self::from_image(&device, &queue, &img, Some(label))
+        Self::from_image(&device, &queue, &img, Some(label), is_normal)
     }
     pub fn from_image(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         img: &image::DynamicImage,
         label: Option<&str>,
+        is_normal: bool,
     ) -> Result<Self> {
         let rgba = img.to_rgba8();
         let dimensions = img.dimensions();
@@ -41,7 +43,11 @@ impl Texture {
             size: texture_size,
             mip_level_count: 1,
             sample_count: 1,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            format: if is_normal {
+                wgpu::TextureFormat::Rgba8Unorm
+            } else {
+                wgpu::TextureFormat::Rgba8UnormSrgb
+            },
             usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
         });
 
@@ -74,6 +80,21 @@ impl Texture {
             texture,
             view,
         })
+    }
+    pub fn create_default_texture_with_color(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        color: [u8; 3],
+        label: Option<&str>,
+        is_normal: bool,
+    ) -> Self {
+        let mut buffer: image::RgbImage = ImageBuffer::new(512, 512);
+        for (x, y, pixel) in buffer.enumerate_pixels_mut() {
+            *pixel = image::Rgb(color);
+        }
+
+        let img = DynamicImage::ImageRgb8(buffer);
+        Self::from_image(&device, &queue, &img, label, is_normal).unwrap()
     }
     pub fn create_depth_texture(
         device: &wgpu::Device,
@@ -119,9 +140,10 @@ impl Texture {
         queue: &wgpu::Queue,
         buffer: &[u8],
         label: Option<&str>,
+        is_normal: bool,
     ) -> Result<Self, Error> {
         let img = image::load_from_memory(buffer).unwrap();
 
-        Self::from_image(&device, &queue, &img, label)
+        Self::from_image(&device, &queue, &img, label, is_normal)
     }
 }

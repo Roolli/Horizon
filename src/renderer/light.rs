@@ -4,7 +4,7 @@ use wgpu::BindGroup;
 
 use super::{
     model::HorizonModel,
-    primitives::{instance, mesh::Mesh, uniforms::Uniforms},
+    primitives::{instance, mesh::Mesh, uniforms::Globals},
 };
 #[repr(C)]
 #[derive(Clone, Copy, Zeroable, Pod)]

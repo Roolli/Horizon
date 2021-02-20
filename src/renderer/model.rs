@@ -2,6 +2,7 @@ use std::ops::Range;
 
 use image::{DynamicImage, ImageBuffer};
 
+use nalgebra::Norm;
 use wgpu::{util::DeviceExt, BindGroup};
 
 use crate::filesystem::modelimporter::Importer;
@@ -33,29 +34,62 @@ impl HorizonModel {
                 &queue,
                 importer.import_file(diffuse_path.as_str()).await.as_slice(),
                 Some(diffuse_path.as_str()),
+                false,
             )?;
+            let normal_texture = if !(mat.normal_texture.is_empty()) {
+                texture::Texture::load(
+                    &device,
+                    &queue,
+                    importer
+                        .import_file(mat.normal_texture.as_str())
+                        .await
+                        .as_slice(),
+                    Some("normal_texture"),
+                    false,
+                )
+                .unwrap()
+            } else {
+                texture::Texture::create_default_texture_with_color(
+                    &device,
+                    &queue,
+                    [0, 0, 255],
+                    Some("default_normal_texture"),
+                    true,
+                )
+            };
 
-            let bind_group = Self::create_bind_group(&device, &layout, &diffuse_texture);
+            let bind_group =
+                Self::create_bind_group(&device, &layout, &diffuse_texture, &normal_texture);
             mats.push(Material {
                 diffuse_texture,
                 name: mat.name,
                 bind_group,
+                normal_texture,
             });
         }
         // Create texture to represent missing texture.
         if mats.is_empty() {
-            let mut buffer: image::RgbImage = ImageBuffer::new(512, 512);
-            for (x, y, pixel) in buffer.enumerate_pixels_mut() {
-                *pixel = image::Rgb([255, 0, 0]);
-            }
-            let name = format!("{}_BLANK", &path);
-            let img = DynamicImage::ImageRgb8(buffer);
-            let texture = texture::Texture::from_image(&device, &queue, &img, Some(name.as_str()))?;
-            let bind_group = Self::create_bind_group(&device, &layout, &texture);
+            let diffuse_texture = texture::Texture::create_default_texture_with_color(
+                &device,
+                &queue,
+                [255, 0, 0],
+                Some("DEFAULT_DIFFUSE_TEXTURE"),
+                false,
+            );
+            let normal_texture = texture::Texture::create_default_texture_with_color(
+                &device,
+                &queue,
+                [0, 0, 255],
+                Some("DEFAULT_NORMAL_TEXTURE"),
+                true,
+            );
+            let bind_group =
+                Self::create_bind_group(&device, &layout, &diffuse_texture, &normal_texture);
             mats.push(Material {
-                diffuse_texture: texture,
-                name,
+                diffuse_texture,
+                name: String::from("DEFAULT_MATERIAL"),
                 bind_group,
+                normal_texture,
             });
         }
 
@@ -89,8 +123,46 @@ impl HorizonModel {
                     ],
                     tex_coords: texture_coords,
                     normals,
+                    tangent: [0.0; 3],
+                    bitangent: [0.0; 3],
                 })
             }
+            let indices = &model.mesh.indices;
+            for chunk in indices.chunks(3) {
+                let v0 = verticies[chunk[0] as usize];
+                let v1 = verticies[chunk[1] as usize];
+                let v2 = verticies[chunk[2] as usize];
+
+                let pos0: glm::Vec3 = v0.position.into();
+                let pos1: glm::Vec3 = v1.position.into();
+                let pos2: glm::Vec3 = v2.position.into();
+
+                let uv0: glm::Vec2 = v0.tex_coords.into();
+                let uv1: glm::Vec2 = v1.tex_coords.into();
+                let uv2: glm::Vec2 = v2.tex_coords.into();
+
+                // Triangle edges
+                let delta_pos1 = pos1 - pos0;
+                let delta_pos2 = pos2 - pos0;
+
+                let delta_uv1 = uv1 - uv0;
+                let delta_uv2 = uv2 - uv0;
+                // Maths stuff:
+                //     delta_pos1 = delta_uv1.x * T + delta_u.y * B
+                //     delta_pos2 = delta_uv2.x * T + delta_uv2.y * B
+                // Solution from: https://sotrh.github.io/learn-wgpu/intermediate/tutorial11-normals/#the-tangent-and-the-bitangent
+                let r = 1.0 / (delta_uv1.x * delta_uv2.y - delta_uv1.y * delta_uv2.x);
+                let tangent = (delta_pos1 * delta_uv2.y - delta_pos2 * delta_uv1.y) * r;
+                let bitangent = (delta_pos2 * delta_uv1.x - delta_pos1 * delta_uv2.x) * r;
+                verticies[chunk[0] as usize].tangent = tangent.into();
+                verticies[chunk[1] as usize].tangent = tangent.into();
+                verticies[chunk[2] as usize].tangent = tangent.into();
+
+                verticies[chunk[0] as usize].bitangent = bitangent.into();
+                verticies[chunk[1] as usize].bitangent = bitangent.into();
+                verticies[chunk[2] as usize].bitangent = bitangent.into();
+            }
+
             let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some(&format!("{} Vertex buffer", path)),
                 contents: bytemuck::cast_slice(&verticies),
@@ -119,6 +191,7 @@ impl HorizonModel {
         device: &wgpu::Device,
         layout: &wgpu::BindGroupLayout,
         diffuse_texture: &texture::Texture,
+        normal_texture: &texture::Texture,
     ) -> BindGroup {
         device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout,
@@ -131,6 +204,14 @@ impl HorizonModel {
                 wgpu::BindGroupEntry {
                     binding: 1,
                     resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::TextureView(&normal_texture.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: wgpu::BindingResource::Sampler(&normal_texture.sampler),
                 },
             ],
         })

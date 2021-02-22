@@ -3,8 +3,8 @@
 const int MAX_LIGHTS = 10;
 
 struct Light {
-    vec3 light_position;
-    vec3 light_color;
+    vec4 light_position;
+    vec4 light_color;
 };
 
  layout(location=0) in vec2 v_tex_coord;
@@ -45,17 +45,17 @@ layout(set=2, binding=0) uniform Lights{
 
         //diffuse lighting 
         vec3 normal = normalize(object_normal.rgb);
-        vec3 directional_light = normalize(v_light_position[i]-v_position);
+        vec3 directional_light = normalize(v_light_position[i].xyz-v_position);
         float diffuse_strength = max(dot(normal,directional_light),0.0);
 
-        vec3 diffuse_color = light.light_color * diffuse_strength;
+        vec3 diffuse_color = light.light_color.xyz * diffuse_strength;
 
         // specular
         vec3 view_dir = normalize(v_view_position[i] - v_position);
         vec3 half_dir = normalize(view_dir + directional_light);
 
         float specular_strength = pow(max(dot(normal,half_dir),0.0),32);
-        vec3 specular_color = specular_strength * light.light_color;
+        vec3 specular_color = specular_strength * light.light_color.xyz;
 
         color +=  ambient_color +  diffuse_color + specular_color;
      }

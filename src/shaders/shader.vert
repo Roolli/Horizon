@@ -3,8 +3,8 @@
 const int MAX_LIGHTS = 10;
 
 struct Light {
-    vec3 light_position;
-    vec3 light_color;
+    vec4 light_position;
+    vec4 light_color;
 };
 
 layout(location=0) in vec3 a_pos;
@@ -53,7 +53,7 @@ void main()
    for(int i =0; i < int(lights_num.x) &&i < MAX_LIGHTS;i++)
      {
          Light light = u_lights[i];
-    v_light_position[i] = tangent_matrix * light.light_position;
+    v_light_position[i] = tangent_matrix * light.light_position.xyz;
     v_view_position[i] = tangent_matrix * u_view_position;
      }
     gl_Position = u_view_proj* model_space;

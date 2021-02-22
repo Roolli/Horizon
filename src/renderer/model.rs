@@ -9,6 +9,9 @@ use crate::filesystem::modelimporter::Importer;
 
 use super::primitives::{material::Material, texture};
 use super::primitives::{mesh::Mesh, vertex::ModelVertex};
+use specs::{Component, VecStorage};
+#[derive(Component)]
+#[storage(VecStorage)]
 pub struct HorizonModel {
     pub materials: Vec<Material>,
     pub meshes: Vec<Mesh>,

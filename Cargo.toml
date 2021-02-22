@@ -29,7 +29,6 @@ winit = "0.24.0"
 # imgui = {version = "0.6", features = ["wasm"]}
 # imgui-wgpu = "0.12.0"
 # imgui-winit-support="0.6"
-
 nalgebra = "0.24.0"
 glm= {version="0.10.0", package="nalgebra-glm"}
 ncollide3d = "0.27.0"
@@ -39,7 +38,7 @@ nphysics2d = "0.19"
 env_logger = "0.8.2"
 futures = "0.3.12"
 bytemuck=  { version = "1.5.0", features = ["derive"]}
-
+specs={version="0.16.1", features=["specs-derive"], default-features=false }
 
 
 

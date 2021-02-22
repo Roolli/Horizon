@@ -7,6 +7,8 @@ mod filesystem;
 mod renderer;
 
 use crate::renderer::state::State;
+mod components;
+mod systems;
 
 use winit::{
     event::*,

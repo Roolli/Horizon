@@ -6,12 +6,13 @@ use super::{
     model::HorizonModel,
     primitives::{instance, mesh::Mesh, uniforms::Globals},
 };
+use specs::{Component, VecStorage};
 #[repr(C)]
-#[derive(Clone, Copy, Zeroable, Pod)]
+#[derive(Clone, Copy, Zeroable, Pod, Component)]
+#[storage(VecStorage)]
 pub struct Light {
-    pub position: [f32; 3],
-    pub _padding: u32,
-    pub color: [f32; 3],
+    pub position: [f32; 4],
+    pub color: [f32; 4],
 }
 pub trait DrawLight<'a, 'b>
 where

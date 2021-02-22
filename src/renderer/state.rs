@@ -1,11 +1,10 @@
-use crate::renderer::cam::Camera;
+use std::{num::NonZeroU32, ops::Deref};
+
 use crate::renderer::primitives::{texture::Texture, vertex::Vertex};
 use crate::{filesystem::modelimporter::Importer, renderer::model::HorizonModel};
+use crate::{renderer::cam::Camera, systems::movement};
 
 use light::DrawLight;
-
-use wgpu::util::DeviceExt;
-use winit::{event::*, window::Window};
 
 use super::{
     light::{self, Light},
@@ -16,10 +15,14 @@ use super::{
         vertex::ModelVertex,
     },
 };
+use crate::components::transform::*;
+use specs::{Builder, Join, RunNow, World, WorldExt};
+use wgpu::{util::DeviceExt, ShaderFlags};
+use winit::{event::*, window::Window};
 pub struct State {
     surface: wgpu::Surface,
     device: wgpu::Device,
-    queue: wgpu::Queue,
+    pub queue: wgpu::Queue,
     sc_descriptor: wgpu::SwapChainDescriptor,
     swap_chain: wgpu::SwapChain,
     pub size: winit::dpi::PhysicalSize<u32>,
@@ -35,9 +38,10 @@ pub struct State {
     lights: Vec<light::Light>,
     light_bind_group: wgpu::BindGroup,
     light_bind_group_layout: wgpu::BindGroupLayout,
-    light_buffer: wgpu::Buffer,
+    pub light_buffer: wgpu::Buffer,
     light_render_pipeline: wgpu::RenderPipeline,
     uniforms: Globals,
+    pub world: specs::World,
 }
 
 const NUM_INSTANCES_PER_ROW: u32 = 10;
@@ -165,24 +169,20 @@ impl State {
         // Lights
         let lights = vec![
             Light {
-                position: [-2.0, 2.0, -2.0],
-                _padding: 0,
-                color: [1.0, 1.0, 1.0],
+                position: [-2.0, 2.0, -2.0, 0.0],
+                color: [1.0, 1.0, 1.0, 0.0],
             },
             Light {
-                position: [15.0, 2.0, 15.0],
-                _padding: 0,
-                color: [0.5, 0.5, 1.0],
+                position: [5.0, 4.0, 5.0, 0.0],
+                color: [0.0, 1.0, 0.0, 0.0],
             },
             Light {
-                position: [10.0, 2.0, -10.0],
-                _padding: 0,
-                color: [1.0, 0.0, 1.0],
+                position: [7.0, 2.0, -5.0, 0.0],
+                color: [1.0, 0.0, 0.0, 0.0],
             },
             Light {
-                position: [5.0, 2.0, 2.0],
-                _padding: 0,
-                color: [0.0, 1.0, 1.0],
+                position: [4.0, 2.0, 3.0, 0.0],
+                color: [1.0, 0.5, 1.0, 0.0],
             },
         ];
 
@@ -241,7 +241,7 @@ impl State {
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
-                        min_binding_size: wgpu::BufferSize::new(light_uniform_size),
+                        min_binding_size: None, // wgpu::BufferSize::new(light_uniform_size),
                     },
                     count: None,
                 }],
@@ -251,11 +251,7 @@ impl State {
             layout: &light_bind_group_layout,
             label: None,
             entries: &[wgpu::BindGroupEntry {
-                resource: wgpu::BindingResource::Buffer {
-                    buffer: &light_buffer,
-                    offset: 0,
-                    size: None,
-                },
+                resource: light_buffer.as_entire_binding(),
                 binding: 0,
             }],
         });
@@ -293,9 +289,12 @@ impl State {
                 bind_group_layouts: &[&uniform_bind_group_layout, &light_bind_group_layout],
                 push_constant_ranges: &[],
             });
-
-            let light_vs =
-                device.create_shader_module(&wgpu::include_spirv!("../shaders/light.vert.spv"));
+            // https://github.com/gfx-rs/naga/issues/406 have to disable validation
+            let light_vs = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+                source: wgpu::util::make_spirv(include_bytes!("../shaders/light.vert.spv")),
+                flags: ShaderFlags::empty(),
+                label: Some("light_vertex_shader"),
+            });
             let light_fs =
                 device.create_shader_module(&wgpu::include_spirv!("../shaders/light.frag.spv"));
 
@@ -338,6 +337,12 @@ impl State {
         .await
         .unwrap();
 
+        let mut world = World::new();
+        world.register::<Light>();
+        for light in lights.iter() {
+            world.create_entity().with(*light).build();
+        }
+
         Self {
             depth_texture: Texture::create_depth_texture(&device, &sc_desc, "depth_texture"),
             instances,
@@ -365,6 +370,7 @@ impl State {
             light_buffer,
             light_render_pipeline,
             uniforms: globals,
+            world,
         }
     }
     fn create_pipeline(
@@ -441,9 +447,10 @@ impl State {
         }
     }
     pub fn update(&mut self) {
-        for (i, light) in self.lights.iter_mut().enumerate() {
-            let old_light_pos: glm::Vec3 = light.position.into();
-            light.position = glm::rotate_y_vec3(&old_light_pos, f32::to_radians(1.0f32)).into();
+        let mut movement = movement::Movement;
+        movement.run_now(&self.world);
+        self.world.maintain();
+        for (i, light) in self.world.read_component::<Light>().join().enumerate() {
             self.queue.write_buffer(
                 &self.light_buffer,
                 (i * std::mem::size_of::<Light>()) as wgpu::BufferAddress,

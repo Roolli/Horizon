@@ -4,6 +4,7 @@ use crate::renderer::primitives::{texture::Texture, vertex::Vertex};
 use crate::{filesystem::modelimporter::Importer, renderer::model::HorizonModel};
 use crate::{renderer::cam::Camera, systems::movement};
 
+use glm::identity;
 use light::DrawLight;
 
 use super::{
@@ -86,7 +87,7 @@ impl State {
         let swap_chain = device.create_swap_chain(&surface, &sc_desc);
         // INSTANCING
         const SPACE: f32 = 3.0;
-        let instances = (0..NUM_INSTANCES_PER_ROW)
+        let mut instances = (0..NUM_INSTANCES_PER_ROW)
             .flat_map(|z| {
                 (0..NUM_INSTANCES_PER_ROW).map(move |x| {
                     let x = SPACE * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
@@ -97,11 +98,15 @@ impl State {
                     } else {
                         glm::quat_angle_axis(f32::to_radians(45.0), &pos.clone().normalize())
                     };
-                    Instance::new(pos, rot)
+                    Instance::new(pos, rot, glm::vec3(1.0, 1.0, 1.0))
                 })
             })
             .collect::<Vec<_>>();
-
+        instances.push(Instance::new(
+            glm::vec3(0.0, -5.0, 0.0),
+            glm::quat_angle_axis(f32::to_radians(0.0), &glm::vec3(0.0, 0.0, 1.0)),
+            glm::vec3(100.0, 1.0, 100.0),
+        ));
         let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
         let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Instance buffer"),
@@ -158,7 +163,7 @@ impl State {
 
         // CAMERA
         let cam = Camera {
-            eye: glm::vec3(-5.0, 5.0, -5.0),
+            eye: glm::vec3(-15.0, 5.0, -15.0),
             target: glm::vec3(0.0, 0.0, 0.0),
             up: glm::vec3(0.0, 1.0, 0.0), // Unit Y vector
             aspect_ratio: sc_desc.width as f32 / sc_desc.height as f32,

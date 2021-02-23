@@ -1,7 +1,9 @@
 use bytemuck::{Pod, Zeroable};
+use glm::identity;
 pub struct Instance {
     position: glm::Vec3,
     rotation: glm::Quat,
+    scale: glm::Vec3,
 }
 
 #[repr(C)]
@@ -41,16 +43,18 @@ impl InstanceRaw {
 }
 
 impl Instance {
-    pub fn new(pos: glm::Vec3, rot: glm::Quat) -> Self {
+    pub fn new(pos: glm::Vec3, rot: glm::Quat, scale: glm::Vec3) -> Self {
         Self {
             position: pos,
             rotation: rot,
+            scale,
         }
     }
     pub fn to_raw(&self) -> InstanceRaw {
         InstanceRaw {
             model: (glm::translate(&glm::Mat4::identity(), &self.position)
-                * glm::quat_to_mat4(&self.rotation))
+                * glm::quat_to_mat4(&self.rotation)
+                * glm::scale(&glm::Mat4::identity(), &self.scale))
             .into(),
         }
     }

@@ -4,8 +4,10 @@ use crate::renderer::primitives::{texture::Texture, vertex::Vertex};
 use crate::{filesystem::modelimporter::Importer, renderer::model::HorizonModel};
 use crate::{renderer::cam::Camera, systems::movement};
 
-use glm::identity;
+use glm::{identity, Vec3};
 use light::DrawLight;
+use nalgebra::Isometry3;
+use rapier3d::{dynamics::RigidBodyBuilder, geometry::ColliderBuilder};
 
 use super::{
     light::{self, Light},
@@ -85,7 +87,14 @@ impl State {
             present_mode: wgpu::PresentMode::Fifo,
         };
         let swap_chain = device.create_swap_chain(&surface, &sc_desc);
+
         // INSTANCING
+
+        use crate::systems::physics::PhysicsWorld;
+
+        let mut world = World::new();
+        world.insert(PhysicsWorld::new(glm::Vec3::y() * -9.81));
+        let mut physicsworld = world.write_resource::<PhysicsWorld>();
         const SPACE: f32 = 3.0;
         let mut instances = (0..NUM_INSTANCES_PER_ROW)
             .flat_map(|z| {
@@ -102,11 +111,39 @@ impl State {
                 })
             })
             .collect::<Vec<_>>();
-        instances.push(Instance::new(
+        for instance in instances.iter() {
+            let axisangle = if instance.position == glm::vec3(0.0, 0.0, 0.0) {
+                f32::to_radians(0.0) * glm::vec3(0.0, 0.0, 1.0)
+            } else {
+                f32::to_radians(45.0) * instance.position.clone().normalize()
+            };
+            let rigid_body = RigidBodyBuilder::new_dynamic()
+                .position(Isometry3::new(instance.position, axisangle))
+                .mass(1.0)
+                .build();
+            let rigid_body_handle = physicsworld.add_rigid_body(rigid_body);
+
+            let collider = ColliderBuilder::cuboid(0.5, 0.5, 0.5).build();
+            physicsworld.add_collider(collider, rigid_body_handle);
+        }
+        // plane object
+        let plane = Instance::new(
             glm::vec3(0.0, -5.0, 0.0),
             glm::quat_angle_axis(f32::to_radians(0.0), &glm::vec3(0.0, 0.0, 1.0)),
             glm::vec3(100.0, 1.0, 100.0),
-        ));
+        );
+        instances.push(plane);
+        // plane shape
+        let ground_shape = ColliderBuilder::cuboid(50.0, 0.5, 50.0).build();
+
+        let ground_handle = physicsworld.add_rigid_body(
+            RigidBodyBuilder::new_static()
+                .translation(0.0, 0.0, 0.0)
+                .build(),
+        );
+
+        physicsworld.add_collider(ground_shape, ground_handle);
+
         let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
         let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Instance buffer"),
@@ -341,8 +378,7 @@ impl State {
         )
         .await
         .unwrap();
-
-        let mut world = World::new();
+        drop(physicsworld);
         world.register::<Light>();
         for light in lights.iter() {
             world.create_entity().with(*light).build();
@@ -452,7 +488,7 @@ impl State {
         }
     }
     pub fn update(&mut self) {
-        let mut movement = movement::Movement;
+        let mut movement = movement::LightTransform;
         movement.run_now(&self.world);
         self.world.maintain();
         for (i, light) in self.world.read_component::<Light>().join().enumerate() {

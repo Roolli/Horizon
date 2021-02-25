@@ -1,9 +1,9 @@
 use bytemuck::{Pod, Zeroable};
 use glm::identity;
 pub struct Instance {
-    position: glm::Vec3,
-    rotation: glm::Quat,
-    scale: glm::Vec3,
+    pub position: glm::Vec3,
+    pub rotation: glm::Quat,
+    pub scale: glm::Vec3,
 }
 
 #[repr(C)]

@@ -2,6 +2,7 @@ use core::panic;
 
 //use wasm_bindgen::prelude::*;
 use futures::executor::block_on;
+use specs::WorldExt;
 
 mod filesystem;
 mod renderer;

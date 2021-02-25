@@ -7,8 +7,8 @@ use crate::{
     renderer::{light::Light, state::State},
 };
 
-pub struct Movement;
-impl<'a> System<'a> for Movement {
+pub struct LightTransform;
+impl<'a> System<'a> for LightTransform {
     type SystemData = WriteStorage<'a, Light>;
 
     fn run(&mut self, mut data: Self::SystemData) {

@@ -1,9 +1,14 @@
 use std::{num::NonZeroU32, ops::Deref};
 
-use crate::renderer::primitives::{texture::Texture, vertex::Vertex};
+use crate::{
+    components::transform,
+    renderer::primitives::{texture::Texture, vertex::Vertex},
+    systems::physics::{Physics, PhysicsWorld},
+};
 use crate::{filesystem::modelimporter::Importer, renderer::model::HorizonModel};
 use crate::{renderer::cam::Camera, systems::movement};
 
+use bytemuck::bytes_of;
 use glm::{identity, Vec3};
 use light::DrawLight;
 use nalgebra::Isometry3;
@@ -34,7 +39,7 @@ pub struct State {
     uniform_buffer: wgpu::Buffer,
     uniform_bind_group: wgpu::BindGroup,
     camera: Camera,
-    instances: Vec<Instance>,
+    instances: Vec<Transform>,
     instance_buffer: wgpu::Buffer,
     depth_texture: Texture,
     obj_model: HorizonModel,
@@ -107,7 +112,7 @@ impl State {
                     } else {
                         glm::quat_angle_axis(f32::to_radians(45.0), &pos.clone().normalize())
                     };
-                    Instance::new(pos, rot, glm::vec3(1.0, 1.0, 1.0))
+                    Transform::new(pos, rot, glm::vec3(1.0, 1.0, 1.0))
                 })
             })
             .collect::<Vec<_>>();
@@ -127,7 +132,7 @@ impl State {
             physicsworld.add_collider(collider, rigid_body_handle);
         }
         // plane object
-        let plane = Instance::new(
+        let plane = Transform::new(
             glm::vec3(0.0, -5.0, 0.0),
             glm::quat_angle_axis(f32::to_radians(0.0), &glm::vec3(0.0, 0.0, 1.0)),
             glm::vec3(100.0, 1.0, 100.0),
@@ -144,7 +149,7 @@ impl State {
 
         physicsworld.add_collider(ground_shape, ground_handle);
 
-        let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
+        let instance_data = instances.iter().map(Transform::to_raw).collect::<Vec<_>>();
         let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Instance buffer"),
             usage: wgpu::BufferUsage::VERTEX,
@@ -489,6 +494,8 @@ impl State {
     }
     pub fn update(&mut self) {
         let mut movement = movement::LightTransform;
+        let mut physics = Physics;
+        physics.run_now(&self.world);
         movement.run_now(&self.world);
         self.world.maintain();
         for (i, light) in self.world.read_component::<Light>().join().enumerate() {
@@ -497,6 +504,14 @@ impl State {
                 (i * std::mem::size_of::<Light>()) as wgpu::BufferAddress,
                 bytemuck::bytes_of(light),
             );
+        }
+        // move this to it's system also
+        for (i, transform) in self.world.read_component::<Transform>().join().enumerate() {
+            self.queue.write_buffer(
+                &self.instance_buffer,
+                (i * std::mem::size_of::<Transform>()) as wgpu::BufferAddress,
+                bytemuck::bytes_of(&transform.to_raw()),
+            )
         }
     }
     pub fn render(&mut self) -> Result<(), wgpu::SwapChainError> {

@@ -21,3 +21,8 @@ impl Globals {
         self.view_proj = cam.build_projection_matrix().into();
     }
 }
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Pod, Zeroable)]
+pub struct ShadowUniforms {
+    proj: [[f32; 4]; 4],
+}

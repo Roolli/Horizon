@@ -1,3 +1,5 @@
+use super::state::State;
+
 pub struct Camera {
     pub eye: glm::Vec3,
     pub target: glm::Vec3,
@@ -17,9 +19,6 @@ impl Camera {
             self.z_near,
             self.z_far,
         );
-        glm::Mat4::new(
-            1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5, 1.0,
-        ) * proj
-            * view
+        glm::Mat4::from(State::OPENGL_TO_WGPU_MATRIX) * proj * view
     }
 }

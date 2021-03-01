@@ -32,7 +32,7 @@ pub struct PhysicsWorld {
     broad_phase: BroadPhase,
     narrow_phase: NarrowPhase,
     integration_parameters: IntegrationParameters,
-    body_set: RigidBodySet,
+    pub body_set: RigidBodySet,
     collider_set: ColliderSet,
     joints: JointSet,
     event_handler: ChannelEventCollector,

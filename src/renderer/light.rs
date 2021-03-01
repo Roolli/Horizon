@@ -1,5 +1,6 @@
 use __core::ops::Range;
 use bytemuck::*;
+use glm::look_at_rh;
 use wgpu::BindGroup;
 
 use super::{
@@ -7,13 +8,69 @@ use super::{
     primitives::{instance, mesh::Mesh, uniforms::Globals},
 };
 use specs::{Component, VecStorage};
-#[repr(C)]
-#[derive(Clone, Copy, Zeroable, Pod, Component)]
+
+#[derive(Component)]
 #[storage(VecStorage)]
+pub struct LightHandle {
+    pub index: usize,
+}
+
 pub struct Light {
+    pub pos: glm::Vec3,
+    color: wgpu::Color,
+    fov: f32,
+    pub depth: Range<f32>,
+    pub target_view: wgpu::TextureView,
+}
+
+impl Light {
+    pub fn new(
+        pos: glm::Vec3,
+        color: wgpu::Color,
+        fov: f32,
+        depth: Range<f32>,
+        target_view: wgpu::TextureView,
+    ) -> Self {
+        Self {
+            pos,
+            color,
+            fov,
+            depth,
+            target_view,
+        }
+    }
+
+    pub fn to_raw(&self) -> LightRaw {
+        let view = glm::look_at_rh(&self.pos, &glm::vec3(0.0, 0.0, 0.0), &glm::Vec3::y());
+        let projection = glm::perspective(
+            1.0,
+            f32::to_radians(self.fov),
+            self.depth.start,
+            self.depth.end,
+        );
+        let view_proj =
+            glm::Mat4::from(super::state::State::OPENGL_TO_WGPU_MATRIX) * projection * view;
+        LightRaw {
+            color: [
+                self.color.r as f32,
+                self.color.g as f32,
+                self.color.b as f32,
+                1.0,
+            ],
+            position: [self.pos.x, self.pos.y, self.pos.z, 1.0],
+            projection: *view_proj.as_ref(),
+        }
+    }
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Zeroable, Pod)]
+pub struct LightRaw {
+    pub projection: [[f32; 4]; 4],
     pub position: [f32; 4],
     pub color: [f32; 4],
 }
+
 pub trait DrawLight<'a, 'b>
 where
     'b: 'a,

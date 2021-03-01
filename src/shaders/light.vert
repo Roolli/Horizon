@@ -7,6 +7,7 @@ layout (location=0) in vec3 a_position;
 layout (location=0) out vec3 v_color;
 
 struct Light {
+    mat4 u_projection;
     vec4 light_position;
     vec4 light_color;
 };

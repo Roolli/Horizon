@@ -1,8 +1,9 @@
 use std::ops::Range;
 
+use glm::vec3;
 use image::{DynamicImage, ImageBuffer};
 
-use nalgebra::Norm;
+use nalgebra::{Norm, Point3};
 use wgpu::{util::DeviceExt, BindGroup};
 
 use crate::filesystem::modelimporter::Importer;
@@ -103,6 +104,8 @@ impl HorizonModel {
                 model.mesh.positions.len() % 3 == 0,
                 "position layout is wrong"
             );
+            let mut min_extents = glm::vec3(f32::MAX, f32::MAX, f32::MAX);
+            let mut max_extents = glm::vec3(f32::MIN, f32::MIN, f32::MIN);
             for i in 0..model.mesh.positions.len() / 3 {
                 let texture_coords: [f32; 2] = if model.mesh.texcoords.is_empty() {
                     [0.0, 0.0]
@@ -118,12 +121,15 @@ impl HorizonModel {
                         model.mesh.normals[i * 3 + 2],
                     ]
                 };
+                let position = [
+                    model.mesh.positions[i * 3],
+                    model.mesh.positions[i * 3 + 1],
+                    model.mesh.positions[i * 3 + 2],
+                ];
+                //Self::update_bounding_box_extents(&mut min_extents, &mut max_extents, position);
+
                 verticies.push(ModelVertex {
-                    position: [
-                        model.mesh.positions[i * 3],
-                        model.mesh.positions[i * 3 + 1],
-                        model.mesh.positions[i * 3 + 2],
-                    ],
+                    position,
                     tex_coords: texture_coords,
                     normals,
                     tangent: [0.0; 3],
@@ -177,6 +183,10 @@ impl HorizonModel {
                 contents: bytemuck::cast_slice(&model.mesh.indices),
             });
             meshes.push(Mesh {
+                points: verticies
+                    .iter()
+                    .map(|v| Point3::new(v.position[0], v.position[1], v.position[2]))
+                    .collect::<Vec<_>>(),
                 name: model.name,
                 vertex_buffer,
                 index_buffer,
@@ -218,6 +228,19 @@ impl HorizonModel {
                 },
             ],
         })
+    }
+    fn update_bounding_box_extents(
+        min_extent: &mut glm::Vec3,
+        max_extent: &mut glm::Vec3,
+        coords: [f32; 3],
+    ) {
+        min_extent.x = f32::min(min_extent.x, coords[0]);
+        min_extent.y = f32::min(min_extent.y, coords[1]);
+        min_extent.z = f32::min(min_extent.x, coords[2]);
+
+        max_extent.x = f32::max(max_extent.x, coords[0]);
+        max_extent.y = f32::max(max_extent.y, coords[1]);
+        max_extent.z = f32::max(max_extent.x, coords[2]);
     }
 }
 

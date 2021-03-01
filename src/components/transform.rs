@@ -59,4 +59,10 @@ impl TransformRaw {
             ],
         }
     }
+    pub fn get_normal_matrix<'a>(&self) -> [[f32; 4]; 4] {
+        let mat4 = glm::Mat4::from(self.data);
+        let inverted = mat4.try_inverse().unwrap();
+        let transposed = inverted.transpose();
+        transposed.into()
+    }
 }

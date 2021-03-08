@@ -20,6 +20,7 @@ use super::{
 use crate::components::physicshandle::*;
 use crate::components::transform::*;
 use crate::renderer::pass::Pass;
+use crate::renderer::utils::texturerenderer::TextureRenderer;
 use bytemuck::{bytes_of, cast_slice};
 use env_logger::filter;
 use glm::{identity, quat_angle_axis, Mat3, Vec3};
@@ -30,8 +31,9 @@ use rapier3d::{
     geometry::{ColliderBuilder, TriMesh},
 };
 use specs::{Builder, Join, RunNow, World, WorldExt};
-use wgpu::{util::DeviceExt, BufferBindingType, ShaderFlags, ShaderStage};
+use wgpu::{util::DeviceExt, BufferBindingType, DepthStencilState, ShaderFlags, ShaderStage};
 use winit::{event::*, window::Window};
+
 // used to measure if we're in 1 second or not
 
 pub struct State {
@@ -62,9 +64,10 @@ pub struct State {
     previous_frame_time: std::time::Instant,
     total_frame_time: std::time::Duration,
     shadow_pass: Pass,
+    texture_renderer: TextureRenderer,
 }
 
-const NUM_INSTANCES_PER_ROW: u32 = 50;
+const NUM_INSTANCES_PER_ROW: u32 = 15;
 
 impl State {
     pub const OPENGL_TO_WGPU_MATRIX: [[f32; 4]; 4] = [
@@ -76,8 +79,8 @@ impl State {
     const MAX_LIGHTS: usize = 10;
     const SHADOW_SIZE: wgpu::Extent3d = wgpu::Extent3d {
         depth: Self::MAX_LIGHTS as u32,
-        height: 512,
-        width: 512,
+        height: 4096,
+        width: 4096,
     };
     pub async fn new(window: &Window) -> Self {
         let size = window.inner_size();
@@ -205,7 +208,7 @@ impl State {
                 (0..NUM_INSTANCES_PER_ROW).map(move |x| {
                     let x = SPACE * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 1.5);
                     let z = SPACE * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 1.5);
-                    let pos = glm::Vec3::new(x as f32, 15.0, z as f32);
+                    let pos = glm::Vec3::new(x as f32, 10.0, z as f32);
                     let rot = if pos == glm::vec3(0.0, 0.0, 0.0) {
                         glm::quat_angle_axis(f32::to_radians(0.0), &glm::vec3(0.0, 0.0, 1.0))
                     } else {
@@ -241,7 +244,7 @@ impl State {
 
         // ground object
         let plane = Transform::new(
-            glm::vec3(0.0, -5.0, 0.0),
+            glm::vec3(0.0, 0.5, 0.0),
             glm::quat_angle_axis(f32::to_radians(0.0), &glm::vec3(0.0, 0.0, 1.0)),
             glm::vec3(100.0, 1.0, 100.0),
         );
@@ -252,8 +255,8 @@ impl State {
         let ground_handle = physicsworld.add_rigid_body(
             RigidBodyBuilder::new_static()
                 .position(Isometry3::new(
-                    glm::vec3(0.0, 0.0, 0.0),
-                    glm::vec3(0.0, -5.0, 0.0) * f32::to_radians(45.0),
+                    glm::vec3(0.0, 0.5, 0.0),
+                    glm::vec3(0.0, 0.0, 1.0) * f32::to_radians(0.0),
                 ))
                 .build(),
         );
@@ -288,13 +291,13 @@ impl State {
 
         // CAMERA
         let cam = Camera {
-            eye: glm::vec3(-15.0, 10.0, -15.0),
+            eye: glm::vec3(-10.0, 15.0, 10.0),
             target: glm::vec3(0.0, 0.0, 0.0),
             up: glm::vec3(0.0, 1.0, 0.0), // Unit Y vector
             aspect_ratio: sc_desc.width as f32 / sc_desc.height as f32,
             fov_y: 90.0,
             z_near: 0.1,
-            z_far: 100.0,
+            z_far: 200.0,
         };
 
         // SHADOW
@@ -305,8 +308,8 @@ impl State {
             address_mode_w: wgpu::AddressMode::ClampToEdge,
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
-            compare: Some(wgpu::CompareFunction::LessEqual),
             mipmap_filter: wgpu::FilterMode::Nearest,
+            compare: Some(wgpu::CompareFunction::LessEqual),
             ..Default::default()
         });
 
@@ -319,9 +322,7 @@ impl State {
             mip_level_count: 1,
             sample_count: 1,
         });
-        let shadow_view = shadow_texture.create_view(&wgpu::TextureViewDescriptor {
-            ..Default::default()
-        });
+        let shadow_view = shadow_texture.create_view(&wgpu::TextureViewDescriptor::default());
         let mut texture_views = (0..2)
             .map(|i| {
                 Some(shadow_texture.create_view(&wgpu::TextureViewDescriptor {
@@ -341,29 +342,29 @@ impl State {
 
         let lights = vec![
             Light::new(
-                glm::vec3(-10.0, 5.0, -10.0),
+                glm::vec3(-10.0, 5.0, 10.0),
                 wgpu::Color {
                     r: 1.0,
-                    g: 1.0,
+                    g: 0.5,
                     b: 1.0,
-                    a: 0.0,
+                    a: 1.0,
                 },
-                60.0,
-                1.0..20.0,
+                90.0,
+                0.1..200.0,
                 texture_views[0].take().unwrap(),
             ),
-            Light::new(
-                glm::vec3(15.0, 5.0, 15.0),
-                wgpu::Color {
-                    r: 0.0,
-                    g: 1.0,
-                    b: 0.0,
-                    a: 0.0,
-                },
-                45.0,
-                1.0..20.0,
-                texture_views[1].take().unwrap(),
-            ),
+            // Light::new(
+            //     glm::vec3(10.0, 5.0, 10.0),
+            //     wgpu::Color {
+            //         r: 0.3,
+            //         g: 0.6,
+            //         b: 0.2,
+            //         a: 0.0,
+            //     },
+            //     45.0,
+            //     0.1..50.0,
+            //     texture_views[1].take().unwrap(),
+            // ),
             //     position: [ 0.0],
             //     color: [,
 
@@ -425,8 +426,8 @@ impl State {
                         count: None,
                         ty: wgpu::BindingType::Texture {
                             multisampled: false,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                            view_dimension: wgpu::TextureViewDimension::D2,
+                            sample_type: wgpu::TextureSampleType::Depth,
+                            view_dimension: wgpu::TextureViewDimension::D2Array,
                         },
                     },
                     wgpu::BindGroupLayoutEntry {
@@ -538,7 +539,7 @@ impl State {
             let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
                 label: None,
                 mapped_at_creation: false,
-                size: uniform_size,
+                size: shadow_uniforms_size,
                 usage: wgpu::BufferUsage::COPY_DST | wgpu::BufferUsage::UNIFORM,
             });
             let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -557,14 +558,26 @@ impl State {
             });
             let vs_module =
                 device.create_shader_module(&wgpu::include_spirv!("../shaders/shadow.vert.spv"));
+            let depth_stencil_state = wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth32Float,
+                bias: wgpu::DepthBiasState {
+                    clamp: 0.0,
+                    constant: 2, // bilinear filtering
+                    slope_scale: 2.0,
+                },
+                depth_compare: wgpu::CompareFunction::LessEqual,
+                depth_write_enabled: true,
+                stencil: wgpu::StencilState::default(),
+                clamp_depth: device.features().contains(wgpu::Features::DEPTH_CLAMPING),
+            };
             let shadow_pipeline = Self::create_pipeline(
                 None,
                 &vs_module,
                 &device,
                 &pipeline_layout,
                 &[ModelVertex::desc()],
-                Some(Texture::DEPTH_FORMAT),
                 Some("Shadow pipeline"),
+                Some(depth_stencil_state),
             );
             Pass {
                 bind_group,
@@ -572,7 +585,7 @@ impl State {
                 uniform_buffer,
             }
         };
-
+        let texture_renderer = TextureRenderer::new(&device, &lights[0].target_view, &sc_desc);
         // SHADER
 
         let render_pipeline_layout =
@@ -596,14 +609,26 @@ impl State {
             module: &fs_module,
             entry_point: "main",
         });
+
+        let depth_stencil_state = wgpu::DepthStencilState {
+            bias: wgpu::DepthBiasState {
+                ..Default::default()
+            },
+            clamp_depth: device.features().contains(wgpu::Features::DEPTH_CLAMPING),
+            depth_compare: wgpu::CompareFunction::Less,
+            format: Texture::DEPTH_FORMAT,
+            depth_write_enabled: true,
+            stencil: wgpu::StencilState::default(),
+        };
+
         let basic_pipeline = State::create_pipeline(
             val,
             &vs_module,
             &device,
             &render_pipeline_layout,
             &[ModelVertex::desc()],
-            Some(Texture::DEPTH_FORMAT),
             Some("Render pipeline"),
+            Some(depth_stencil_state),
         );
         let light_render_pipeline = {
             let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -625,14 +650,25 @@ impl State {
                 module: &light_fs,
                 entry_point: "main",
             });
+            let depth_stencil_state = wgpu::DepthStencilState {
+                bias: wgpu::DepthBiasState {
+                    ..Default::default()
+                },
+                clamp_depth: device.features().contains(wgpu::Features::DEPTH_CLAMPING),
+                depth_compare: wgpu::CompareFunction::Less,
+                format: Texture::DEPTH_FORMAT,
+                depth_write_enabled: true,
+                stencil: wgpu::StencilState::default(),
+            };
+
             Self::create_pipeline(
                 fragment_state,
                 &light_vs,
                 &device,
                 &layout,
                 &[ModelVertex::desc()],
-                Some(Texture::DEPTH_FORMAT),
                 Some("Light Render pipeline"),
+                Some(depth_stencil_state),
             )
         };
 
@@ -678,10 +714,11 @@ impl State {
             light_render_pipeline,
             uniforms: globals,
             world,
+            shadow_pass,
             frame_count: 0,
             previous_frame_time: std::time::Instant::now(),
             total_frame_time: std::time::Duration::from_secs(0),
-            shadow_pass,
+            texture_renderer,
         }
     }
     fn create_pipeline(
@@ -690,8 +727,8 @@ impl State {
         device: &wgpu::Device,
         pipeline_layout: &wgpu::PipelineLayout,
         vertex_buffer_layouts: &[wgpu::VertexBufferLayout],
-        depth_format: Option<wgpu::TextureFormat>,
         label: Option<&str>,
+        depth_stencil_state: Option<DepthStencilState>,
     ) -> wgpu::RenderPipeline {
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label,
@@ -716,16 +753,7 @@ impl State {
             multisample: wgpu::MultisampleState {
                 ..Default::default()
             },
-            depth_stencil: depth_format.map(|format| wgpu::DepthStencilState {
-                bias: wgpu::DepthBiasState {
-                    ..Default::default()
-                },
-                clamp_depth: device.features().contains(wgpu::Features::DEPTH_CLAMPING),
-                depth_compare: wgpu::CompareFunction::Less,
-                format,
-                depth_write_enabled: true,
-                stencil: wgpu::StencilState::default(),
-            }),
+            depth_stencil: depth_stencil_state,
         })
     }
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
@@ -874,7 +902,7 @@ impl State {
                     attachment: &self.depth_texture.view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.0),
-                        store: true,
+                        store: false,
                     }),
                     stencil_ops: None,
                 }),
@@ -901,6 +929,31 @@ impl State {
             );
         }
         encoder.pop_debug_group();
+
+        // {
+        //     let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        //         color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+        //             attachment: &frame.view,
+        //             resolve_target: None,
+        //             ops: wgpu::Operations {
+        //                 load: wgpu::LoadOp::Clear(wgpu::Color {
+        //                     r: 0.1,
+        //                     g: 0.2,
+        //                     b: 0.3,
+        //                     a: 1.0,
+        //                 }),
+        //                 store: true,
+        //             },
+        //         }],
+        //         depth_stencil_attachment: None,
+        //         label: Some("texture renderer"),
+        //     });
+        //     render_pass.set_pipeline(&self.texture_renderer.render_pipeline);
+        //     render_pass.set_bind_group(0, &self.texture_renderer.bind_group, &[]);
+        //     render_pass.set_vertex_buffer(0, self.texture_renderer.quad.slice(..));
+        //     render_pass.draw(0..TextureRenderer::QUAD_VERTEX_ARRAY.len() as u32, 0..1);
+        // }
+
         self.queue.submit(std::iter::once(encoder.finish()));
 
         let now = std::time::Instant::now();

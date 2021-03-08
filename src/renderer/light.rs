@@ -1,6 +1,6 @@
 use __core::ops::Range;
 use bytemuck::*;
-use glm::look_at_rh;
+use glm::{look_at_rh, ortho_rh};
 use wgpu::BindGroup;
 
 use super::{
@@ -41,15 +41,15 @@ impl Light {
     }
 
     pub fn to_raw(&self) -> LightRaw {
+        let proj =
+        //(-10.0, 10., -10., -10., self.depth.start, self.depth.end);
+        //glm::perspective(1.0, f32::to_radians(self.fov), self.depth.start, self.depth.end);
+        glm::ortho_rh(-80.0, 80.0, -80.0, 80.0, self.depth.start, self.depth.end);
         let view = glm::look_at_rh(&self.pos, &glm::vec3(0.0, 0.0, 0.0), &glm::Vec3::y());
-        let projection = glm::perspective(
-            1.0,
-            f32::to_radians(self.fov),
-            self.depth.start,
-            self.depth.end,
-        );
-        let view_proj =
-            glm::Mat4::from(super::state::State::OPENGL_TO_WGPU_MATRIX) * projection * view;
+        let view_proj = glm::Mat4::identity()
+            * glm::Mat4::from(super::state::State::OPENGL_TO_WGPU_MATRIX)
+            * proj
+            * view;
         LightRaw {
             color: [
                 self.color.r as f32,
@@ -58,7 +58,7 @@ impl Light {
                 1.0,
             ],
             position: [self.pos.x, self.pos.y, self.pos.z, 1.0],
-            projection: *view_proj.as_ref(),
+            projection: view_proj.into(),
         }
     }
 }

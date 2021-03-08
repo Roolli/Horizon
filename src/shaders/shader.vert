@@ -18,7 +18,8 @@ layout(location=4) in vec3 bitangent;
 
 layout (location=0) out vec2 v_tex_coord;
 layout (location=1) out vec4 v_position;
-layout (location=2) out vec3 v_light_position[MAX_LIGHTS];
+layout (location=2) out vec4 shadow_pos;
+layout (location=3) out vec3 v_light_position[MAX_LIGHTS];
 layout (location=3+MAX_LIGHTS) out vec3 v_view_position[MAX_LIGHTS];
 
 layout(set=1,binding=0)
@@ -44,13 +45,12 @@ uniform Lights {
     Light u_lights[MAX_LIGHTS];
 };
 
-mat4 model_matrix;
 
 
 void main()
 {
     v_tex_coord = tex_coord; 
-    model_matrix= transform[gl_InstanceIndex];
+   mat4 model_matrix= transform[gl_InstanceIndex];
     mat3 normal_matrix = mat3(normal_matricies[gl_InstanceIndex]);
     vec3 normal = normalize(normal_matrix*a_normal);
     vec3 tangent = normalize(normal_matrix * tangent);
@@ -58,9 +58,9 @@ void main()
     mat3 tangent_matrix = transpose(mat3(tangent,bitangent,normal));
     
     vec4 model_space = model_matrix * vec4(a_pos,1.0);
+    shadow_pos = model_space;
     vec3 temp_pos = tangent_matrix * model_space.xyz;
     v_position = vec4(temp_pos,1.0);
-
    for(int i =0; i < int(lights_num.x) &&i < MAX_LIGHTS;i++)
      {
          Light light = u_lights[i];

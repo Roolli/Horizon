@@ -31,35 +31,7 @@ pub struct TransformRaw {
     data: [[f32; 4]; 4],
 }
 impl TransformRaw {
-    pub fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
-        wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<TransformRaw>() as wgpu::BufferAddress,
-            step_mode: wgpu::InputStepMode::Instance,
-            attributes: &[
-                wgpu::VertexAttribute {
-                    offset: 0,
-                    shader_location: 5,
-                    format: wgpu::VertexFormat::Float4,
-                },
-                wgpu::VertexAttribute {
-                    offset: std::mem::size_of::<[f32; 4]>() as wgpu::BufferAddress,
-                    shader_location: 6,
-                    format: wgpu::VertexFormat::Float4,
-                },
-                wgpu::VertexAttribute {
-                    offset: std::mem::size_of::<[f32; 8]>() as wgpu::BufferAddress,
-                    shader_location: 7,
-                    format: wgpu::VertexFormat::Float4,
-                },
-                wgpu::VertexAttribute {
-                    offset: std::mem::size_of::<[f32; 12]>() as wgpu::BufferAddress,
-                    shader_location: 8,
-                    format: wgpu::VertexFormat::Float4,
-                },
-            ],
-        }
-    }
-    pub fn get_normal_matrix<'a>(&self) -> [[f32; 4]; 4] {
+    pub fn get_normal_matrix(&self) -> [[f32; 4]; 4] {
         let mat4 = glm::Mat4::from(self.data);
         let inverted = mat4.try_inverse().unwrap();
         let transposed = inverted.transpose();

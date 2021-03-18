@@ -47,23 +47,16 @@ layout(set=2, binding=0) uniform Lights{
 
 float fetch_shadow(int light_id,vec4 homogeneous_coords)
 {
-    float shadow_factor = 1.0;
-    if(homogeneous_coords.w <= 0.0)
-    {
-        return shadow_factor;
-    }
-    const vec2 flip_correction = vec2(0.5,-0.5);
+   
+         const vec2 flip_correction = vec2(0.5,-0.5);
 
-    vec4 light_local = vec4(
+        vec4 light_local = vec4(
        homogeneous_coords.xy * flip_correction/homogeneous_coords.w +0.5,
-     light_id,
-     homogeneous_coords.z/homogeneous_coords.w
-     );
-    if( homogeneous_coords.z > texture(sampler2DArrayShadow(t_shadow,s_shadow),light_local))
-    {
-        shadow_factor = shadow_factor-0.4;
-    }
-    return shadow_factor;
+        light_id,
+        homogeneous_coords.z/homogeneous_coords.w
+        );
+        
+    return  texture(sampler2DArrayShadow(t_shadow,s_shadow),light_local);
 }
 
  void main()

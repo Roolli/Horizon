@@ -1,4 +1,7 @@
-use std::{num::NonZeroU32, ops::Deref};
+use std::{
+    num::NonZeroU32,
+    ops::{Add, Deref},
+};
 
 use crate::{
     components::transform,
@@ -19,10 +22,12 @@ use super::{
 };
 use crate::components::physicshandle::*;
 use crate::components::transform::*;
+use crate::renderer::modelbuilder::ModelBuilder;
 use crate::renderer::pass::Pass;
 use crate::renderer::utils::texturerenderer::TextureRenderer;
 use bytemuck::{bytes_of, cast_slice};
-use env_logger::filter;
+use chrono::{Duration, DurationRound, Timelike};
+
 use glm::{identity, quat_angle_axis, Mat3, Vec3};
 
 use nalgebra::Isometry3;
@@ -61,8 +66,8 @@ pub struct State {
     uniforms: Globals,
     pub world: specs::World,
     frame_count: u32,
-    previous_frame_time: std::time::Instant,
-    total_frame_time: std::time::Duration,
+    previous_frame_time: chrono::Duration,
+    total_frame_time: chrono::Duration,
     shadow_pass: Pass,
     texture_renderer: TextureRenderer,
 }
@@ -76,9 +81,10 @@ impl State {
         [0.0, 0.0, 0.5, 0.0],
         [0.0, 0.0, 0.5, 1.0],
     ];
+    const MAX_ENTITY_COUNT:wgpu::BufferAddress = (u16::MAX / 4) as wgpu::BufferAddress;
     const MAX_LIGHTS: usize = 10;
     const SHADOW_SIZE: wgpu::Extent3d = wgpu::Extent3d {
-        depth: Self::MAX_LIGHTS as u32,
+        depth_or_array_layers: Self::MAX_LIGHTS as u32,
         height: 4096,
         width: 4096,
     };
@@ -119,186 +125,7 @@ impl State {
         };
         let swap_chain = device.create_swap_chain(&surface, &sc_desc);
 
-        let mut world = World::new();
-        world.insert(PhysicsWorld::new(glm::Vec3::y() * -9.81));
-
-        // TEXTURE
-
-        let texture_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStage::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            multisampled: false,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStage::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler {
-                            comparison: false,
-                            filtering: false,
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 2,
-                        visibility: wgpu::ShaderStage::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            multisampled: false,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 3,
-                        visibility: wgpu::ShaderStage::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler {
-                            comparison: false,
-                            filtering: false,
-                        },
-                        count: None,
-                    },
-                ],
-                label: Some("Texture bind group layout"),
-            });
-
-        // MODEL LOADING
-        // TODO: Change to some sort of IoC container where it resolves based on current arch.
-        let importer;
-        #[cfg(target_arch = "wasm32")]
-        {
-            use crate::filesystem::webfileloader::WebFileLoader;
-            importer = Importer::new(Box::new(WebFileLoader::new("http://localhost:8000")));
-        }
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            use crate::filesystem::nativefileloader::Nativefileloader;
-            let exe_dir = std::env::current_exe()
-                .unwrap()
-                .parent()
-                .unwrap()
-                .to_path_buf();
-
-            importer = Importer::new(Box::new(Nativefileloader::new(exe_dir)));
-        }
-        let obj_model = HorizonModel::load(
-            &device,
-            &queue,
-            &texture_bind_group_layout,
-            &importer,
-            "cube.obj",
-        )
-        .await
-        .unwrap();
-
-        // INSTANCING
-        let mut physicsworld = world.write_resource::<PhysicsWorld>();
-        const SPACE: f32 = 3.0;
-        let mut collision_builder =
-            ColliderBuilder::convex_hull(obj_model.meshes[0].points.as_slice()).unwrap();
-        let mut instances = (0..NUM_INSTANCES_PER_ROW)
-            .flat_map(|z| {
-                (0..NUM_INSTANCES_PER_ROW).map(move |x| {
-                    let x = SPACE * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 1.5);
-                    let z = SPACE * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 1.5);
-                    let pos = glm::Vec3::new(x as f32, 10.0, z as f32);
-                    let rot = if pos == glm::vec3(0.0, 0.0, 0.0) {
-                        glm::quat_angle_axis(f32::to_radians(0.0), &glm::vec3(0.0, 0.0, 1.0))
-                    } else {
-                        glm::quat_angle_axis(f32::to_radians(45.0), &pos.clone().normalize())
-                    };
-                    Transform::new(pos, rot, glm::vec3(1.0, 1.0, 1.0))
-                })
-            })
-            .collect::<Vec<_>>();
-        let physics_handles = instances
-            .iter()
-            .map(|instance| {
-                let axisangle = if instance.position == glm::vec3(0.0, 0.0, 0.0) {
-                    f32::to_radians(0.0) * glm::vec3(0.0, 0.0, 1.0)
-                } else {
-                    f32::to_radians(45.0) * instance.position.clone().normalize()
-                };
-                let rigid_body = RigidBodyBuilder::new_dynamic()
-                    .position(Isometry3::new(instance.position, axisangle))
-                    .mass(1.0)
-                    .build();
-                let rigid_body_handle = physicsworld.add_rigid_body(rigid_body);
-
-                let collider = collision_builder.build();
-                let collider_handle = physicsworld.add_collider(collider, rigid_body_handle);
-
-                PhysicsHandle {
-                    collider_handle,
-                    rigid_body_handle,
-                }
-            })
-            .collect::<Vec<_>>();
-
-        // ground object
-        let plane = Transform::new(
-            glm::vec3(0.0, 0.5, 0.0),
-            glm::quat_angle_axis(f32::to_radians(0.0), &glm::vec3(0.0, 0.0, 1.0)),
-            glm::vec3(100.0, 1.0, 100.0),
-        );
-        instances.push(plane);
-        // ground shape
-        let ground_shape = ColliderBuilder::cuboid(100.0, 1.0, 100.0).build();
-
-        let ground_handle = physicsworld.add_rigid_body(
-            RigidBodyBuilder::new_static()
-                .position(Isometry3::new(
-                    glm::vec3(0.0, 0.5, 0.0),
-                    glm::vec3(0.0, 0.0, 1.0) * f32::to_radians(0.0),
-                ))
-                .build(),
-        );
-        physicsworld.add_collider(ground_shape, ground_handle);
-
-        drop(physicsworld); // have to drop this to get world as mutable
-        world.register::<Transform>();
-        world.register::<PhysicsHandle>();
-        for (transform, physics_handle) in instances.iter().zip(physics_handles.iter()) {
-            world
-                .create_entity()
-                .with(*transform)
-                .with(*physics_handle)
-                .build();
-        }
-        let instance_data = instances.iter().map(Transform::to_raw).collect::<Vec<_>>();
-        let normal_matricies = instance_data
-            .iter()
-            .map(TransformRaw::get_normal_matrix)
-            .collect::<Vec<_>>();
-        let normal_matrix_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            contents: bytemuck::cast_slice(&normal_matricies),
-            label: Some("Model matricies"),
-            usage: wgpu::BufferUsage::COPY_DST | wgpu::BufferUsage::STORAGE,
-        });
-
-        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Instance buffer"),
-            usage: wgpu::BufferUsage::STORAGE | wgpu::BufferUsage::COPY_DST,
-            contents: bytemuck::cast_slice(&instance_data),
-        });
-
-        // CAMERA
-        let cam = Camera {
-            eye: glm::vec3(-10.0, 15.0, 10.0),
-            target: glm::vec3(0.0, 0.0, 0.0),
-            up: glm::vec3(0.0, 1.0, 0.0), // Unit Y vector
-            aspect_ratio: sc_desc.width as f32 / sc_desc.height as f32,
-            fov_y: 90.0,
-            z_near: 0.1,
-            z_far: 200.0,
-        };
+        //! Method should END HERE
 
         // SHADOW
         let shadow_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
@@ -339,10 +166,10 @@ impl State {
             .collect::<Vec<_>>();
 
         // Lights
-
+        //TODO: Change to directional light, add spot / point lights
         let lights = vec![
             Light::new(
-                glm::vec3(-10.0, 5.0, 10.0),
+                glm::vec3(-100.0, 50.0, 100.0),
                 wgpu::Color {
                     r: 1.0,
                     g: 0.5,
@@ -350,7 +177,7 @@ impl State {
                     a: 1.0,
                 },
                 90.0,
-                0.1..200.0,
+                0.1..1000.0,
                 texture_views[0].take().unwrap(),
             ),
             // Light::new(
@@ -365,25 +192,28 @@ impl State {
             //     0.1..50.0,
             //     texture_views[1].take().unwrap(),
             // ),
-            //     position: [ 0.0],
-            //     color: [,
-
-            // Light {
-            //     position: [7.0, 2.0, -5.0, 0.0],
-            //     color: [1.0, 0.0, 0.0, 0.0],
-
-            // Light {
-            //     position: [4.0, 2.0, 3.0, 0.0],
-            //     color: [1.0, 0.5, 1.0, 0.0],
         ];
 
-        let mut globals = Globals::new(lights.len() as u32);
-        globals.update_view_proj_matrix(&cam);
+        let normal_matrix_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            mapped_at_creation: false,
+            label: Some("Model matricies"),
+            usage: wgpu::BufferUsage::COPY_DST | wgpu::BufferUsage::STORAGE,
+            size:  Self::MAX_ENTITY_COUNT,
+        });
+
+        let instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Instance buffer"),
+            usage: wgpu::BufferUsage::STORAGE | wgpu::BufferUsage::COPY_DST,
+            mapped_at_creation:false,
+            size: Self::MAX_ENTITY_COUNT,
+        });
+
         let uniform_size = std::mem::size_of::<Globals>() as wgpu::BufferAddress;
-        let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
             label: Some("Uniform buffer"),
-            contents: bytemuck::cast_slice(&[globals]),
+           size: uniform_size,
+           mapped_at_creation:false,
         });
 
         let uniform_bind_group_layout =
@@ -591,7 +421,7 @@ impl State {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 bind_group_layouts: &[
-                    &texture_bind_group_layout,
+                    &diffuse_bind_group_layout,
                     &uniform_bind_group_layout,
                     &light_bind_group_layout,
                 ],
@@ -601,8 +431,11 @@ impl State {
 
         let vs_module =
             device.create_shader_module(&wgpu::include_spirv!("../shaders/shader.vert.spv"));
-        let fs_module =
-            device.create_shader_module(&wgpu::include_spirv!("../shaders/shader.frag.spv"));
+        let fs_module = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+            source: wgpu::util::make_spirv(include_bytes!("../shaders/shader.frag.spv")),
+            flags: ShaderFlags::empty(),
+            label: Some("forward fragment shader"),
+        });
         let target = &[sc_desc.format.into()];
         let val = Some(wgpu::FragmentState {
             targets: target,
@@ -716,8 +549,10 @@ impl State {
             world,
             shadow_pass,
             frame_count: 0,
-            previous_frame_time: std::time::Instant::now(),
-            total_frame_time: std::time::Duration::from_secs(0),
+            previous_frame_time: Duration::nanoseconds(
+                chrono::offset::Utc::now().timestamp_nanos(),
+            ),
+            total_frame_time: Duration::seconds(0),
             texture_renderer,
         }
     }
@@ -742,13 +577,14 @@ impl State {
             primitive: wgpu::PrimitiveState {
                 front_face: wgpu::FrontFace::Ccw,
                 topology: wgpu::PrimitiveTopology::TriangleList,
-                cull_mode: wgpu::CullMode::Back,
+                cull_mode: Some(wgpu::Face::Back),
                 strip_index_format: if cfg!(target_arch = "wasm32") {
                     Some(wgpu::IndexFormat::Uint32)
                 } else {
                     None
                 },
                 polygon_mode: wgpu::PolygonMode::Fill,
+                ..Default::default()
             },
             multisample: wgpu::MultisampleState {
                 ..Default::default()
@@ -956,18 +792,18 @@ impl State {
 
         self.queue.submit(std::iter::once(encoder.finish()));
 
-        let now = std::time::Instant::now();
-        self.total_frame_time += now - self.previous_frame_time;
-        let dur = now - self.previous_frame_time;
-        if self.total_frame_time < std::time::Duration::from_secs(1) {
+        let now = chrono::offset::Utc::now();
+        self.total_frame_time = self.total_frame_time.add(Duration::nanoseconds(
+            (now - self.previous_frame_time).timestamp_nanos(),
+        ));
+        if self.total_frame_time < Duration::seconds(1) {
             self.frame_count += 1;
         } else {
-            let frame_count_copy = self.frame_count;
-            println!("FPS: {}", frame_count_copy);
+            log::info!("FPS: {}", self.frame_count);
             self.frame_count = 0;
-            self.total_frame_time = std::time::Duration::from_secs(0);
+            self.total_frame_time = Duration::seconds(0);
         }
-        self.previous_frame_time = now;
+        self.previous_frame_time = Duration::nanoseconds(now.timestamp_nanos());
 
         Ok(())
     }

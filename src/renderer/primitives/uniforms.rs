@@ -1,6 +1,7 @@
 use bytemuck::{Pod, Zeroable};
 
-use crate::renderer::cam::Camera;
+use crate::resources::camera::Camera;
+
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
 pub struct Globals {
@@ -18,7 +19,7 @@ impl Globals {
     }
     pub fn update_view_proj_matrix(&mut self, cam: &Camera) {
         self.view_position = cam.eye.to_homogeneous().into();
-        self.view_proj = cam.build_projection_matrix().into();
+        self.view_proj = cam.build_view_projection_matrix().into();
     }
 }
 #[repr(C)]

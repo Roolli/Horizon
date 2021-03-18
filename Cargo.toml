@@ -29,19 +29,24 @@ winit = "0.24.0"
 nalgebra = "0.24.0"
 glm= {version="0.10.0", package="nalgebra-glm"}
 rapier3d={version="0.5.0"}
-env_logger = "0.8.2"
 futures = "0.3.12"
 bytemuck=  { version = "1.5.0", features = ["derive"]}
 specs={version="0.16.1", features=["specs-derive"], default-features=false }
+anyhow = "1.0.38"
+tobj = "2.0.3"
+log = "0.4"
+async-trait = "0.1.42"
+
+[target.'cfg(not(target_arch="wasm32"))'.dependencies]
+env_logger = "0.8.2"
 chrono = "0.4.19"
 
 
 
 
-anyhow = "1.0.38"
-tobj = "2.0.3"
-log = "0.4"
-async-trait = "0.1.42"
+
+
+
 
 [build-dependencies]
 anyhow = "1.0"
@@ -51,9 +56,9 @@ shaderc="0.7.1"
 rayon="1.5.0"
 
 [target.'cfg(target_arch="wasm32")'.dependencies]
+chrono = {version="0.4.19", features=["wasmbind"]}
 wasm-bindgen = "0.2.69"
-wasm-timer = "0.2.5"
-console_log = "0.2.0" # TODO: move
+console_log = "0.2.0"
 wee_alloc = { version = "0.4.5", optional = true }
 winit = {version ="0.24.0", features = ["web-sys"]}
 js-sys= "=0.3.46"
@@ -151,14 +156,9 @@ web-sys = { version="=0.3.46",features = [
   'Response',
   'Window',]}
 [dependencies.wgpu]
-#path = "../wgpu-rs"
+path = "../wgpu-rs"
 version="0.7.0"
 features=["vulkan-portability"]
-
-[target.'cfg(target_arch="wasm32")'.features]
-default= ["chrono-wasm"]
-chrono-wasm =["chrono/wasmbind"]
-# default = ["wee_alloc"]
 
 [dependencies.image]
 version= "0.23"
@@ -167,18 +167,11 @@ features = ["gif", "jpeg", "ico", "png", "pnm", "tga", "tiff", "webp", "bmp", "h
 
 
 [target.'cfg(target_arch="wasm32")'.dev-dependencies]
-# The `console_error_panic_hook` crate provides better debugging of panics by
-# logging them with `console.error`. This is great for development, but requires
-# all the `std::fmt` and `std::panicking` infrastructure, so isn't great for
-# code size when deploying.
-
-
 wasm-bindgen-test = "0.3.19"
 wgpu-subscriber="0.1.0"
 
 
 
 [profile.release]
-# Tell `rustc` to optimize for small code size.
-opt-level = "s"
+opt-level = 3
 lto = true

@@ -51,3 +51,27 @@ impl Importer {
         self.file_loader.load_file(file_path).await
     }
 }
+#[cfg(not(target_arch = "wasm32"))]
+impl Default for Importer {
+    fn default() -> Self {
+        use crate::filesystem::nativefileloader::Nativefileloader;
+        let exe_dir = std::env::current_exe()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .to_path_buf();
+
+        Self::new(Box::new(Nativefileloader::new(exe_dir)))
+    }
+}
+#[cfg(target_arch = "wasm32")]
+impl Default for Importer {
+    fn default() -> Self {
+        use web_sys::Window;
+        use winit::platform::web::WindowExtWebSys;
+        let win: Window = web_sys::window().unwrap();
+        let doc = win.document().unwrap();
+        use crate::filesystem::webfileloader::WebFileLoader;
+        Importer::new(Box::new(WebFileLoader::new(doc.url.unwrap())))
+    }
+}

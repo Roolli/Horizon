@@ -34,7 +34,7 @@ impl Texture {
         let texture_size = wgpu::Extent3d {
             width: dimensions.0,
             height: dimensions.1,
-            depth: 1,
+            depth_or_array_layers: 1,
         };
 
         let texture = device.create_texture(&wgpu::TextureDescriptor {
@@ -103,7 +103,7 @@ impl Texture {
     ) -> Self {
         let size = wgpu::Extent3d {
             width: sc_desc.width,
-            depth: 1,
+            depth_or_array_layers: 1,
             height: sc_desc.height,
         };
         let desc = wgpu::TextureDescriptor {

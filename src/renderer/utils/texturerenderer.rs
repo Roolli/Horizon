@@ -87,7 +87,7 @@ impl TextureRenderer {
         let fs_module = device.create_shader_module(&wgpu::include_spirv!(
             "../../shaders/textureRenderer.frag.spv"
         ));
-        let attribs = &wgpu::vertex_attr_array![0=>Float2];
+        let attribs = &wgpu::vertex_attr_array![0=>Float32x2];
         let buffer_layout = wgpu::VertexBufferLayout {
             attributes: attribs,
             array_stride: (std::mem::size_of::<f32>() * 2) as wgpu::BufferAddress,
@@ -111,7 +111,7 @@ impl TextureRenderer {
                 ..Default::default()
             },
             primitive: wgpu::PrimitiveState {
-                cull_mode: wgpu::CullMode::Back,
+                cull_mode: Some(wgpu::Face::Back),
                 front_face: wgpu::FrontFace::Ccw,
                 polygon_mode: wgpu::PolygonMode::Fill,
                 strip_index_format: if cfg!(target_arch = "wasm32") {
@@ -120,6 +120,7 @@ impl TextureRenderer {
                     None
                 },
                 topology: wgpu::PrimitiveTopology::TriangleStrip,
+                ..Default::default()
             },
         });
 

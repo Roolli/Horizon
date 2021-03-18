@@ -1,9 +1,15 @@
 use bytemuck::{Pod, Zeroable};
 use glm::identity;
+use specs::{Component, Entity, VecStorage};
+
+#[derive(Component)]
+#[storage(VecStorage)]
 pub struct Instance {
     pub position: glm::Vec3,
     pub rotation: glm::Quat,
     pub scale: glm::Vec3,
+    /// The model of the instance
+    pub model: Entity,
 }
 
 #[repr(C)]
@@ -20,22 +26,22 @@ impl InstanceRaw {
                 wgpu::VertexAttribute {
                     offset: 0,
                     shader_location: 5,
-                    format: wgpu::VertexFormat::Float4,
+                    format: wgpu::VertexFormat::Float32x4,
                 },
                 wgpu::VertexAttribute {
                     offset: std::mem::size_of::<[f32; 4]>() as wgpu::BufferAddress,
                     shader_location: 6,
-                    format: wgpu::VertexFormat::Float4,
+                    format: wgpu::VertexFormat::Float32x4,
                 },
                 wgpu::VertexAttribute {
                     offset: std::mem::size_of::<[f32; 8]>() as wgpu::BufferAddress,
                     shader_location: 7,
-                    format: wgpu::VertexFormat::Float4,
+                    format: wgpu::VertexFormat::Float32x4,
                 },
                 wgpu::VertexAttribute {
                     offset: std::mem::size_of::<[f32; 12]>() as wgpu::BufferAddress,
                     shader_location: 8,
-                    format: wgpu::VertexFormat::Float4,
+                    format: wgpu::VertexFormat::Float32x4,
                 },
             ],
         }
@@ -43,11 +49,12 @@ impl InstanceRaw {
 }
 
 impl Instance {
-    pub fn new(pos: glm::Vec3, rot: glm::Quat, scale: glm::Vec3) -> Self {
+    pub fn new(pos: glm::Vec3, rot: glm::Quat, scale: glm::Vec3, entity: Entity) -> Self {
         Self {
             position: pos,
             rotation: rot,
             scale,
+            model: entity,
         }
     }
     pub fn to_raw(&self) -> InstanceRaw {

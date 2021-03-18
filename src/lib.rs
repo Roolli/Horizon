@@ -49,7 +49,7 @@ pub fn setup() {
     }
     #[cfg(not(target_arch = "wasm32"))]
     {
-        let mut state = block_on(State::new(&window));
+        let state = block_on(State::new(&window));
         run(event_loop, state, window);
     }
     #[cfg(target_arch = "wasm32")]
@@ -68,14 +68,16 @@ fn run(event_loop: EventLoop<()>, mut state: State, window: winit::window::Windo
             if !state.input(event) {
                 match event {
                     WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
-                    WindowEvent::KeyboardInput { input, .. } => match input {
-                        KeyboardInput {
+                    WindowEvent::KeyboardInput { input, .. } => {
+                        if let KeyboardInput {
                             state: ElementState::Pressed,
                             virtual_keycode: Some(VirtualKeyCode::Escape),
                             ..
-                        } => *control_flow = ControlFlow::Exit,
-                        _ => {}
-                    },
+                        } = input
+                        {
+                            *control_flow = ControlFlow::Exit
+                        }
+                    }
                     WindowEvent::Resized(physical_size) => {
                         state.resize(*physical_size);
                     }
@@ -92,7 +94,7 @@ fn run(event_loop: EventLoop<()>, mut state: State, window: winit::window::Windo
                 Ok(_) => {}
                 Err(wgpu::SwapChainError::OutOfMemory) => *control_flow = ControlFlow::Exit,
                 Err(wgpu::SwapChainError::Lost) => state.resize(state.size),
-                Err(e) => eprintln!("{:?}", e),
+                Err(e) => log::error!("{:?}", e),
             }
         }
         Event::MainEventsCleared => {

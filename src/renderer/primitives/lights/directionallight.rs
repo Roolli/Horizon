@@ -3,12 +3,11 @@ use bytemuck::*;
 use glm::{look_at_rh, ortho_rh};
 use wgpu::BindGroup;
 
-use crate::resources::camera::Camera;
-
-use super::{
-    model::HorizonModel,
-    primitives::{instance, mesh::Mesh, uniforms::Globals},
+use crate::{
+    renderer::{model::HorizonModel, primitives::mesh::Mesh, state::State},
+    resources::camera::Camera,
 };
+
 use specs::{Component, VecStorage};
 
 #[derive(Component)]
@@ -30,10 +29,8 @@ impl DirectionalLight {
     pub fn to_raw(&self, cam: &Camera) -> DirectionalLightRaw {
         let view = glm::look_at_rh(&glm::vec3(0.0, 0.0, 0.0), &self.direction, &glm::Vec3::y());
         let proj = Self::get_frustum_bounding_box(&self, cam, cam.z_near, cam.z_far, &view);
-        let view_proj = glm::Mat4::identity()
-            * glm::Mat4::from(super::state::State::OPENGL_TO_WGPU_MATRIX)
-            * proj
-            * view;
+        let view_proj =
+            glm::Mat4::identity() * glm::Mat4::from(State::OPENGL_TO_WGPU_MATRIX) * proj * view;
         DirectionalLightRaw {
             direction: [self.direction.x, self.direction.y, self.direction.z, 1.0],
             color: [

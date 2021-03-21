@@ -5,7 +5,7 @@ use specs::{ReadExpect, ReadStorage, System, WriteStorage};
 use crate::{
     components::transform::Transform,
     renderer::{
-        light::{Light, LightHandle, LightRaw},
+        directionallight::{DirectionalLight, DirectionalLightRaw, LightHandle},
         state::State,
     },
 };

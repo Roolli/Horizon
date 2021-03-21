@@ -16,7 +16,7 @@ struct SpotLight {
     vec4 position;
     vec4 direction;
     vec4 color;
-    vec4 attenuation;
+    vec4 attenuation; // x constant, y linear, z quadratic
     vec4 cutoffs; // X inner , Y outer
 };
 

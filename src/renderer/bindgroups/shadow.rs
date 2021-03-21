@@ -37,7 +37,7 @@ impl HorizonBindGroup for ShadowBindGroup {
             ],
         })
     }
-
+    // TODO: add optional parameter to take an additional BindGroupContainer for getting additional buffer bindings
     fn create_container(
         device: &wgpu::Device,
     ) -> crate::renderer::bindgroupcontainer::BindGroupContainer {

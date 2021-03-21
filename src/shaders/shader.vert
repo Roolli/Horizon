@@ -1,13 +1,26 @@
 #version 450
 #extension GL_EXT_scalar_block_layout: require
 
-const int MAX_LIGHTS = 10;
+const int MAX_POINT_LIGHTS = 32;
+const int MAX_SPOT_LIGHTS = 32;
 
-struct Light {
-    mat4 u_projection;
-    vec4 light_position;
-    vec4 light_color;
+struct DirectionalLight {
+    mat4 dl_projection;
+    vec4 direction;
+    vec4 color;
 };
+struct PointLight {
+    vec4 position;
+    vec4 color;
+    vec4 attenuation; // x constant, y linear, z quadratic
+};
+struct SpotLight {
+    vec4 position;
+    vec4 direction;
+    vec4 color;
+    vec4 cutoffs; // X inner , Y outer
+};
+
 
 layout(location=0) in vec3 a_pos;
 layout(location=1) in vec2 tex_coord;
@@ -17,10 +30,10 @@ layout(location=4) in vec3 bitangent;
 
 
 layout (location=0) out vec2 v_tex_coord;
-layout (location=1) out vec4 v_position;
-layout (location=2) out vec4 shadow_pos;
-layout (location=3) out vec3 v_light_position[MAX_LIGHTS];
-layout (location=3+MAX_LIGHTS) out vec3 v_view_position[MAX_LIGHTS];
+layout (location=1) out vec4 TangentFragPos;
+layout (location=2) out vec4 WorldFragPos;
+layout (location=3) out vec3 tangent_space_view_position;
+layout (location=4) out vec3 v_light_position[MAX_POINT_LIGHTS + MAX_SPOT_LIGHTS];
 
 layout(set=1,binding=0)
 uniform Globals {
@@ -39,10 +52,17 @@ buffer NormalMatricies
     mat4 normal_matricies[];
 };
 
-
-layout(set=2,binding=0)
-uniform Lights {
-    Light u_lights[MAX_LIGHTS];
+layout(set=2,binding=0) uniform DirLight
+{
+     DirectionalLight dirLight;
+};
+layout(set=2,binding=1) uniform PointLights
+{ 
+   PointLight pointLights[MAX_POINT_LIGHTS];
+};
+layout(set=2,binding=2) uniform SpotLights
+{ 
+    SpotLight spotLights[MAX_SPOT_LIGHTS];
 };
 
 
@@ -58,14 +78,22 @@ void main()
     mat3 tangent_matrix = transpose(mat3(tangent,bitangent,normal));
     
     vec4 model_space = model_matrix * vec4(a_pos,1.0);
-    shadow_pos = model_space;
+    WorldFragPos = model_space;
     vec3 temp_pos = tangent_matrix * model_space.xyz;
-    v_position = vec4(temp_pos,1.0);
-   for(int i =0; i < int(lights_num.x) &&i < MAX_LIGHTS;i++)
+    TangentFragPos = vec4(temp_pos,1.0);
+    tangent_space_view_position = tangent_matrix * u_view_position;
+    int num_point_lights = int(lights_num.x);
+   for(int i =0; i < num_point_lights &&i < MAX_POINT_LIGHTS;i++)
      {
-         Light light = u_lights[i];
-    v_light_position[i] = tangent_matrix * light.light_position.xyz;
-    v_view_position[i] = tangent_matrix * u_view_position;
+         PointLight light = pointLights[i];
+    v_light_position[i] = tangent_matrix * light.position.xyz;
+    
+     }
+     for(int i =num_point_lights; i < int(lights_num.y) &&i < MAX_SPOT_LIGHTS;i++)
+     {
+         SpotLight light = spotLights[i];
+    v_light_position[i] = tangent_matrix * light.position.xyz;
+    
      }
     gl_Position = u_view_proj* model_space;
 }

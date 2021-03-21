@@ -3,6 +3,7 @@ pub mod bindgroups;
 pub mod model;
 pub mod modelbuilder;
 pub mod pass;
+pub mod pipelines;
 pub mod primitives;
 pub mod renderpasses;
 pub mod state;

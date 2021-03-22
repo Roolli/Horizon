@@ -1,9 +1,39 @@
 use core::panic;
 
-use components::{physicshandle::PhysicsHandle, transform::Transform};
+use components::{
+    physicshandle::PhysicsHandle,
+    transform::{Transform, TransformRaw},
+};
+use filesystem::modelimporter::Importer;
 //use wasm_bindgen::prelude::*;
 use futures::executor::block_on;
-use specs::{DispatcherBuilder, World, WorldExt};
+use nalgebra::Isometry3;
+use rapier3d::{dynamics::RigidBodyBuilder, geometry::ColliderBuilder};
+use renderer::{
+    bindgroupcontainer::BindGroupContainer,
+    bindgroups::{
+        lighting::LightBindGroup, shadow::ShadowBindGroup, uniforms::UniformBindGroup,
+        HorizonBindGroup,
+    },
+    modelbuilder::ModelBuilder,
+    pipelines::{
+        forwardpipeline::ForwardPipeline, lightpipeline::LightPipeline,
+        shadowpipeline::ShadowPipeline, HorizonPipeline,
+    },
+    primitives::{
+        lights::{
+            directionallight::{DirectionalLight, DirectionalLightRaw},
+            pointlight::PointLightRaw,
+            spotlight::SpotLightRaw,
+        },
+        uniforms::Globals,
+    },
+};
+use resources::{
+    bindingresourcecontainer::BindingResourceContainer, camera::Camera,
+    commandencoder::HorizonCommandEncoder,
+};
+use specs::{Builder, DispatcherBuilder, World, WorldExt};
 use systems::physics::{Physics, PhysicsWorld};
 
 mod filesystem;
@@ -35,7 +65,7 @@ pub fn setup() {
         .with_title("horizon")
         .build(&event_loop)
         .unwrap();
-
+    let mut state;
     #[cfg(target_arch = "wasm32")]
     {
         console_log::init().expect("failed to initialize logger");
@@ -48,19 +78,21 @@ pub fn setup() {
             .ok();
         std::panic::set_hook(Box::new(console_error_panic_hook::hook));
         wasm_bindgen_futures::spawn_local(async move {
-            let mut state = State::new(&window).await;
-            run(event_loop, state, window);
+            state = State::new(&window).await;
+            let world = setup_ecs(state);
+            run(event_loop, window);
         });
     }
 
     #[cfg(not(target_arch = "wasm32"))]
     {
         env_logger::init();
-        let state = block_on(State::new(&window));
-        run(event_loop, state, window);
+        state = block_on(State::new(&window));
+        let world = setup_ecs(state);
+        run(event_loop, window);
     }
 }
-fn run(event_loop: EventLoop<()>, mut state: State, window: winit::window::Window) {
+fn run(event_loop: EventLoop<()>, window: winit::window::Window) {
     log::info!("running event loop");
 
     event_loop.run(move |event, _, control_flow| match event {
@@ -68,37 +100,32 @@ fn run(event_loop: EventLoop<()>, mut state: State, window: winit::window::Windo
             window_id,
             ref event,
         } if window_id == window.id() => {
-            if !state.input(event) {
-                match event {
-                    WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
-                    WindowEvent::KeyboardInput { input, .. } => {
-                        if let KeyboardInput {
-                            state: ElementState::Pressed,
-                            virtual_keycode: Some(VirtualKeyCode::Escape),
-                            ..
-                        } = input
-                        {
-                            *control_flow = ControlFlow::Exit
-                        }
+            match event {
+                WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+
+                WindowEvent::KeyboardInput { input, .. } => {
+                    if let KeyboardInput {
+                        state: ElementState::Pressed,
+                        virtual_keycode: Some(VirtualKeyCode::Escape),
+                        ..
+                    } = input
+                    {
+                        *control_flow = ControlFlow::Exit
                     }
-                    WindowEvent::Resized(physical_size) => {
-                        state.resize(*physical_size);
-                    }
-                    WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                        state.resize(**new_inner_size);
-                    }
-                    _ => {}
                 }
+                WindowEvent::Resized(physical_size) => {
+                    //state.resize(*physical_size);
+                }
+                WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                    //state.resize(**new_inner_size);
+                }
+                _ => {}
             }
         }
         Event::RedrawRequested(_) => {
-            state.update();
-            match state.render() {
-                Ok(_) => {}
-                Err(wgpu::SwapChainError::OutOfMemory) => *control_flow = ControlFlow::Exit,
-                Err(wgpu::SwapChainError::Lost) => state.resize(state.size),
-                Err(e) => log::error!("{:?}", e),
-            }
+            // Err(wgpu::SwapChainError::OutOfMemory) => *control_flow = ControlFlow::Exit,
+            // Err(wgpu::SwapChainError::Lost) => state.resize(state.size),
+            // Err(e) => log::error!("{:?}", e),
         }
         Event::MainEventsCleared => {
             window.request_redraw();
@@ -106,46 +133,219 @@ fn run(event_loop: EventLoop<()>, mut state: State, window: winit::window::Windo
         _ => {}
     });
 }
-/// Initializes a new ECS container (World) and registers the components and resources.
-fn setup_ecs() -> World {
+/// Initializes a new ECS container (World) and registers the components, creates the dependency chain for the system and sets up resources.
+fn setup_ecs(state: State) -> World {
     let mut world = World::new();
+    world.insert(state);
+
+    register_resources(&mut world);
+    register_components(&mut world);
+    // TODO: setup dispatcher
+
     let mut dispatcher = DispatcherBuilder::new()
         .with(Physics, stringify!(Physics), &[])
         .build();
     dispatcher.setup(&mut world);
-    world.insert(PhysicsWorld::new(glm::Vec3::y() * -9.81));
-    register_components(&mut world);
     world
 }
-fn register_components(world: &mut World) {
-    world.register::<Transform>();
-    world.register::<PhysicsHandle>();
-}
-fn create_debug_scene() {
-    // TODO: Change to some sort of IoC container where it resolves based on current arch.
+fn register_resources(world: &mut World) {
+    let state = world.read_resource::<State>();
+    let encoder = state
+        .device
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Render encoder"),
+        });
     let importer = Importer::default();
+    let model_builder = ModelBuilder::new(&state.device, importer);
+    drop(state);
+    world.insert(model_builder);
+    world.insert(PhysicsWorld::new(glm::Vec3::y() * -9.81));
+    world.insert(BindingResourceContainer::default());
 
+    world.insert(HorizonCommandEncoder::new(encoder));
+}
+fn register_components(mut world: &mut World) {
+    world.register::<BindGroupContainer>();
+    world.register::<ShadowPipeline>();
+    world.register::<ShadowBindGroup>();
+    world.register::<ForwardPipeline>();
+    world.register::<UniformBindGroup>();
+    world.register::<LightBindGroup>();
+    world.register::<LightPipeline>();
+
+    setup_pipelines(&mut world);
+}
+
+fn setup_pipelines(world: &mut World) {
+    let state = world.read_resource::<State>();
+    let mut binding_resource_container = world.write_resource::<BindingResourceContainer>();
+    UniformBindGroup::get_binding_resources(&state.device, &mut binding_resource_container);
+    ShadowBindGroup::get_binding_resources(&state.device, &mut binding_resource_container);
+    LightBindGroup::get_binding_resources(&state.device, &mut binding_resource_container);
+
+    let uniform_container = UniformBindGroup::create_container(
+        &state.device,
+        (
+            binding_resource_container
+                .samplers
+                .get("shadow_sampler")
+                .unwrap(),
+            binding_resource_container
+                .texture_views
+                .get("shadow_view")
+                .unwrap(),
+            binding_resource_container
+                .buffers
+                .get("uniform_buffer")
+                .unwrap(),
+            binding_resource_container
+                .buffers
+                .get("normal_buffer")
+                .unwrap(),
+            binding_resource_container
+                .buffers
+                .get("instance_buffer")
+                .unwrap(),
+        ),
+    );
+
+    let shadow_container = ShadowBindGroup::create_container(
+        &state.device,
+        (
+            binding_resource_container
+                .buffers
+                .get("shadow_uniform_buffer")
+                .unwrap(),
+            binding_resource_container
+                .buffers
+                .get("instance_buffer")
+                .unwrap(),
+        ),
+    );
+
+    let light_container = LightBindGroup::create_container(
+        &state.device,
+        (
+            binding_resource_container
+                .buffers
+                .get("directional_light_buffer")
+                .unwrap(),
+            binding_resource_container
+                .buffers
+                .get("point_light_buffer")
+                .unwrap(),
+            binding_resource_container
+                .buffers
+                .get("spot_light_buffer")
+                .unwrap(),
+        ),
+    );
+
+    let forward_pipeline = ForwardPipeline::create_pipeline(
+        &state.device,
+        &state.sc_descriptor,
+        (
+            &world
+                .read_resource::<ModelBuilder>()
+                .diffuse_texture_bind_group_layout,
+            &uniform_container.layout,
+            &light_container.layout,
+        ),
+    );
+
+    let shadow_pipeline = ShadowPipeline::create_pipeline(
+        &state.device,
+        &state.sc_descriptor,
+        &shadow_container.layout,
+    );
+    let light_pipeline = LightPipeline::create_pipeline(
+        &state.device,
+        &state.sc_descriptor,
+        (&uniform_container.layout, &light_container.layout),
+    );
+    drop(state);
+    drop(binding_resource_container);
+
+    world
+        .create_entity()
+        .with(ForwardPipeline)
+        .with(forward_pipeline)
+        .build();
+    world
+        .create_entity()
+        .with(ShadowPipeline)
+        .with(shadow_pipeline)
+        .build();
+    world
+        .create_entity()
+        .with(LightPipeline)
+        .with(light_pipeline)
+        .build();
+
+    world
+        .create_entity()
+        .with(UniformBindGroup)
+        .with(uniform_container)
+        .build();
+    world
+        .create_entity()
+        .with(LightBindGroup)
+        .with(light_container)
+        .build();
+
+    world
+        .create_entity()
+        .with(ShadowBindGroup)
+        .with(shadow_container)
+        .build();
+}
+
+async fn create_debug_scene(world: &mut World) {
+    // TODO: Change to some sort of IoC container where it resolves based on current arch.
+    const NUM_INSTANCES_PER_ROW: u32 = 15;
+    world
+        .create_entity()
+        .with(DirectionalLight::new(
+            glm::vec3(-100000.0, 500000.0, 100000.0),
+            wgpu::Color {
+                r: 1.0,
+                g: 0.5,
+                b: 1.0,
+                a: 1.0,
+            },
+        ))
+        .build();
+
+    let state = world.write_resource::<State>();
     // CAMERA
     let cam = Camera {
         eye: glm::vec3(-10.0, 15.0, 10.0),
         target: glm::vec3(0.0, 0.0, 0.0),
         up: glm::vec3(0.0, 1.0, 0.0), // Unit Y vector
-        aspect_ratio: sc_desc.width as f32 / sc_desc.height as f32,
+        aspect_ratio: state.sc_descriptor.width as f32 / state.sc_descriptor.height as f32,
         fov_y: 90.0,
         z_near: 0.1,
         z_far: 300.0,
     };
 
     // MODEL LOADING
-    let model_builder = ModelBuilder::new(&device, importer);
-    let obj_model = model_builder.create(&device, &queue, "cube.obj").await;
-    let model_entity = world.create_entity().with(obj_model).build();
 
+    let obj_model = world
+        .read_resource::<ModelBuilder>()
+        .create(&state.device, &state.queue, "cube.obj")
+        .await;
+    drop(state);
+    let collision_builder =
+        ColliderBuilder::convex_hull(obj_model.meshes[0].points.as_slice()).unwrap();
+
+    let mut globals = Globals::new(0, 0);
+    globals.update_view_proj_matrix(&cam);
+    let model_entity = world.create_entity().with(obj_model).build();
+    world.insert(globals);
+    world.insert(cam);
     // INSTANCING
     let mut physicsworld = world.write_resource::<PhysicsWorld>();
     const SPACE: f32 = 10.0;
-    let mut collision_builder =
-        ColliderBuilder::convex_hull(obj_model.meshes[0].points.as_slice()).unwrap();
     let mut instances = (0..NUM_INSTANCES_PER_ROW)
         .flat_map(|z| {
             (0..NUM_INSTANCES_PER_ROW).map(move |x| {
@@ -157,7 +357,7 @@ fn create_debug_scene() {
                 } else {
                     glm::quat_angle_axis(f32::to_radians(45.0), &pos.clone().normalize())
                 };
-                Transform::new(pos, rot, glm::vec3(1.0, 1.0, 1.0))
+                Transform::new(pos, rot, glm::vec3(1.0, 1.0, 1.0), model_entity.clone())
             })
         })
         .collect::<Vec<_>>();
@@ -190,6 +390,7 @@ fn create_debug_scene() {
         glm::vec3(0.0, 0.5, 0.0),
         glm::quat_angle_axis(f32::to_radians(0.0), &glm::vec3(0.0, 0.0, 1.0)),
         glm::vec3(100.0, 1.0, 100.0),
+        model_entity,
     );
     instances.push(plane);
     // ground shape
@@ -206,7 +407,7 @@ fn create_debug_scene() {
     physicsworld.add_collider(ground_shape, ground_handle);
 
     drop(physicsworld); // have to drop this to get world as mutable
-
+                        // create the entities themselves.
     for (transform, physics_handle) in instances.iter().zip(physics_handles.iter()) {
         world
             .create_entity()
@@ -219,7 +420,4 @@ fn create_debug_scene() {
         .iter()
         .map(TransformRaw::get_normal_matrix)
         .collect::<Vec<_>>();
-
-    let mut globals = Globals::new(lights.len() as u32);
-    globals.update_view_proj_matrix(&cam);
 }

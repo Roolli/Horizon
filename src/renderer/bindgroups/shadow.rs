@@ -1,5 +1,5 @@
 use super::HorizonBindGroup;
-use crate::renderer::bindgroups::BindGroupContainer;
+use crate::renderer::{bindgroups::BindGroupContainer, primitives::uniforms::ShadowUniforms};
 
 use specs::*;
 #[derive(Component, Default)]
@@ -42,13 +42,7 @@ impl<'a> HorizonBindGroup<'a> for ShadowBindGroup {
         let shadow_bind_group_layout = Self::get_layout(&device);
         let (shadow_uniform_buffer, instance_buffer) = binding_resources;
         // ! move
-        // let shadow_uniforms_size = std::mem::size_of::<ShadowUniforms>() as wgpu::BufferAddress;
-        // let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-        //     label: None,
-        //     mapped_at_creation: false,
-        //     size: shadow_uniforms_size,
-        //     usage: wgpu::BufferUsage::COPY_DST | wgpu::BufferUsage::UNIFORM,
-        // });
+
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &shadow_bind_group_layout,
             entries: &[
@@ -65,5 +59,22 @@ impl<'a> HorizonBindGroup<'a> for ShadowBindGroup {
         });
 
         BindGroupContainer::new(shadow_bind_group_layout, bind_group)
+    }
+
+    fn get_binding_resources(
+        device: &wgpu::Device,
+        resource_container: &mut crate::resources::bindingresourcecontainer::BindingResourceContainer,
+    ) {
+        let shadow_uniforms_size = std::mem::size_of::<ShadowUniforms>() as wgpu::BufferAddress;
+        let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: None,
+            mapped_at_creation: false,
+            size: shadow_uniforms_size,
+            usage: wgpu::BufferUsage::COPY_DST | wgpu::BufferUsage::UNIFORM,
+        });
+
+        resource_container
+            .buffers
+            .insert(String::from("shadow_uniform_buffer"), uniform_buffer);
     }
 }

@@ -1,5 +1,11 @@
 use super::HorizonBindGroup;
-use crate::renderer::bindgroups::BindGroupContainer;
+use crate::renderer::{
+    bindgroups::BindGroupContainer,
+    primitives::lights::{
+        directionallight::DirectionalLightRaw, pointlight::PointLightRaw, spotlight::SpotLightRaw,
+    },
+    state::State,
+};
 use specs::*;
 #[derive(Component, Default)]
 #[storage(NullStorage)]
@@ -50,34 +56,6 @@ impl<'a> HorizonBindGroup<'a> for LightBindGroup {
         binding_resources: Self::BindingResources,
     ) -> crate::renderer::bindgroupcontainer::BindGroupContainer {
         let (directional_light_buffer, point_light_buffer, spot_light_buffer) = binding_resources;
-        // let directional_light_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-        //     label: Some("directional_light_buffer"),
-        //     mapped_at_creation: false,
-        //     size: std::mem::size_of::<DirectionalLightRaw>() as wgpu::BufferAddress,
-        //     usage: wgpu::BufferUsage::UNIFORM
-        //         | wgpu::BufferUsage::COPY_SRC
-        //         | wgpu::BufferUsage::COPY_DST,
-        // });
-        // let point_light_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-        //     label: Some("point_light_buffer"),
-        //     mapped_at_creation: false,
-
-        //     size: (State::MAX_POINT_LIGHTS * std::mem::size_of::<PointLightRaw>())
-        //         as wgpu::BufferAddress,
-        //     usage: wgpu::BufferUsage::UNIFORM
-        //         | wgpu::BufferUsage::COPY_SRC
-        //         | wgpu::BufferUsage::COPY_DST,
-        // });
-
-        // let spot_light_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-        //     label: Some("spot_light_buffer"),
-        //     mapped_at_creation: false,
-        //     size: (State::MAX_SPOT_LIGHTS * std::mem::size_of::<SpotLightRaw>())
-        //         as wgpu::BufferAddress,
-        //     usage: wgpu::BufferUsage::UNIFORM
-        //         | wgpu::BufferUsage::COPY_SRC
-        //         | wgpu::BufferUsage::COPY_DST,
-        // });
 
         let light_bind_group_layout = Self::get_layout(&device);
 
@@ -102,5 +80,49 @@ impl<'a> HorizonBindGroup<'a> for LightBindGroup {
         let light_bind_group_container =
             BindGroupContainer::new(light_bind_group_layout, light_bind_group);
         light_bind_group_container
+    }
+
+    fn get_binding_resources(
+        device: &wgpu::Device,
+        resource_container: &mut crate::resources::bindingresourcecontainer::BindingResourceContainer,
+    ) {
+        let directional_light_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("directional_light_buffer"),
+            mapped_at_creation: false,
+            size: std::mem::size_of::<DirectionalLightRaw>() as wgpu::BufferAddress,
+            usage: wgpu::BufferUsage::UNIFORM
+                | wgpu::BufferUsage::COPY_SRC
+                | wgpu::BufferUsage::COPY_DST,
+        });
+        let point_light_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("point_light_buffer"),
+            mapped_at_creation: false,
+
+            size: (State::MAX_POINT_LIGHTS * std::mem::size_of::<PointLightRaw>())
+                as wgpu::BufferAddress,
+            usage: wgpu::BufferUsage::UNIFORM
+                | wgpu::BufferUsage::COPY_SRC
+                | wgpu::BufferUsage::COPY_DST,
+        });
+
+        let spot_light_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("spot_light_buffer"),
+            mapped_at_creation: false,
+            size: (State::MAX_SPOT_LIGHTS * std::mem::size_of::<SpotLightRaw>())
+                as wgpu::BufferAddress,
+            usage: wgpu::BufferUsage::UNIFORM
+                | wgpu::BufferUsage::COPY_SRC
+                | wgpu::BufferUsage::COPY_DST,
+        });
+        resource_container.buffers.insert(
+            String::from("directional_light_buffer"),
+            directional_light_buffer,
+        );
+        resource_container
+            .buffers
+            .insert(String::from("spot_light_buffer"), spot_light_buffer);
+        resource_container
+            .buffers
+            .insert(String::from("point_light_buffer"), point_light_buffer);
     }
 }

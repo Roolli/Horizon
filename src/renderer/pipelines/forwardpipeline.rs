@@ -11,9 +11,9 @@ pub struct ForwardPipeline;
 
 impl<'a> HorizonPipeline<'a> for ForwardPipeline {
     type RequiredLayouts = (
-        &'a BindGroupContainer,
-        &'a BindGroupContainer,
-        &'a BindGroupContainer,
+        &'a wgpu::BindGroupLayout,
+        &'a wgpu::BindGroupLayout,
+        &'a wgpu::BindGroupLayout,
     );
 
     fn create_pipeline(
@@ -25,11 +25,7 @@ impl<'a> HorizonPipeline<'a> for ForwardPipeline {
 
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                bind_group_layouts: &[
-                    &diffuse_bind_group.layout,
-                    &uniform_bind_group.layout,
-                    &light_bind_group.layout,
-                ],
+                bind_group_layouts: &[&diffuse_bind_group, &uniform_bind_group, &light_bind_group],
                 label: Some("Render pipeline layout"),
                 push_constant_ranges: &[],
             });
@@ -46,8 +42,9 @@ impl<'a> HorizonPipeline<'a> for ForwardPipeline {
             entry_point: "main",
             module: &vs_module,
         };
+        let view_targets = &[swap_chain_desc.format.into()];
         let fragment_state = Some(wgpu::FragmentState {
-            targets: &[swap_chain_desc.format.into()],
+            targets: view_targets,
             module: &fs_module,
             entry_point: "main",
         });

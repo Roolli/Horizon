@@ -8,14 +8,10 @@ use crate::{
     resources::camera::Camera,
 };
 
-use specs::{Component, VecStorage};
+use specs::{Component, HashMapStorage};
 
 #[derive(Component)]
-#[storage(VecStorage)]
-pub struct LightHandle {
-    pub index: usize,
-}
-
+#[storage(HashMapStorage)]
 pub struct DirectionalLight {
     pub direction: glm::Vec3,
     color: wgpu::Color,
@@ -71,14 +67,14 @@ impl DirectionalLight {
             glm::Vec4::new(x_far, -y_far, zfar, 1.0),
             glm::Vec4::new(-x_far, -y_far, zfar, 1.0),
         ];
-        let frustum_corners_l: Vec<glm::Vec4> = Vec::new();
+        let mut frustum_corners_l: Vec<glm::Vec4> = Vec::new();
 
-        let min_x = f32::MAX;
-        let min_y = f32::MAX;
-        let min_z = f32::MAX;
-        let max_x = f32::MIN;
-        let max_y = f32::MIN;
-        let max_z = f32::MIN;
+        let mut min_x = f32::MAX;
+        let mut min_y = f32::MAX;
+        let mut min_z = f32::MAX;
+        let mut max_x = f32::MIN;
+        let mut max_y = f32::MIN;
+        let mut max_z = f32::MIN;
         for i in 0..8 {
             // world space
             let vw = cam_inverse * frustum_corners[i];

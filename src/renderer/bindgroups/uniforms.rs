@@ -1,5 +1,7 @@
 use super::HorizonBindGroup;
-use crate::renderer::bindgroups::BindGroupContainer;
+use crate::renderer::{
+    bindgroups::BindGroupContainer, primitives::uniforms::Globals, state::State,
+};
 
 use specs::*;
 #[derive(Component, Default)]
@@ -78,51 +80,6 @@ impl<'a> HorizonBindGroup<'a> for UniformBindGroup {
         let (sampler, texture_view, uniform_buffer, normal_buffer, instance_buffer) =
             binding_resources;
 
-        // let shadow_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-        //     label: Some("shadow"),
-        //     address_mode_u: wgpu::AddressMode::ClampToEdge,
-        //     address_mode_v: wgpu::AddressMode::ClampToEdge,
-        //     address_mode_w: wgpu::AddressMode::ClampToEdge,
-        //     mag_filter: wgpu::FilterMode::Linear,
-        //     min_filter: wgpu::FilterMode::Linear,
-        //     mipmap_filter: wgpu::FilterMode::Nearest,
-        //     compare: Some(wgpu::CompareFunction::LessEqual),
-        //     ..Default::default()
-        // });
-
-        // let shadow_texture = device.create_texture(&wgpu::TextureDescriptor {
-        //     size: State::SHADOW_SIZE,
-        //     dimension: wgpu::TextureDimension::D2,
-        //     format: wgpu::TextureFormat::Depth32Float,
-        //     usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::RENDER_ATTACHMENT,
-        //     label: Some("shadow texture"),
-        //     mip_level_count: 1,
-        //     sample_count: 1,
-        // });
-        // let shadow_view = shadow_texture.create_view(&wgpu::TextureViewDescriptor::default());
-
-        // let normal_matrix_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-        //     mapped_at_creation: false,
-        //     label: Some("model_matrix_buffer"),
-        //     usage: wgpu::BufferUsage::COPY_DST | wgpu::BufferUsage::STORAGE,
-        //     size: State::MAX_ENTITY_COUNT,
-        // });
-
-        // let instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-        //     label: Some("instance_buffer"),
-        //     usage: wgpu::BufferUsage::STORAGE | wgpu::BufferUsage::COPY_DST,
-        //     mapped_at_creation: false,
-        //     size: State::MAX_ENTITY_COUNT,
-        // });
-
-        // let uniform_size = std::mem::size_of::<Globals>() as wgpu::BufferAddress;
-        // let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-        //     usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-        //     label: Some("uniform_buffer"),
-        //     size: uniform_size,
-        //     mapped_at_creation: false,
-        // });
-
         let uniform_bind_group_layout = UniformBindGroup::get_layout(&device);
         let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("uniform_bind_group"),
@@ -154,5 +111,74 @@ impl<'a> HorizonBindGroup<'a> for UniformBindGroup {
         let uniform_bind_group_container =
             BindGroupContainer::new(uniform_bind_group_layout, uniform_bind_group);
         uniform_bind_group_container
+    }
+
+    fn get_binding_resources(
+        device: &wgpu::Device,
+        resource_container: &mut crate::resources::bindingresourcecontainer::BindingResourceContainer,
+    ) {
+        let shadow_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("shadow"),
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            compare: Some(wgpu::CompareFunction::LessEqual),
+            ..Default::default()
+        });
+
+        let shadow_texture = device.create_texture(&wgpu::TextureDescriptor {
+            size: State::SHADOW_SIZE,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Depth32Float,
+            usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::RENDER_ATTACHMENT,
+            label: Some("shadow texture"),
+            mip_level_count: 1,
+            sample_count: 1,
+        });
+
+        let shadow_view = shadow_texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+        let normal_matrix_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            mapped_at_creation: false,
+            label: Some("model_matrix_buffer"),
+            usage: wgpu::BufferUsage::COPY_DST | wgpu::BufferUsage::STORAGE,
+            size: State::MAX_ENTITY_COUNT,
+        });
+
+        let instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("instance_buffer"),
+            usage: wgpu::BufferUsage::STORAGE | wgpu::BufferUsage::COPY_DST,
+            mapped_at_creation: false,
+            size: State::MAX_ENTITY_COUNT,
+        });
+
+        let uniform_size = std::mem::size_of::<Globals>() as wgpu::BufferAddress;
+        let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+            label: Some("uniform_buffer"),
+            size: uniform_size,
+            mapped_at_creation: false,
+        });
+        resource_container
+            .samplers
+            .insert(String::from("shadow_sampler"), shadow_sampler);
+        resource_container
+            .textures
+            .insert(String::from("shadow_texture"), shadow_texture);
+        resource_container
+            .texture_views
+            .insert(String::from("shadow_view"), shadow_view);
+        resource_container
+            .buffers
+            .insert(String::from("normal_matrix_buffer"), normal_matrix_buffer);
+        resource_container
+            .buffers
+            .insert(String::from("instance_buffer"), instance_buffer);
+        resource_container
+            .buffers
+            .insert(String::from("uniform_buffer"), uniform_buffer);
     }
 }

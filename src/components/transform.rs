@@ -1,19 +1,23 @@
 use bytemuck::{Pod, Zeroable};
-use specs::{storage, Component, VecStorage};
+
+use specs::prelude::*;
+use specs::{Component, VecStorage};
 #[derive(Component, Copy, Clone)]
 #[storage(VecStorage)]
 pub struct Transform {
     pub position: glm::Vec3,
     pub rotation: glm::Quat,
     pub scale: glm::Vec3,
+    pub model: Entity,
 }
 
 impl Transform {
-    pub fn new(position: glm::Vec3, rotation: glm::Quat, scale: glm::Vec3) -> Self {
+    pub fn new(position: glm::Vec3, rotation: glm::Quat, scale: glm::Vec3, model: Entity) -> Self {
         Self {
             position,
             rotation,
             scale,
+            model,
         }
     }
     pub fn to_raw(&self) -> TransformRaw {

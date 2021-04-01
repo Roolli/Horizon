@@ -1,13 +1,11 @@
 use super::HorizonPipeline;
 use crate::renderer::bindgroupcontainer::BindGroupContainer;
-use crate::renderer::pipelines::RenderPipelineContainer;
+use crate::renderer::pipelines::RenderPipelineBuilder;
 use crate::renderer::primitives::texture::Texture;
 use crate::renderer::primitives::vertex::{ModelVertex, Vertex};
 use specs::*;
 
-#[derive(Component, Default)]
-#[storage(NullStorage)]
-pub struct ForwardPipeline;
+pub struct ForwardPipeline(pub wgpu::RenderPipeline);
 
 impl<'a> HorizonPipeline<'a> for ForwardPipeline {
     type RequiredLayouts = (
@@ -20,7 +18,7 @@ impl<'a> HorizonPipeline<'a> for ForwardPipeline {
         device: &wgpu::Device,
         swap_chain_desc: &wgpu::SwapChainDescriptor,
         bind_group_layouts: Self::RequiredLayouts,
-    ) -> super::RenderPipelineContainer {
+    ) -> wgpu::RenderPipeline {
         let (diffuse_bind_group, uniform_bind_group, light_bind_group) = bind_group_layouts;
 
         let render_pipeline_layout =
@@ -30,8 +28,13 @@ impl<'a> HorizonPipeline<'a> for ForwardPipeline {
                 push_constant_ranges: &[],
             });
 
-        let vs_module =
-            device.create_shader_module(&wgpu::include_spirv!("../../shaders/shader.vert.spv"));
+        let vs_module = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+            source: wgpu::util::make_spirv(include_bytes!("../../shaders/shader.vert.spv")),
+            flags: wgpu::ShaderFlags::empty(),
+            label: Some("Forward vertex shader"),
+        });
+        // let vs_module =
+        //     device.create_shader_module(&wgpu::include_spirv!("../../shaders/shader.vert.spv"));
         let fs_module = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
             source: wgpu::util::make_spirv(include_bytes!("../../shaders/shader.frag.spv")),
             flags: wgpu::ShaderFlags::empty(),
@@ -72,7 +75,7 @@ impl<'a> HorizonPipeline<'a> for ForwardPipeline {
             ..Default::default()
         };
 
-        RenderPipelineContainer::create_pipeline(
+        RenderPipelineBuilder::create_pipeline(
             fragment_state,
             primitve_state,
             vertex_state,

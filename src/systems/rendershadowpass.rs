@@ -6,7 +6,7 @@ use crate::{
         bindgroupcontainer::BindGroupContainer,
         bindgroups::shadow::ShadowBindGroup,
         model::{DrawModel, HorizonModel},
-        pipelines::{shadowpipeline::ShadowPipeline, RenderPipelineContainer},
+        pipelines::{shadowpipeline::ShadowPipeline, RenderPipelineBuilder},
         state::State,
     },
     resources::{
@@ -24,8 +24,7 @@ impl<'a> System<'a> for RenderShadowPass {
         ReadStorage<'a, Transform>,
         ReadStorage<'a, BindGroupContainer>,
         ReadStorage<'a, ShadowBindGroup>,
-        ReadStorage<'a, ShadowPipeline>,
-        ReadStorage<'a, RenderPipelineContainer>,
+        ReadExpect<'a, ShadowPipeline>,
     );
 
     fn run(
@@ -40,10 +39,9 @@ impl<'a> System<'a> for RenderShadowPass {
             bind_group_container,
             shadow_bind_group,
             shadow_pipeline,
-            pipeline_container,
         ): Self::SystemData,
     ) {
-        let cmd_encoder = &mut encoder.cmd_encoder;
+        let cmd_encoder = &mut encoder.get_encoder();
         cmd_encoder.push_debug_group("shadow pass");
         // copy the light's view matrix to the shadow uniform buffer
         let dir_light_buf = binding_resource_container
@@ -59,8 +57,8 @@ impl<'a> System<'a> for RenderShadowPass {
         let mut pass = cmd_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("shadow pass descriptor"),
             color_attachments: &[],
-            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                attachment: binding_resource_container
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                view: binding_resource_container
                     .texture_views
                     .get("shadow_view")
                     .unwrap(),
@@ -71,12 +69,7 @@ impl<'a> System<'a> for RenderShadowPass {
                 stencil_ops: None,
             }),
         });
-        let (_, shadow_pipeline) = (&shadow_pipeline, &pipeline_container)
-            .join()
-            .next()
-            .unwrap();
-
-        pass.set_pipeline(&shadow_pipeline.pipeline);
+        pass.set_pipeline(&shadow_pipeline.0);
         let (_, sh_pass_bind_group) = (&shadow_bind_group, &bind_group_container)
             .join()
             .next()
@@ -84,7 +77,7 @@ impl<'a> System<'a> for RenderShadowPass {
         pass.set_bind_group(0, &sh_pass_bind_group.bind_group, &[]);
         for (model, model_ent) in (&models, &*entities).join() {
             let mut instance_buffer = Vec::new();
-            for (entity, transform) in (&*entities, &transforms).join() {
+            for transform in transforms.join() {
                 if model_ent == transform.model {
                     instance_buffer.push(transform.to_raw());
                 }

@@ -21,8 +21,8 @@ struct SpotLight {
 };
 
 
-const int MAX_POINT_LIGHTS = 32;
-const int MAX_SPOT_LIGHTS = 32;
+const int MAX_POINT_LIGHTS = 16;
+const int MAX_SPOT_LIGHTS = 16;
 
 struct Light {
     mat4 u_projection;

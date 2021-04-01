@@ -108,9 +108,7 @@ impl<'a> HorizonBindGroup<'a> for UniformBindGroup {
             layout: &uniform_bind_group_layout,
         });
 
-        let uniform_bind_group_container =
-            BindGroupContainer::new(uniform_bind_group_layout, uniform_bind_group);
-        uniform_bind_group_container
+        BindGroupContainer::new(uniform_bind_group_layout, uniform_bind_group)
     }
 
     fn get_binding_resources(
@@ -139,7 +137,9 @@ impl<'a> HorizonBindGroup<'a> for UniformBindGroup {
             sample_count: 1,
         });
 
-        let shadow_view = shadow_texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let shadow_view = shadow_texture.create_view(&wgpu::TextureViewDescriptor {
+            ..Default::default()
+        });
 
         let normal_matrix_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             mapped_at_creation: false,
@@ -173,7 +173,7 @@ impl<'a> HorizonBindGroup<'a> for UniformBindGroup {
             .insert(String::from("shadow_view"), shadow_view);
         resource_container
             .buffers
-            .insert(String::from("normal_matrix_buffer"), normal_matrix_buffer);
+            .insert(String::from("normal_buffer"), normal_matrix_buffer);
         resource_container
             .buffers
             .insert(String::from("instance_buffer"), instance_buffer);

@@ -1,4 +1,6 @@
+use image::flat::View;
 use specs::prelude::*;
+use wgpu::SwapChainError;
 
 use crate::{
     components::transform::{Transform, TransformRaw},
@@ -6,11 +8,12 @@ use crate::{
         bindgroupcontainer::BindGroupContainer,
         bindgroups::{lighting::LightBindGroup, uniforms::UniformBindGroup},
         model::{DrawModel, HorizonModel},
-        pipelines::{forwardpipeline::ForwardPipeline, RenderPipelineContainer},
+        pipelines::{forwardpipeline::ForwardPipeline, RenderPipelineBuilder},
         state::State,
     },
     resources::{
         bindingresourcecontainer::BindingResourceContainer, commandencoder::HorizonCommandEncoder,
+        windowevents::ResizeEvent,
     },
 };
 pub struct RenderForwardPass;
@@ -23,11 +26,10 @@ impl<'a> System<'a> for RenderForwardPass {
         ReadStorage<'a, LightBindGroup>,
         ReadStorage<'a, UniformBindGroup>,
         ReadStorage<'a, BindGroupContainer>,
-        ReadStorage<'a, ForwardPipeline>,
-        ReadStorage<'a, RenderPipelineContainer>,
         ReadStorage<'a, Transform>,
         ReadStorage<'a, HorizonModel>,
         Entities<'a>,
+        ReadExpect<'a, ForwardPipeline>,
     );
 
     fn run(
@@ -39,41 +41,34 @@ impl<'a> System<'a> for RenderForwardPass {
             light_bind_group,
             uniform_bind_group,
             bind_group_containers,
-            forward_pipeline,
-            render_pipeline_container,
             transforms,
             models,
             entities,
+            forward_pipeline,
         ): Self::SystemData,
     ) {
-        let frame = &state.swap_chain.get_current_frame().unwrap().output;
-        let mut render_pass = encoder
-            .cmd_encoder
-            .begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("forward pass"),
-                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment: &frame.view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::RED),
-                        store: true,
-                    },
-                }],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                    attachment: &state.depth_texture.view,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
-                        store: false,
-                    }),
-                    stencil_ops: None,
+        let frame = state.swap_chain.get_current_frame().unwrap().output;
+        let cmd_encoder = encoder.get_encoder();
+        let mut render_pass = cmd_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("forward pass"),
+            color_attachments: &[wgpu::RenderPassColorAttachment {
+                view: &frame.view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::RED),
+                    store: true,
+                },
+            }],
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                view: &state.depth_texture.view,
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(1.0),
+                    store: false,
                 }),
-            });
-        let (_, forward_pipeline_container) = (&forward_pipeline, &render_pipeline_container)
-            .join()
-            .next()
-            .unwrap();
-
-        render_pass.set_pipeline(&forward_pipeline_container.pipeline);
+                stencil_ops: None,
+            }),
+        });
+        render_pass.set_pipeline(&forward_pipeline.0);
         // TODO: move this to it's own system
         for (model, model_ent) in (&models, &*entities).join() {
             let mut instance_buffer = Vec::new();
@@ -123,5 +118,6 @@ impl<'a> System<'a> for RenderForwardPass {
             }
         }
         drop(render_pass);
+        encoder.finish(&state.device, &state.queue);
     }
 }

@@ -1,8 +1,8 @@
 #version 450
 #extension GL_EXT_scalar_block_layout: require
 
-const int MAX_POINT_LIGHTS = 32;
-const int MAX_SPOT_LIGHTS = 32;
+const int MAX_POINT_LIGHTS = 16;
+const int MAX_SPOT_LIGHTS = 16;
 
 struct DirectionalLight {
     mat4 dl_projection;

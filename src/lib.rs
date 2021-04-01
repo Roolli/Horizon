@@ -31,10 +31,15 @@ use renderer::{
 };
 use resources::{
     bindingresourcecontainer::BindingResourceContainer, camera::Camera,
-    commandencoder::HorizonCommandEncoder,
+    commandencoder::HorizonCommandEncoder, windowevents::ResizeEvent,
 };
-use specs::{Builder, DispatcherBuilder, World, WorldExt};
-use systems::physics::{Physics, PhysicsWorld};
+use specs::{Builder, Dispatcher, DispatcherBuilder, World, WorldExt};
+use systems::{
+    physics::{Physics, PhysicsWorld},
+    renderforwardpass::RenderForwardPass,
+    rendershadowpass::RenderShadowPass,
+    resize::Resize,
+};
 
 mod filesystem;
 mod renderer;
@@ -65,7 +70,7 @@ pub fn setup() {
         .with_title("horizon")
         .build(&event_loop)
         .unwrap();
-    let mut state;
+
     #[cfg(target_arch = "wasm32")]
     {
         console_log::init().expect("failed to initialize logger");
@@ -78,63 +83,82 @@ pub fn setup() {
             .ok();
         std::panic::set_hook(Box::new(console_error_panic_hook::hook));
         wasm_bindgen_futures::spawn_local(async move {
-            state = State::new(&window).await;
-            let world = setup_ecs(state);
-            run(event_loop, window);
+            let state = State::new(&window).await;
+            let mut world = setup_ecs(state);
+            create_debug_scene(&mut world.0).await;
+            run(event_loop, window, world);
         });
     }
 
     #[cfg(not(target_arch = "wasm32"))]
     {
         env_logger::init();
-        state = block_on(State::new(&window));
-        let world = setup_ecs(state);
-        run(event_loop, window);
+        let state = block_on(State::new(&window));
+        let mut ecs = setup_ecs(state);
+        // ! for now block
+        block_on(create_debug_scene(&mut ecs.0));
+        run(event_loop, window, ecs);
     }
 }
-fn run(event_loop: EventLoop<()>, window: winit::window::Window) {
+fn run(
+    event_loop: EventLoop<()>,
+    window: winit::window::Window,
+    mut ecs: (specs::World, specs::Dispatcher<'static, 'static>),
+) {
     log::info!("running event loop");
 
-    event_loop.run(move |event, _, control_flow| match event {
-        Event::WindowEvent {
-            window_id,
-            ref event,
-        } if window_id == window.id() => {
-            match event {
-                WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
-
-                WindowEvent::KeyboardInput { input, .. } => {
-                    if let KeyboardInput {
-                        state: ElementState::Pressed,
-                        virtual_keycode: Some(VirtualKeyCode::Escape),
-                        ..
-                    } = input
-                    {
-                        *control_flow = ControlFlow::Exit
+    event_loop.run(move |event, _, control_flow| {
+        // take ownership of ecs
+        let _ = &ecs;
+        match event {
+            Event::WindowEvent {
+                window_id,
+                ref event,
+            } if window_id == window.id() => {
+                match event {
+                    WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+                    //TODO: add keyboard and mouse resources
+                    WindowEvent::KeyboardInput { input, .. } => {
+                        if let KeyboardInput {
+                            state: ElementState::Pressed,
+                            virtual_keycode: Some(VirtualKeyCode::Escape),
+                            ..
+                        } = input
+                        {
+                            *control_flow = ControlFlow::Exit
+                        }
                     }
+                    WindowEvent::Resized(physical_size) => {
+                        let mut resize_event = ecs.0.write_resource::<ResizeEvent>();
+                        resize_event.new_size = *physical_size;
+                        resize_event.handled = false;
+                        //state.resize(*physical_size);
+                    }
+                    WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                        //state.resize(**new_inner_size);
+                        let mut resize_event = ecs.0.write_resource::<ResizeEvent>();
+                        resize_event.new_size = **new_inner_size;
+                        resize_event.handled = false;
+                    }
+                    _ => {}
                 }
-                WindowEvent::Resized(physical_size) => {
-                    //state.resize(*physical_size);
-                }
-                WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                    //state.resize(**new_inner_size);
-                }
-                _ => {}
             }
+            Event::RedrawRequested(_) => {
+                ecs.1.dispatch(&ecs.0);
+                //TODO: handle events related to wgpu errors
+                // Err(wgpu::SwapChainError::OutOfMemory) => *control_flow = ControlFlow::Exit,
+                // Err(wgpu::SwapChainError::Lost) => state.resize(state.size),
+                // Err(e) => log::error!("{:?}", e),
+            }
+            Event::MainEventsCleared => {
+                window.request_redraw();
+            }
+            _ => {}
         }
-        Event::RedrawRequested(_) => {
-            // Err(wgpu::SwapChainError::OutOfMemory) => *control_flow = ControlFlow::Exit,
-            // Err(wgpu::SwapChainError::Lost) => state.resize(state.size),
-            // Err(e) => log::error!("{:?}", e),
-        }
-        Event::MainEventsCleared => {
-            window.request_redraw();
-        }
-        _ => {}
     });
 }
 /// Initializes a new ECS container (World) and registers the components, creates the dependency chain for the system and sets up resources.
-fn setup_ecs(state: State) -> World {
+fn setup_ecs<'a, 'b>(state: State) -> (World, Dispatcher<'a, 'b>) {
     let mut world = World::new();
     world.insert(state);
 
@@ -144,12 +168,17 @@ fn setup_ecs(state: State) -> World {
 
     let mut dispatcher = DispatcherBuilder::new()
         .with(Physics, stringify!(Physics), &[])
+        .with_thread_local(Resize)
+        .with_thread_local(RenderShadowPass)
+        .with_thread_local(RenderForwardPass)
         .build();
     dispatcher.setup(&mut world);
-    world
+
+    (world, dispatcher)
 }
 fn register_resources(world: &mut World) {
     let state = world.read_resource::<State>();
+    let size = state.size;
     let encoder = state
         .device
         .create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -159,19 +188,21 @@ fn register_resources(world: &mut World) {
     let model_builder = ModelBuilder::new(&state.device, importer);
     drop(state);
     world.insert(model_builder);
+    world.insert(ResizeEvent {
+        new_size: size,
+        handled: false,
+    });
     world.insert(PhysicsWorld::new(glm::Vec3::y() * -9.81));
     world.insert(BindingResourceContainer::default());
 
     world.insert(HorizonCommandEncoder::new(encoder));
 }
 fn register_components(mut world: &mut World) {
+    world.register::<DirectionalLight>();
     world.register::<BindGroupContainer>();
-    world.register::<ShadowPipeline>();
     world.register::<ShadowBindGroup>();
-    world.register::<ForwardPipeline>();
     world.register::<UniformBindGroup>();
     world.register::<LightBindGroup>();
-    world.register::<LightPipeline>();
 
     setup_pipelines(&mut world);
 }
@@ -258,30 +289,18 @@ fn setup_pipelines(world: &mut World) {
         &state.sc_descriptor,
         &shadow_container.layout,
     );
+
     let light_pipeline = LightPipeline::create_pipeline(
         &state.device,
         &state.sc_descriptor,
         (&uniform_container.layout, &light_container.layout),
     );
+
     drop(state);
     drop(binding_resource_container);
-
-    world
-        .create_entity()
-        .with(ForwardPipeline)
-        .with(forward_pipeline)
-        .build();
-    world
-        .create_entity()
-        .with(ShadowPipeline)
-        .with(shadow_pipeline)
-        .build();
-    world
-        .create_entity()
-        .with(LightPipeline)
-        .with(light_pipeline)
-        .build();
-
+    world.insert(LightPipeline(light_pipeline));
+    world.insert(ForwardPipeline(forward_pipeline));
+    world.insert(ShadowPipeline(shadow_pipeline));
     world
         .create_entity()
         .with(UniformBindGroup)
@@ -415,9 +434,4 @@ async fn create_debug_scene(world: &mut World) {
             .with(*physics_handle)
             .build();
     }
-    let instance_data = instances.iter().map(Transform::to_raw).collect::<Vec<_>>();
-    let normal_matricies = instance_data
-        .iter()
-        .map(TransformRaw::get_normal_matrix)
-        .collect::<Vec<_>>();
 }

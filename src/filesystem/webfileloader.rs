@@ -7,12 +7,12 @@ use super::fileloader::FileLoader;
 
 #[cfg(target_arch = "wasm32")]
 pub struct WebFileLoader {
-    base_url: &'static str,
+    base_url: String,
 }
 
 #[cfg(target_arch = "wasm32")]
 impl WebFileLoader {
-    pub fn new(base_path: &'static str) -> Self {
+    pub fn new(base_path: String) -> Self {
         Self {
             base_url: base_path,
         }

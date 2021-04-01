@@ -1,4 +1,4 @@
-use crate::renderer::pipelines::RenderPipelineContainer;
+use crate::renderer::pipelines::RenderPipelineBuilder;
 use crate::renderer::primitives::vertex::{ModelVertex, Vertex};
 use wgpu::{BindGroupLayout, ShaderFlags};
 
@@ -8,9 +8,7 @@ use crate::renderer::primitives::texture::Texture;
 
 use specs::{Component, NullStorage};
 
-#[derive(Component, Default)]
-#[storage(NullStorage)]
-pub struct LightPipeline;
+pub struct LightPipeline(pub wgpu::RenderPipeline);
 
 impl<'a> HorizonPipeline<'a> for LightPipeline {
     type RequiredLayouts = (&'a BindGroupLayout, &'a BindGroupLayout);
@@ -19,7 +17,7 @@ impl<'a> HorizonPipeline<'a> for LightPipeline {
         device: &wgpu::Device,
         swap_chain_desc: &wgpu::SwapChainDescriptor,
         bind_group_layouts: Self::RequiredLayouts,
-    ) -> super::RenderPipelineContainer {
+    ) -> wgpu::RenderPipeline {
         let (uniform_bind_group, light_bind_group) = bind_group_layouts;
         let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Light Pipeline"),
@@ -70,7 +68,7 @@ impl<'a> HorizonPipeline<'a> for LightPipeline {
             stencil: wgpu::StencilState::default(),
         };
 
-        RenderPipelineContainer::create_pipeline(
+        RenderPipelineBuilder::create_pipeline(
             fragment_state,
             primitve_state,
             vertex_state,

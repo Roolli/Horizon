@@ -9,14 +9,11 @@ pub trait HorizonPipeline<'a> {
         device: &wgpu::Device,
         swap_chain_desc: &wgpu::SwapChainDescriptor,
         bind_group_layouts: Self::RequiredLayouts,
-    ) -> RenderPipelineContainer;
+    ) -> wgpu::RenderPipeline;
 }
-#[derive(Component)]
-#[storage(VecStorage)]
-pub struct RenderPipelineContainer {
-    pub pipeline: wgpu::RenderPipeline,
-}
-impl RenderPipelineContainer {
+pub struct RenderPipelineBuilder;
+
+impl RenderPipelineBuilder {
     pub fn create_pipeline(
         fragment_state: Option<wgpu::FragmentState>,
         primitve_state: wgpu::PrimitiveState,
@@ -25,8 +22,8 @@ impl RenderPipelineContainer {
         pipeline_layout: &wgpu::PipelineLayout,
         label: Option<&str>,
         depth_stencil_state: Option<wgpu::DepthStencilState>,
-    ) -> Self {
-        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+    ) -> wgpu::RenderPipeline {
+        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label,
             layout: Some(&pipeline_layout),
             vertex,
@@ -36,7 +33,6 @@ impl RenderPipelineContainer {
                 ..Default::default()
             },
             depth_stencil: depth_stencil_state,
-        });
-        Self { pipeline }
+        })
     }
 }

@@ -62,7 +62,8 @@ impl State {
         [0.0, 0.0, 0.5, 0.0],
         [0.0, 0.0, 0.5, 1.0],
     ];
-    pub const MAX_ENTITY_COUNT: wgpu::BufferAddress = (u16::MAX / 4) as wgpu::BufferAddress;
+    pub const MAX_ENTITY_COUNT: wgpu::BufferAddress =
+        (std::mem::size_of::<TransformRaw>() * ((u16::MAX / 2) as usize)) as wgpu::BufferAddress;
     pub const MAX_POINT_LIGHTS: usize = 32;
     pub const MAX_SPOT_LIGHTS: usize = 32;
     pub const SHADOW_SIZE: wgpu::Extent3d = wgpu::Extent3d {
@@ -118,16 +119,7 @@ impl State {
         }
     }
 
-    pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
-        self.size = new_size;
-        self.sc_descriptor.height = new_size.height;
-        self.sc_descriptor.width = new_size.width;
-        self.depth_texture =
-            Texture::create_depth_texture(&self.device, &self.sc_descriptor, "depth_texture");
-        self.swap_chain = self
-            .device
-            .create_swap_chain(&self.surface, &self.sc_descriptor);
-    }
+    pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {}
     pub fn input(&mut self, event: &WindowEvent) -> bool {
         match event {
             WindowEvent::CursorMoved { position, .. } => true,
@@ -206,31 +198,31 @@ impl State {
         // }
         // encoder.pop_debug_group();
 
-        // // {
-        // //     let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-        // //         color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-        // //             attachment: &frame.view,
-        // //             resolve_target: None,
-        // //             ops: wgpu::Operations {
-        // //                 load: wgpu::LoadOp::Clear(wgpu::Color {
-        // //                     r: 0.1,
-        // //                     g: 0.2,
-        // //                     b: 0.3,
-        // //                     a: 1.0,
-        // //                 }),
-        // //                 store: true,
-        // //             },
-        // //         }],
-        // //         depth_stencil_attachment: None,
-        // //         label: Some("texture renderer"),
-        // //     });
-        // //     render_pass.set_pipeline(&self.texture_renderer.render_pipeline);
-        // //     render_pass.set_bind_group(0, &self.texture_renderer.bind_group, &[]);
-        // //     render_pass.set_vertex_buffer(0, self.texture_renderer.quad.slice(..));
-        // //     render_pass.draw(0..TextureRenderer::QUAD_VERTEX_ARRAY.len() as u32, 0..1);
-        // // }
+        // {
+        //     let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        //         color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+        //             attachment: &frame.view,
+        //             resolve_target: None,
+        //             ops: wgpu::Operations {
+        //                 load: wgpu::LoadOp::Clear(wgpu::Color {
+        //                     r: 0.1,
+        //                     g: 0.2,
+        //                     b: 0.3,
+        //                     a: 1.0,
+        //                 }),
+        //                 store: true,
+        //             },
+        //         }],
+        //         depth_stencil_attachment: None,
+        //         label: Some("texture renderer"),
+        //     });
+        //     render_pass.set_pipeline(&self.texture_renderer.render_pipeline);
+        //     render_pass.set_bind_group(0, &self.texture_renderer.bind_group, &[]);
+        //     render_pass.set_vertex_buffer(0, self.texture_renderer.quad.slice(..));
+        //     render_pass.draw(0..TextureRenderer::QUAD_VERTEX_ARRAY.len() as u32, 0..1);
+        // }
 
-        // self.queue.submit(std::iter::once(encoder.finish()));
+        //
 
         // let now = chrono::offset::Utc::now();
         // self.total_frame_time = self.total_frame_time.add(Duration::nanoseconds(

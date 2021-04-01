@@ -1,13 +1,11 @@
 use super::HorizonPipeline;
 use crate::renderer::bindgroupcontainer::BindGroupContainer;
-use crate::renderer::pipelines::RenderPipelineContainer;
+use crate::renderer::pipelines::RenderPipelineBuilder;
 use crate::renderer::primitives::vertex::{ModelVertex, Vertex};
 use specs::{Component, NullStorage};
 use wgpu::BindGroupLayout;
 
-#[derive(Component, Default)]
-#[storage(NullStorage)]
-pub struct ShadowPipeline;
+pub struct ShadowPipeline(pub wgpu::RenderPipeline);
 
 impl<'a> HorizonPipeline<'a> for ShadowPipeline {
     type RequiredLayouts = &'a BindGroupLayout;
@@ -16,7 +14,7 @@ impl<'a> HorizonPipeline<'a> for ShadowPipeline {
         device: &wgpu::Device,
         swap_chain_desc: &wgpu::SwapChainDescriptor,
         bind_group_layouts: Self::RequiredLayouts,
-    ) -> super::RenderPipelineContainer {
+    ) -> wgpu::RenderPipeline {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("shadow"),
             bind_group_layouts: &[&bind_group_layouts],
@@ -54,7 +52,7 @@ impl<'a> HorizonPipeline<'a> for ShadowPipeline {
             polygon_mode: wgpu::PolygonMode::Fill,
             ..Default::default()
         };
-        RenderPipelineContainer::create_pipeline(
+        RenderPipelineBuilder::create_pipeline(
             None,
             primitve_state,
             vertex_state,

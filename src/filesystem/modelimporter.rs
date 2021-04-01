@@ -72,6 +72,7 @@ impl Default for Importer {
         let win: Window = web_sys::window().unwrap();
         let doc = win.document().unwrap();
         use crate::filesystem::webfileloader::WebFileLoader;
-        Importer::new(Box::new(WebFileLoader::new(doc.url.unwrap())))
+        let url = doc.url().unwrap().clone();
+        Importer::new(Box::new(WebFileLoader::new(url)))
     }
 }

@@ -41,7 +41,7 @@ impl<'a> System<'a> for RenderShadowPass {
             shadow_pipeline,
         ): Self::SystemData,
     ) {
-        let cmd_encoder = &mut encoder.get_encoder();
+        let cmd_encoder = encoder.get_encoder();
         cmd_encoder.push_debug_group("shadow pass");
         // copy the light's view matrix to the shadow uniform buffer
         let dir_light_buf = binding_resource_container
@@ -90,23 +90,12 @@ impl<'a> System<'a> for RenderShadowPass {
                 0,
                 bytemuck::cast_slice(&instance_buffer),
             );
-            let normal_matricies = instance_buffer
-                .iter()
-                .map(TransformRaw::get_normal_matrix)
-                .collect::<Vec<_>>();
-            state.queue.write_buffer(
-                binding_resource_container
-                    .buffers
-                    .get("normal_buffer")
-                    .unwrap(),
-                0,
-                bytemuck::cast_slice(&normal_matricies),
-            );
             for mesh in &model.meshes {
                 pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
                 pass.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
                 pass.draw_indexed(0..mesh.element_count, 0, 0..instance_buffer.len() as u32);
             }
         }
+        drop(pass);
     }
 }

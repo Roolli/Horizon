@@ -57,7 +57,7 @@ impl<'a> HorizonBindGroup<'a> for UniformBindGroup {
                     ty: wgpu::BindingType::Texture {
                         multisampled: false,
                         sample_type: wgpu::TextureSampleType::Depth,
-                        view_dimension: wgpu::TextureViewDimension::D2Array,
+                        view_dimension: wgpu::TextureViewDimension::D2,
                     },
                 },
                 wgpu::BindGroupLayoutEntry {

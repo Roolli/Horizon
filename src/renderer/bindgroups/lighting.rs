@@ -30,7 +30,7 @@ impl<'a> HorizonBindGroup<'a> for LightBindGroup {
                     binding: 1,
                     visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
                     ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
                         has_dynamic_offset: false,
                         min_binding_size: None,
                     },
@@ -40,7 +40,7 @@ impl<'a> HorizonBindGroup<'a> for LightBindGroup {
                     binding: 2,
                     visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
                     ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
                         has_dynamic_offset: false,
                         min_binding_size: None,
                     },
@@ -77,9 +77,8 @@ impl<'a> HorizonBindGroup<'a> for LightBindGroup {
                 },
             ],
         });
-        let light_bind_group_container =
-            BindGroupContainer::new(light_bind_group_layout, light_bind_group);
-        light_bind_group_container
+
+        BindGroupContainer::new(light_bind_group_layout, light_bind_group)
     }
 
     fn get_binding_resources(
@@ -100,7 +99,7 @@ impl<'a> HorizonBindGroup<'a> for LightBindGroup {
 
             size: (State::MAX_POINT_LIGHTS * std::mem::size_of::<PointLightRaw>())
                 as wgpu::BufferAddress,
-            usage: wgpu::BufferUsage::UNIFORM
+            usage: wgpu::BufferUsage::STORAGE
                 | wgpu::BufferUsage::COPY_SRC
                 | wgpu::BufferUsage::COPY_DST,
         });
@@ -110,7 +109,7 @@ impl<'a> HorizonBindGroup<'a> for LightBindGroup {
             mapped_at_creation: false,
             size: (State::MAX_SPOT_LIGHTS * std::mem::size_of::<SpotLightRaw>())
                 as wgpu::BufferAddress,
-            usage: wgpu::BufferUsage::UNIFORM
+            usage: wgpu::BufferUsage::STORAGE
                 | wgpu::BufferUsage::COPY_SRC
                 | wgpu::BufferUsage::COPY_DST,
         });

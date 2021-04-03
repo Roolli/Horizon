@@ -15,6 +15,7 @@ use renderer::{
         lighting::LightBindGroup, shadow::ShadowBindGroup, uniforms::UniformBindGroup,
         HorizonBindGroup,
     },
+    model::HorizonModel,
     modelbuilder::ModelBuilder,
     pipelines::{
         forwardpipeline::ForwardPipeline, lightpipeline::LightPipeline,
@@ -23,8 +24,8 @@ use renderer::{
     primitives::{
         lights::{
             directionallight::{DirectionalLight, DirectionalLightRaw},
-            pointlight::PointLightRaw,
-            spotlight::SpotLightRaw,
+            pointlight::{PointLight, PointLightRaw},
+            spotlight::{SpotLight, SpotLightRaw},
         },
         uniforms::Globals,
     },
@@ -39,6 +40,7 @@ use systems::{
     renderforwardpass::RenderForwardPass,
     rendershadowpass::RenderShadowPass,
     resize::Resize,
+    updatebuffers::UpdateBuffers,
 };
 
 mod filesystem;
@@ -169,6 +171,7 @@ fn setup_ecs<'a, 'b>(state: State) -> (World, Dispatcher<'a, 'b>) {
     let mut dispatcher = DispatcherBuilder::new()
         .with(Physics, stringify!(Physics), &[])
         .with_thread_local(Resize)
+        .with_thread_local(UpdateBuffers)
         .with_thread_local(RenderShadowPass)
         .with_thread_local(RenderForwardPass)
         .build();
@@ -198,12 +201,10 @@ fn register_resources(world: &mut World) {
     world.insert(HorizonCommandEncoder::new(encoder));
 }
 fn register_components(mut world: &mut World) {
-    world.register::<DirectionalLight>();
     world.register::<BindGroupContainer>();
     world.register::<ShadowBindGroup>();
     world.register::<UniformBindGroup>();
     world.register::<LightBindGroup>();
-
     setup_pipelines(&mut world);
 }
 
@@ -322,18 +323,16 @@ fn setup_pipelines(world: &mut World) {
 async fn create_debug_scene(world: &mut World) {
     // TODO: Change to some sort of IoC container where it resolves based on current arch.
     const NUM_INSTANCES_PER_ROW: u32 = 15;
-    world
-        .create_entity()
-        .with(DirectionalLight::new(
-            glm::vec3(-100000.0, 500000.0, 100000.0),
-            wgpu::Color {
-                r: 1.0,
-                g: 0.5,
-                b: 1.0,
-                a: 1.0,
-            },
-        ))
-        .build();
+    //TODO: Change dir light to resource since there's only one at any given time.
+    world.insert(DirectionalLight::new(
+        glm::vec3(1.0, -1.0, 0.0),
+        wgpu::Color {
+            r: 1.0,
+            g: 0.5,
+            b: 1.0,
+            a: 1.0,
+        },
+    ));
 
     let state = world.write_resource::<State>();
     // CAMERA
@@ -344,10 +343,10 @@ async fn create_debug_scene(world: &mut World) {
         aspect_ratio: state.sc_descriptor.width as f32 / state.sc_descriptor.height as f32,
         fov_y: 90.0,
         z_near: 0.1,
-        z_far: 300.0,
+        z_far: 200.0,
     };
 
-    // MODEL LOADING
+    //    MODEL LOADING
 
     let obj_model = world
         .read_resource::<ModelBuilder>()
@@ -360,6 +359,29 @@ async fn create_debug_scene(world: &mut World) {
     let mut globals = Globals::new(0, 0);
     globals.update_view_proj_matrix(&cam);
     let model_entity = world.create_entity().with(obj_model).build();
+    world
+        .create_entity()
+        .with(SpotLight::new(
+            glm::vec3(0.0, 0.0, 0.0),
+            glm::Mat4::identity(),
+            wgpu::Color::BLUE,
+            1.0,
+            0.4,
+            0.6,
+            20.0,
+            40.0,
+        ))
+        .build();
+    world
+        .create_entity()
+        .with(PointLight::new(
+            glm::vec3(0.0, 0.0, 0.0),
+            wgpu::Color::BLUE,
+            1.0,
+            0.4,
+            0.6,
+        ))
+        .build();
     world.insert(globals);
     world.insert(cam);
     // INSTANCING
@@ -376,7 +398,7 @@ async fn create_debug_scene(world: &mut World) {
                 } else {
                     glm::quat_angle_axis(f32::to_radians(45.0), &pos.clone().normalize())
                 };
-                Transform::new(pos, rot, glm::vec3(1.0, 1.0, 1.0), model_entity.clone())
+                Transform::new(pos, rot, glm::vec3(1.0, 1.0, 1.0), model_entity)
             })
         })
         .collect::<Vec<_>>();
@@ -423,10 +445,18 @@ async fn create_debug_scene(world: &mut World) {
             ))
             .build(),
     );
-    physicsworld.add_collider(ground_shape, ground_handle);
+    let ground_collider = physicsworld.add_collider(ground_shape, ground_handle);
 
     drop(physicsworld); // have to drop this to get world as mutable
                         // create the entities themselves.
+    world
+        .create_entity()
+        .with(plane)
+        .with(PhysicsHandle {
+            collider_handle: ground_collider,
+            rigid_body_handle: ground_handle,
+        })
+        .build();
     for (transform, physics_handle) in instances.iter().zip(physics_handles.iter()) {
         world
             .create_entity()

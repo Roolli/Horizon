@@ -10,7 +10,7 @@ impl<'a> HorizonBindGroup<'a> for ShadowBindGroup {
     type BindingResources = (&'a wgpu::Buffer, &'a wgpu::Buffer);
     fn get_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
         device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: None,
+            label: Some("shadow_bind_group_layout"),
             entries: &[
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
@@ -41,7 +41,6 @@ impl<'a> HorizonBindGroup<'a> for ShadowBindGroup {
     ) -> crate::renderer::bindgroupcontainer::BindGroupContainer {
         let shadow_bind_group_layout = Self::get_layout(&device);
         let (shadow_uniform_buffer, instance_buffer) = binding_resources;
-        // ! move
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &shadow_bind_group_layout,
@@ -55,7 +54,7 @@ impl<'a> HorizonBindGroup<'a> for ShadowBindGroup {
                     resource: instance_buffer.as_entire_binding(),
                 },
             ],
-            label: None,
+            label: Some("shadow_bind_group"),
         });
 
         BindGroupContainer::new(shadow_bind_group_layout, bind_group)

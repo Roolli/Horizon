@@ -63,13 +63,13 @@ impl State {
         [0.0, 0.0, 0.5, 1.0],
     ];
     pub const MAX_ENTITY_COUNT: wgpu::BufferAddress =
-        (std::mem::size_of::<TransformRaw>() * ((u16::MAX / 2) as usize)) as wgpu::BufferAddress;
-    pub const MAX_POINT_LIGHTS: usize = 32;
-    pub const MAX_SPOT_LIGHTS: usize = 32;
+        (std::mem::size_of::<TransformRaw>() * 2048) as wgpu::BufferAddress;
+    pub const MAX_POINT_LIGHTS: usize = 16;
+    pub const MAX_SPOT_LIGHTS: usize = 16;
     pub const SHADOW_SIZE: wgpu::Extent3d = wgpu::Extent3d {
-        depth_or_array_layers: Self::MAX_POINT_LIGHTS as u32,
+        depth_or_array_layers: 1,
         height: 1024,
-        width: 1024,
+        width: 4096,
     };
     pub async fn new(window: &Window) -> Self {
         let size = window.inner_size();
@@ -119,7 +119,6 @@ impl State {
         }
     }
 
-    pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {}
     pub fn input(&mut self, event: &WindowEvent) -> bool {
         match event {
             WindowEvent::CursorMoved { position, .. } => true,
@@ -146,83 +145,6 @@ impl State {
     pub fn update(&mut self) {}
     pub fn render(&mut self) -> Result<(), wgpu::SwapChainError> {
         Ok(())
-        // encoder.push_debug_group("shadow passes");
-
-        // for (i, light) in self.lights.iter().enumerate() {
-        //     // copy light's viewproj matrix to shadow uniform
-        //     encoder.copy_buffer_to_buffer(
-        //         &self.light_buffer,
-        //         (i * std::mem::size_of::<DirectionalLightRaw>()) as wgpu::BufferAddress,
-        //         &self.shadow_pass.uniform_buffer,
-        //         0,
-        //         64,
-        //     );
-
-        //     // render entities from each of the light's point of view
-        //     encoder.insert_debug_marker("render entities");
-        //     {
-        //         let mut pass = encoder.begin_render_pass();
-        //         pass.set_pipeline(&self.shadow_pass.pipeline);
-        //         pass.set_bind_group(0, &self.shadow_pass.bind_group, &[]);
-
-        //         let mesh = &self.obj_model.meshes[0]; // we assume there is at least one mesh
-        //         pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
-        //         pass.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-        //         pass.draw_indexed(0..mesh.element_count, 0, 0..self.instances.len() as u32);
-        //     }
-        //     encoder.pop_debug_group();
-        // }
-
-        // encoder.pop_debug_group();
-        // encoder.push_debug_group("forward render pass");
-        // {
-        //     render_pass.set_pipeline(&self.light_render_pipeline);
-
-        //     render_pass.draw_light_model_instanced(
-        //         &self.obj_model,
-        //         0..self.lights.len() as u32,
-        //         &self.uniform_bind_group,
-        //         &self.light_bind_group,
-        //     );
-
-        //     render_pass.set_pipeline(&self.render_pipeline);
-        //     let mesh = &self.obj_model.meshes[0]; // we assume there is at least one mesh
-        //     let material = &self.obj_model.materials[mesh.material];
-        //     render_pass.draw_mesh_instanced(
-        //         mesh,
-        //         0..self.instances.len() as u32,
-        //         material,
-        //         &self.uniform_bind_group,
-        //         &self.light_bind_group,
-        //     );
-        // }
-        // encoder.pop_debug_group();
-
-        // {
-        //     let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-        //         color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-        //             attachment: &frame.view,
-        //             resolve_target: None,
-        //             ops: wgpu::Operations {
-        //                 load: wgpu::LoadOp::Clear(wgpu::Color {
-        //                     r: 0.1,
-        //                     g: 0.2,
-        //                     b: 0.3,
-        //                     a: 1.0,
-        //                 }),
-        //                 store: true,
-        //             },
-        //         }],
-        //         depth_stencil_attachment: None,
-        //         label: Some("texture renderer"),
-        //     });
-        //     render_pass.set_pipeline(&self.texture_renderer.render_pipeline);
-        //     render_pass.set_bind_group(0, &self.texture_renderer.bind_group, &[]);
-        //     render_pass.set_vertex_buffer(0, self.texture_renderer.quad.slice(..));
-        //     render_pass.draw(0..TextureRenderer::QUAD_VERTEX_ARRAY.len() as u32, 0..1);
-        // }
-
-        //
 
         // let now = chrono::offset::Utc::now();
         // self.total_frame_time = self.total_frame_time.add(Duration::nanoseconds(

@@ -1,3 +1,6 @@
+use specs::*;
+#[derive(Component)]
+#[storage(VecStorage)]
 pub struct SpotLight {
     position: glm::Vec3,
     direction: glm::Mat4,
@@ -10,6 +13,8 @@ pub struct SpotLight {
     /// Requires cos
     outer_cutoff: f32,
 }
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct SpotLightRaw {
     pos: [f32; 4],
     dir: [[f32; 4]; 4],
@@ -17,7 +22,7 @@ pub struct SpotLightRaw {
     attenuation_values: [f32; 4],
     cutoffs: [f32; 4],
 }
-
+//TODO: convert to builder pattern
 impl SpotLight {
     pub fn new(
         position: glm::Vec3,

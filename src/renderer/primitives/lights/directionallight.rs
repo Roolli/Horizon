@@ -10,8 +10,7 @@ use crate::{
 
 use specs::{Component, HashMapStorage};
 
-#[derive(Component)]
-#[storage(HashMapStorage)]
+#[derive(Default)]
 pub struct DirectionalLight {
     pub direction: glm::Vec3,
     color: wgpu::Color,
@@ -55,6 +54,7 @@ impl DirectionalLight {
 
         let y_near = znear * tan_half_vertical_fov;
         let y_far = zfar * tan_half_vertical_fov;
+
         let frustum_corners = [
             // near face
             glm::Vec4::new(x_near, y_near, znear, 1.0),
@@ -67,6 +67,7 @@ impl DirectionalLight {
             glm::Vec4::new(x_far, -y_far, zfar, 1.0),
             glm::Vec4::new(-x_far, -y_far, zfar, 1.0),
         ];
+
         let mut frustum_corners_l: Vec<glm::Vec4> = Vec::new();
 
         let mut min_x = f32::MAX;
@@ -78,7 +79,7 @@ impl DirectionalLight {
         for i in 0..8 {
             // world space
             let vw = cam_inverse * frustum_corners[i];
-            frustum_corners_l[i] = light_space * vw;
+            frustum_corners_l.push(light_space * vw);
             min_x = f32::min(min_x, frustum_corners_l[i].x);
             min_y = f32::min(min_y, frustum_corners_l[i].y);
             min_z = f32::min(min_z, frustum_corners_l[i].z);
@@ -87,6 +88,7 @@ impl DirectionalLight {
             max_y = f32::max(max_y, frustum_corners_l[i].y);
             max_z = f32::max(max_z, frustum_corners_l[i].z);
         }
+
         glm::ortho_rh(min_x, max_x, min_y, max_y, min_z, max_z)
     }
 }

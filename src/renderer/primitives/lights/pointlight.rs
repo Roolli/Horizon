@@ -1,4 +1,7 @@
 use bytemuck::*;
+use specs::*;
+#[derive(Component)]
+#[storage(VecStorage)]
 pub struct PointLight {
     position: glm::Vec3,
     color: wgpu::Color,
@@ -15,7 +18,7 @@ pub struct PointLightRaw {
 }
 
 impl PointLight {
-    fn new(
+    pub fn new(
         position: glm::Vec3,
         color: wgpu::Color,
         constant: f32,

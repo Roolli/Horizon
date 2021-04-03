@@ -6,17 +6,21 @@
     "configurations": [
         {
             "name": " Launch",
-            "type": "lldb",
+            "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/target/debug/horizon-native.exe",
+            "program": "${workspaceFolder}/../horizon-debug/horizon-native.exe",
             "args": [],
             "cwd": "${workspaceFolder}",
-            "stopOnEntry": false,
-           "sourceLanguages": ["rust"],
-           "sourceMap": {
-               "/rustc/5e1a799842ba6ed4a57e91f7ab9435947482f7d8":
-                "${env:USERPORIFLE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/src/rust"
-           },
+            "stopAtEntry": false,
+            "sourceFileMap": {
+                "/rustc/5e1a799842ba6ed4a57e91f7ab9435947482f7d8": "${env:USERPORIFLE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/src/rust"
+            },
+            "environment": [
+                {
+                    "name": "RUST_LOG",
+                    "value": "info"
+                }
+            ]
         }
     ]
 }

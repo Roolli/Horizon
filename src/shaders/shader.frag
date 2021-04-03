@@ -1,7 +1,13 @@
  #version 450
  #extension GL_EXT_scalar_block_layout: require
 
-
+struct SpotLight {
+    vec4 position;
+    vec4 direction;
+    vec4 color;
+    vec4 attenuation; // x constant, y linear, z quadratic
+    vec4 cutoffs; // X inner , Y outer
+};
 struct DirectionalLight {
     mat4 dl_projection;
     vec4 direction;
@@ -12,23 +18,12 @@ struct PointLight {
     vec4 color;
     vec4 attenuation; // x constant, y linear, z quadratic
 };
-struct SpotLight {
-    vec4 position;
-    vec4 direction;
-    vec4 color;
-    vec4 attenuation; // x constant, y linear, z quadratic
-    vec4 cutoffs; // X inner , Y outer
-};
 
 
-const int MAX_POINT_LIGHTS = 16;
-const int MAX_SPOT_LIGHTS = 16;
 
-struct Light {
-    mat4 u_projection;
-    vec4 light_position;
-    vec4 light_color;
-};
+const int MAX_POINT_LIGHTS = 5;
+const int MAX_SPOT_LIGHTS = 5;
+
 
  layout(location=0) in vec2 v_tex_coord;
  layout(location=1) in vec4 TangentFragPos;// FragPos in Tangent space
@@ -43,51 +38,53 @@ layout(set=0, binding=1) uniform sampler s_diffuse;
 layout(set=0, binding=2) uniform texture2D t_normal;
 layout(set=0, binding=3) uniform sampler s_normal;
 
-layout(set=1,binding=0)
-uniform Globals {
-    vec3 u_view_position;
-    mat4 u_view_proj;
-    uvec4 lights_num; // X Point lights, Y spot lights
-};
+
 layout(std430,set=1,binding=1)
 buffer InstanceData
 {
     mat4 transform[];
 };
 
-layout(set=1,binding=3) uniform texture2DArray t_shadow; 
+layout(set=1,binding=3) uniform texture2D t_shadow; 
 layout(set=1,binding=4) uniform samplerShadow s_shadow; 
+
+
+layout(set=1,binding=0)
+uniform Globals {
+    vec4 u_view_position;
+    mat4 u_view_proj;
+    uvec4 lights_num; // X Point lights, Y spot lights
+};
 
 layout(set=2,binding=0) uniform DirLight
 {
-     DirectionalLight dirLight;
-};
-layout(set=2,binding=1) uniform PointLights
+     DirectionalLight light;
+}dir_light;
+layout(std430, set=2,binding=1) buffer PointLights
 { 
-   PointLight pointLights[MAX_POINT_LIGHTS];
-};
-layout(set=2,binding=2) uniform SpotLights
+   PointLight lights[MAX_POINT_LIGHTS];
+}v_pointlights;
+layout(std430, set=2,binding=2) buffer SpotLights
 { 
-    SpotLight spotLights[MAX_SPOT_LIGHTS];
-};
+    SpotLight lights[MAX_SPOT_LIGHTS];
+}v_spotlights;
 
 
-vec3 calculateDirectionalLight(DirectionalLight light,vec3 normal,vec3 viewDir,vec3 object_color,vec3 ambient);
-vec3 calculatePointLights(PointLight light,vec3 tangent_light_position,vec3 normal,vec3 fragPos,vec3 viewDir,vec3 object_color,vec3 ambient);
-vec3 calculateSpotLight(SpotLight light,vec3 normal,vec3 fragPos,vec3 viewDir,vec3 object_color,vec3 ambient);
+vec3 calcDirLightContribution(DirectionalLight light,vec3 normal,vec3 viewDir,vec3 object_color,vec3 ambient);
+vec3 calcPointLightsContribution(PointLight light,vec3 tangent_light_position,vec3 normal,vec3 fragPos,vec3 viewDir,vec3 object_color,vec3 ambient);
+vec3 calcSpotLightsContribution(SpotLight light,vec3 normal,vec3 fragPos,vec3 viewDir,vec3 object_color,vec3 ambient);
 
 
-float fetch_shadow(int light_id,vec4 homogeneous_coords)
-{
-         const vec2 flip_correction = vec2(0.5,-0.5);
-        vec4 light_local = vec4(
-       homogeneous_coords.xy * flip_correction/homogeneous_coords.w +0.5,
-        light_id,
-        homogeneous_coords.z/homogeneous_coords.w
-        );
+// float fetch_shadow(int light_id,vec4 homogeneous_coords)
+// {
+//          const vec2 flip_correction = vec2(0.5,-0.5);
+//         vec3 light_local = vec3(
+//        homogeneous_coords.xy * flip_correction/homogeneous_coords.w +0.5,
+//         homogeneous_coords.z/homogeneous_coords.w
+//         );
         
-    return  texture(sampler2DArrayShadow(t_shadow,s_shadow),light_local);
-}
+//     return  texture(sampler2DShadow(t_shadow,s_shadow),light_local);
+// }
 
  void main()
  {
@@ -105,15 +102,15 @@ float fetch_shadow(int light_id,vec4 homogeneous_coords)
         // Tangent space view direction
         vec3 view_dir = normalize(v_view_position - TangentFragPos.xyz);
         // directional light
-        vec3 result = calculateDirectionalLight(dirLight,normal,view_dir,object_color.xyz,ambient);
+        vec3 result = calcDirLightContribution(dir_light.light,normal,view_dir,object_color.xyz,ambient);
       //  result*= shadow;
       
     // for point lights 
      for(int i =0; i < int(lights_num.x) &&i < MAX_POINT_LIGHTS;i++)
      {
-        PointLight light = pointLights[i];
+        PointLight light = v_pointlights.lights[i];
 
-        result+= calculatePointLights(light,v_light_position[i],normal,TangentFragPos.xyz,view_dir,object_color.xyz,ambient);
+        result+= calcPointLightsContribution(light,v_light_position[i],normal,TangentFragPos.xyz,view_dir,object_color.xyz,ambient);
          
      }
     //  // Spotlights
@@ -126,10 +123,11 @@ float fetch_shadow(int light_id,vec4 homogeneous_coords)
 
        
      f_color = vec4(result,1.0);
+
  }
 
  
-vec3 calculateDirectionalLight(DirectionalLight light,vec3 normal,vec3 viewDir,vec3 color,vec3 ambient)
+vec3 calcDirLightContribution(DirectionalLight light,vec3 normal,vec3 viewDir,vec3 color,vec3 ambient)
  {
         vec3 light_direction = normalize(-light.direction.xyz);
 
@@ -146,7 +144,7 @@ vec3 calculateDirectionalLight(DirectionalLight light,vec3 normal,vec3 viewDir,v
 }
 //TODO: ADD shadow mapping for point lights
 
-vec3 calculatePointLights(PointLight light,vec3 tangent_light_position,vec3 normal,vec3 fragPos,vec3 viewDir,vec3 object_color,vec3 ambient) {
+vec3 calcPointLightsContribution(PointLight light,vec3 tangent_light_position,vec3 normal,vec3 fragPos,vec3 viewDir,vec3 object_color,vec3 ambient) {
 
         //diffuse lighting 
         // TODO: change this for normal mapping
@@ -168,7 +166,7 @@ vec3 calculatePointLights(PointLight light,vec3 tangent_light_position,vec3 norm
         return (ambient * attenuation +   specular_color * attenuation +     diffuse_color *attenuation);
 }
 
-vec3 calculateSpotLight(SpotLight light,vec3 normal,vec3 fragPos,vec3 viewDir,vec3 color,vec3 ambient) {
+vec3 calcSpotLightsContribution(SpotLight light,vec3 normal,vec3 fragPos,vec3 viewDir,vec3 color,vec3 ambient) {
 
     vec3 light_direction = normalize(light.position.xyz-fragPos);
     float diffuse_strength = max(dot(normal,light_direction),0.0);

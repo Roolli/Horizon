@@ -21,8 +21,14 @@ impl<'a> HorizonPipeline<'a> for ShadowPipeline {
             push_constant_ranges: &[],
         });
 
-        let vs_module =
-            device.create_shader_module(&wgpu::include_spirv!("../../shaders/shadow.vert.spv"));
+        // [2021-04-02T16:10:08Z ERROR wgpu_core::validation] Unexpected varying type: Array { base: [1], size: Constant([5]), stride: None }
+        // let vs_module =
+        //     device.create_shader_module(&wgpu::include_spirv!("../../shaders/shadow.vert.spv"));
+        let vs_module = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+            source: wgpu::util::make_spirv(include_bytes!("../../shaders/shadow.vert.spv")),
+            flags: wgpu::ShaderFlags::empty(),
+            label: Some("shadow_vertex_shader"),
+        });
         let depth_stencil_state = wgpu::DepthStencilState {
             format: wgpu::TextureFormat::Depth32Float,
             bias: wgpu::DepthBiasState {
@@ -35,6 +41,7 @@ impl<'a> HorizonPipeline<'a> for ShadowPipeline {
             stencil: wgpu::StencilState::default(),
             clamp_depth: device.features().contains(wgpu::Features::DEPTH_CLAMPING),
         };
+        //TODO: create seperate vertex buffer for location only for performance reasons
         let vertex_state = wgpu::VertexState {
             buffers: &[ModelVertex::desc()],
             entry_point: "main",

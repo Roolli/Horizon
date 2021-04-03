@@ -40,6 +40,8 @@ impl<'a> HorizonPipeline<'a> for ForwardPipeline {
             flags: wgpu::ShaderFlags::empty(),
             label: Some("forward fragment shader"),
         });
+        // let fs_module =
+        //     device.create_shader_module(&wgpu::include_spirv!("../../shaders/shader.frag.spv"));
         let vertex_state = wgpu::VertexState {
             buffers: &[ModelVertex::desc()],
             entry_point: "main",

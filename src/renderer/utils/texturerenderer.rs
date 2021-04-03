@@ -80,13 +80,27 @@ impl TextureRenderer {
             contents: bytemuck::cast_slice(&Self::QUAD_VERTEX_ARRAY),
             label: None,
         });
+        let vs_module = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+            source: wgpu::util::make_spirv(include_bytes!(
+                "../../shaders/textureRenderer.vert.spv"
+            )),
+            flags: wgpu::ShaderFlags::empty(),
+            label: Some("shadow_vertex_shader"),
+        });
+        let fs_module = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+            source: wgpu::util::make_spirv(include_bytes!(
+                "../../shaders/textureRenderer.frag.spv"
+            )),
+            flags: wgpu::ShaderFlags::empty(),
+            label: Some("shadow_vertex_shader"),
+        });
 
-        let vs_module = device.create_shader_module(&wgpu::include_spirv!(
-            "../../shaders/textureRenderer.vert.spv"
-        ));
-        let fs_module = device.create_shader_module(&wgpu::include_spirv!(
-            "../../shaders/textureRenderer.frag.spv"
-        ));
+        // let vs_module = device.create_shader_module(&wgpu::include_spirv!(
+        //     "../../shaders/textureRenderer.vert.spv"
+        // ));
+        // let fs_module = device.create_shader_module(&wgpu::include_spirv!(
+        //     "../../shaders/textureRenderer.frag.spv"
+        // ));
         let attribs = &wgpu::vertex_attr_array![0=>Float32x2];
         let buffer_layout = wgpu::VertexBufferLayout {
             attributes: attribs,

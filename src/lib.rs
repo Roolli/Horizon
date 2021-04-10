@@ -34,6 +34,7 @@ use resources::{
     bindingresourcecontainer::BindingResourceContainer, camera::Camera,
     commandencoder::HorizonCommandEncoder, windowevents::ResizeEvent,
 };
+use scripting::scriptingengine::V8ScriptingEngine;
 use specs::{Builder, Dispatcher, DispatcherBuilder, World, WorldExt};
 use systems::{
     physics::{Physics, PhysicsWorld},
@@ -46,6 +47,7 @@ use systems::{
 mod filesystem;
 mod renderer;
 mod resources;
+mod scripting;
 
 use crate::renderer::state::State;
 mod components;
@@ -321,9 +323,15 @@ fn setup_pipelines(world: &mut World) {
 }
 
 async fn create_debug_scene(world: &mut World) {
-    // TODO: Change to some sort of IoC container where it resolves based on current arch.
+    let mut js = V8ScriptingEngine::new();
+    js.execute(
+        "test.js",
+        r#"
+        Horizon.print("it works!");
+    "#,
+    );
+
     const NUM_INSTANCES_PER_ROW: u32 = 15;
-    //TODO: Change dir light to resource since there's only one at any given time.
     world.insert(DirectionalLight::new(
         glm::vec3(1.0, -1.0, 0.0),
         wgpu::Color {

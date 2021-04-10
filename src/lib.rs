@@ -1,4 +1,5 @@
 use core::panic;
+use std::io::BufRead;
 
 use components::{
     physicshandle::PhysicsHandle,
@@ -326,9 +327,9 @@ async fn create_debug_scene(world: &mut World) {
     let mut js = V8ScriptingEngine::new();
     js.execute(
         "test.js",
-        r#"
-        Horizon.print("it works!");
-    "#,
+        String::from_utf8(Importer::default().import_file("./test.js").await)
+            .unwrap()
+            .as_str(),
     );
 
     const NUM_INSTANCES_PER_ROW: u32 = 15;

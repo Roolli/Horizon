@@ -50,7 +50,12 @@ impl V8ScriptingEngine {
         let horizon_val = v8::Object::new(scope);
         global.set(scope, horizon_key.into(), horizon_val.into());
         Self::bind_function(scope, horizon_val, "print", ScriptingFunctions::print);
-
+        Self::bind_function(
+            scope,
+            horizon_val,
+            "registerCallback",
+            ScriptingFunctions::register_callback,
+        );
         scope.escape(context)
     }
     fn script_origin<'a>(
@@ -90,7 +95,6 @@ impl V8ScriptingEngine {
             true,
         )
     }
-    //TODO: add result as return type
     pub fn execute(&mut self, js_filename: &str, js_src: &str) {
         let context = self.global_context.clone();
 
@@ -106,11 +110,14 @@ impl V8ScriptingEngine {
             Some(_) => {}
             None => {
                 let exception = tc_scope.exception().unwrap();
-
-                log::error!("exception has occured!");
+                let message = v8::Exception::create_message(tc_scope, exception);
+                let message_string = message.get(tc_scope);
+                log::error!(
+                    "exception has occured: {}",
+                    message_string.to_rust_string_lossy(tc_scope)
+                );
             }
         }
-        log::warn!("script ran to completion!");
     }
 
     #[inline(always)]

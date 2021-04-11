@@ -1,4 +1,4 @@
-use std::{borrow::Borrow, collections::HashMap, sync::Once};
+use std::{borrow::Borrow, cell::RefCell, collections::HashMap, rc::Rc, sync::Once};
 
 use rusty_v8 as v8;
 use v8::{
@@ -7,10 +7,10 @@ use v8::{
 };
 
 use super::scriptingfunctions::ScriptingFunctions;
+
 static PLATFORM_INIT: Once = Once::new();
 pub struct V8ScriptingEngine {
     pub isolate: OwnedIsolate,
-    pub global_context: v8::Global<v8::Context>,
 }
 
 fn platform_init() {
@@ -32,10 +32,11 @@ impl V8ScriptingEngine {
 
             global_context = v8::Global::new(handle_scope, context);
         }
-        Self {
-            global_context,
-            isolate,
-        }
+        isolate.set_slot(Rc::new(RefCell::new(ScriptingEngineState {
+            callbacks: HashMap::new(),
+            global_context: Some(global_context),
+        })));
+        Self { isolate }
     }
     pub fn setup_global_functions<'s>(
         scope: &mut v8::HandleScope<'s, ()>,
@@ -95,10 +96,14 @@ impl V8ScriptingEngine {
             true,
         )
     }
+    pub fn global_context(&mut self) -> v8::Global<v8::Context> {
+        let state = Self::state(&self.isolate);
+        let state = state.as_ref().borrow();
+        state.global_context.clone().unwrap()
+    }
     pub fn execute(&mut self, js_filename: &str, js_src: &str) {
-        let context = self.global_context.clone();
-
-        let scope = &mut v8::HandleScope::with_context(&mut self.isolate, context);
+        let global_context = self.global_context();
+        let scope = &mut v8::HandleScope::with_context(&mut self.isolate, global_context);
         let source = v8::String::new(scope, js_src).unwrap();
         let name = v8::String::new(scope, js_filename).unwrap();
         let origin = Self::script_origin(scope, name);
@@ -132,4 +137,14 @@ impl V8ScriptingEngine {
         let val = template.get_function(scope).unwrap();
         obj.set(scope, key.into(), val.into());
     }
+    pub fn state(isolate: &v8::Isolate) -> Rc<RefCell<ScriptingEngineState>> {
+        let state = isolate
+            .get_slot::<Rc<RefCell<ScriptingEngineState>>>()
+            .unwrap();
+        state.clone()
+    }
+}
+pub struct ScriptingEngineState {
+    pub global_context: Option<v8::Global<v8::Context>>,
+    pub callbacks: HashMap<String, v8::Global<v8::Function>>,
 }

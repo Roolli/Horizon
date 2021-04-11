@@ -332,6 +332,22 @@ async fn create_debug_scene(world: &mut World) {
             .as_str(),
     );
 
+    {
+        let isolate = &mut js.isolate;
+
+        let state_rc = V8ScriptingEngine::state(isolate);
+        let js_state = state_rc.borrow();
+        let handle_scope = &mut rusty_v8::HandleScope::with_context(
+            isolate,
+            js_state.global_context.clone().unwrap(),
+        );
+        for (k, v) in js_state.callbacks.iter() {
+            let func = v.get(handle_scope);
+            let recv = rusty_v8::Integer::new(handle_scope, 1).into();
+            func.call(handle_scope, recv, &[]);
+        }
+    }
+
     const NUM_INSTANCES_PER_ROW: u32 = 15;
     world.insert(DirectionalLight::new(
         glm::vec3(1.0, -1.0, 0.0),

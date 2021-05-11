@@ -24,7 +24,7 @@ path = "src/main.rs"
 default = ["console_error_panic_hook"]
 
 [dependencies]
-
+rand = "0.8"
 winit = "0.24.0"
 nalgebra = "0.24.0"
 glm= {version="0.10.0", package="nalgebra-glm"}
@@ -215,5 +215,5 @@ wgpu-subscriber="0.1.0"
 
 [profile.release]
 opt-level = 3
-lto = true
-
+lto = "thin"
+debug =true

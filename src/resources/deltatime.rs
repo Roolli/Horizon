@@ -1,9 +1,9 @@
 use chrono::Duration;
 
 pub struct DeltaTime {
-    frame_count: u32,
-    previous_frame_time: chrono::Duration,
-    total_frame_time: chrono::Duration,
+   pub frame_count: u32,
+   pub previous_frame_time: chrono::Duration,
+   pub total_frame_time: chrono::Duration,
 }
 impl Default for DeltaTime {
     fn default() -> Self {

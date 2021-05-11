@@ -81,7 +81,7 @@ impl<'a> HorizonBindGroup<'a> for LightBindGroup {
         BindGroupContainer::new(light_bind_group_layout, light_bind_group)
     }
 
-    fn get_binding_resources(
+    fn get_resources(
         device: &wgpu::Device,
         resource_container: &mut crate::resources::bindingresourcecontainer::BindingResourceContainer,
     ) {

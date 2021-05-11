@@ -1,14 +1,16 @@
 pub mod forwardpipeline;
+pub mod gbufferpipeline;
 pub mod lightpipeline;
 pub mod shadowpipeline;
 pub mod texturepipeline;
 use specs::*;
+use wgpu::ColorTargetState;
 pub trait HorizonPipeline<'a> {
     type RequiredLayouts;
     fn create_pipeline(
         device: &wgpu::Device,
-        swap_chain_desc: &wgpu::SwapChainDescriptor,
         bind_group_layouts: Self::RequiredLayouts,
+        targets: &[ColorTargetState],
     ) -> wgpu::RenderPipeline;
 }
 pub struct RenderPipelineBuilder;

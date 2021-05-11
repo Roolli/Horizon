@@ -64,8 +64,8 @@ impl State {
     ];
     pub const MAX_ENTITY_COUNT: wgpu::BufferAddress =
         (std::mem::size_of::<TransformRaw>() * 2048) as wgpu::BufferAddress;
-    pub const MAX_POINT_LIGHTS: usize = 16;
-    pub const MAX_SPOT_LIGHTS: usize = 16;
+    pub const MAX_POINT_LIGHTS: usize = 1024;
+    pub const MAX_SPOT_LIGHTS: usize = 1024;
     pub const SHADOW_SIZE: wgpu::Extent3d = wgpu::Extent3d {
         depth_or_array_layers: 1,
         height: 1024,
@@ -107,7 +107,6 @@ impl State {
             present_mode: wgpu::PresentMode::Mailbox,
         };
         let swap_chain = device.create_swap_chain(&surface, &sc_desc);
-
         Self {
             depth_texture: Texture::create_depth_texture(&device, &sc_desc, "depth_texture"),
             device,
@@ -145,19 +144,6 @@ impl State {
     pub fn update(&mut self) {}
     pub fn render(&mut self) -> Result<(), wgpu::SwapChainError> {
         Ok(())
-
-        // let now = chrono::offset::Utc::now();
-        // self.total_frame_time = self.total_frame_time.add(Duration::nanoseconds(
-        //     (now - self.previous_frame_time).timestamp_nanos(),
-        // ));
-        // if self.total_frame_time < Duration::seconds(1) {
-        //     self.frame_count += 1;
-        // } else {
-        //     log::info!("FPS: {}", self.frame_count);
-        //     self.frame_count = 0;
-        //     self.total_frame_time = Duration::seconds(0);
-        // }
-        // self.previous_frame_time = Duration::nanoseconds(now.timestamp_nanos());
 
         // Ok(())
     }

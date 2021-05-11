@@ -6,3 +6,4 @@ pub mod rendershadowpass;
 pub mod resize;
 pub mod updatebuffers;
 pub mod updateuniformbuffers;
+pub mod writegbuffer;

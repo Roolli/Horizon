@@ -1,6 +1,8 @@
  #version 450
  #extension GL_EXT_scalar_block_layout: require
 
+const float ambient_strength = 0.1;
+
 struct SpotLight {
     vec4 position;
     vec4 direction;
@@ -19,36 +21,17 @@ struct PointLight {
     vec4 attenuation; // x constant, y linear, z quadratic
 };
 
-
-
-const int MAX_POINT_LIGHTS = 5;
-const int MAX_SPOT_LIGHTS = 5;
-
-
- layout(location=0) in vec2 v_tex_coord;
- layout(location=1) in vec4 TangentFragPos;// FragPos in Tangent space
- layout(location=2) in vec4 WorldFragPos; // Frapos in World Space
- layout(location=3) in vec3 v_view_position;
- layout(location=4) in vec3 v_light_position[MAX_POINT_LIGHTS+MAX_SPOT_LIGHTS];
-
 layout (location=0) out vec4 f_color; // output to the frame view
 
-layout(set=0, binding=0) uniform texture2D t_diffuse;
-layout(set=0, binding=1) uniform sampler s_diffuse;
-layout(set=0, binding=2) uniform texture2D t_normal;
-layout(set=0, binding=3) uniform sampler s_normal;
-
-
-layout(std430,set=1,binding=1)
-buffer InstanceData
-{
-    mat4 transform[];
+layout(set=0, binding=0) uniform sampler textureSampler;
+layout(set=0, binding=1) uniform texture2D positions;
+layout(set=0, binding=2) uniform texture2D normal;
+layout(set=0, binding=3) uniform texture2D albedo;
+layout(set=0,binding=4) uniform CanvasSize {
+    vec2 canvasConstants;
 };
 
-layout(set=1,binding=3) uniform texture2D t_shadow; 
-layout(set=1,binding=4) uniform samplerShadow s_shadow; 
-
-
+//TODO: split into own uniforms
 layout(set=1,binding=0)
 uniform Globals {
     vec4 u_view_position;
@@ -56,23 +39,28 @@ uniform Globals {
     uvec4 lights_num; // X Point lights, Y spot lights
 };
 
+
+layout(set=1,binding=1) uniform texture2D t_shadow; 
+layout(set=1,binding=2) uniform samplerShadow s_shadow; 
+
+
 layout(set=2,binding=0) uniform DirLight
 {
      DirectionalLight light;
 }dir_light;
 layout(std430, set=2,binding=1) buffer PointLights
 { 
-   PointLight lights[MAX_POINT_LIGHTS];
+   PointLight lights[];
 }v_pointlights;
 layout(std430, set=2,binding=2) buffer SpotLights
 { 
-    SpotLight lights[MAX_SPOT_LIGHTS];
+    SpotLight lights[];
 }v_spotlights;
 
 
-vec3 calcDirLightContribution(DirectionalLight light,vec3 normal,vec3 viewDir,vec3 object_color,vec3 ambient);
-vec3 calcPointLightsContribution(PointLight light,vec3 tangent_light_position,vec3 normal,vec3 fragPos,vec3 viewDir,vec3 object_color,vec3 ambient);
-vec3 calcSpotLightsContribution(SpotLight light,vec3 normal,vec3 fragPos,vec3 viewDir,vec3 object_color,vec3 ambient);
+vec3 calcDirLightContribution(DirectionalLight light,vec3 normal,vec3 viewDir,vec3 color);
+vec3 calcPointLightsContribution(PointLight light,vec3 position,vec3 normal,vec3 viewDir,vec3 object_color);
+// vec3 calcSpotLightsContribution(SpotLight light,vec3 normal,vec3 fragPos,vec3 viewDir,vec3 object_color,vec3 ambient);
 
 
 // float fetch_shadow(int light_id,vec4 homogeneous_coords)
@@ -88,29 +76,47 @@ vec3 calcSpotLightsContribution(SpotLight light,vec3 normal,vec3 fragPos,vec3 vi
 
  void main()
  {
-     vec4 object_color = texture(sampler2D(t_diffuse,s_diffuse),v_tex_coord);
-     vec4 object_normal = texture(sampler2D(t_normal,s_normal),v_tex_coord);
+
+
+
+     vec3 result = vec3(0.0,0.0,0.0);
+     vec2 coordinates = gl_FragCoord.xy / canvasConstants;
+
+     vec3 position = texture(sampler2D(positions,textureSampler),coordinates).xyz;
+
+    if(position.z > 10000.0)
+    {
+        discard;
+    }
+     vec4 object_normal = texture(sampler2D(normal,textureSampler),coordinates);
+
+    // albedo
+     vec4 object_color = texture(sampler2D(albedo,textureSampler),coordinates);
+    
     //! TODO: change to push_constant
-     float ambient_strength = 0.1;
+
      
     // TODO: change to single layer shadow map for directional light
    // float shadow = fetch_shadow(0, (light.u_projection* WorldFragPos));
 
-
-        vec3 ambient = ambient_strength * object_color.xyz;
-        vec3 normal = normalize(object_normal.rgb);
-        // Tangent space view direction
-        vec3 view_dir = normalize(v_view_position - TangentFragPos.xyz);
+       
+        vec3 viewDir = normalize(-position);
         // directional light
-        vec3 result = calcDirLightContribution(dir_light.light,normal,view_dir,object_color.xyz,ambient);
+       //result+=  calcDirLightContribution(dir_light.light,object_normal.xyz,viewDir,object_color.xyz);
       //  result*= shadow;
       
     // for point lights 
-     for(int i =0; i < int(lights_num.x) &&i < MAX_POINT_LIGHTS;i++)
+    float radius;
+     for(int i =0; i < int(lights_num.x);i++)
      {
         PointLight light = v_pointlights.lights[i];
-
-        result+= calcPointLightsContribution(light,v_light_position[i],normal,TangentFragPos.xyz,view_dir,object_color.xyz,ambient);
+        // radius = sqrt(1.0 / light.attenuation.z);
+        // float dist = length(position-light.position.xyz);
+        // if(dist >radius)
+        // {
+        //     continue;
+        // }
+        result+= calcPointLightsContribution(light,position,object_normal.xyz,viewDir,object_color.xyz);
          
      }
     //  // Spotlights
@@ -122,17 +128,20 @@ vec3 calcSpotLightsContribution(SpotLight light,vec3 normal,vec3 fragPos,vec3 vi
     //  }
 
        
-     f_color = vec4(result,1.0);
+      f_color = vec4(result,1.0);
+    
 
  }
 
  
-vec3 calcDirLightContribution(DirectionalLight light,vec3 normal,vec3 viewDir,vec3 color,vec3 ambient)
+vec3 calcDirLightContribution(DirectionalLight light,vec3 normal,vec3 viewDir,vec3 color)
  {
+      vec3 ambient = ambient_strength * color;
+      vec3 norm = normalize(normal);
         vec3 light_direction = normalize(-light.direction.xyz);
 
         // diffuse
-        float diffuse_strength = max(dot(normal,light_direction),0.0);
+        float diffuse_strength = max(dot(norm,light_direction),0.0);
         vec3 diffuse_color = light.color.xyz * diffuse_strength * color;
 
         vec3 half_dir = normalize(viewDir + light_direction);
@@ -142,51 +151,51 @@ vec3 calcDirLightContribution(DirectionalLight light,vec3 normal,vec3 viewDir,ve
 
         return (ambient  +  specular_color +    diffuse_color);
 }
+
 //TODO: ADD shadow mapping for point lights
+vec3 calcPointLightsContribution(PointLight light,vec3 position,vec3 normal,vec3 viewDir,vec3 object_color) {
 
-vec3 calcPointLightsContribution(PointLight light,vec3 tangent_light_position,vec3 normal,vec3 fragPos,vec3 viewDir,vec3 object_color,vec3 ambient) {
-
+        vec3 ambient = ambient_strength * object_color;
         //diffuse lighting 
         // TODO: change this for normal mapping
-        vec3 light_direction = normalize(tangent_light_position-fragPos);
+        vec3 norm = normalize(normal);
+        vec3 light_direction = normalize(light.position.xyz - position);
      
-        float diffuse_strength = max(dot(normal,tangent_light_position),0.0);
+        float diffuse_strength = max(dot(norm,light_direction),0.0);
 
         vec3 diffuse_color = light.color.xyz * diffuse_strength *object_color;
-
         // specular
-        vec3 view_dir = normalize(viewDir - fragPos);
-        vec3 half_dir = normalize(view_dir + tangent_light_position);
+        vec3 half_dir = normalize(viewDir - light_direction);
 
         float specular_strength = pow(max(dot(normal,half_dir),0.0),32);
         vec3 specular_color = specular_strength * light.color.xyz * object_color;
-        float dist = length(tangent_light_position - WorldFragPos.xyz);
-        float attenuation = 1.0 / (light.attenuation.x + light.attenuation.y * dist + light.attenuation.z * (dist * dist)); 
+        float dist = length(light.position.xyz - position);
+        float attenuation = 5.0 / (light.attenuation.x + light.attenuation.y * dist + light.attenuation.z * (dist * dist)); 
 
         return (ambient * attenuation +   specular_color * attenuation +     diffuse_color *attenuation);
 }
 
-vec3 calcSpotLightsContribution(SpotLight light,vec3 normal,vec3 fragPos,vec3 viewDir,vec3 color,vec3 ambient) {
+// vec3 calcSpotLightsContribution(SpotLight light,vec3 normal,vec3 fragPos,vec3 viewDir,vec3 color,vec3 ambient) {
 
-    vec3 light_direction = normalize(light.position.xyz-fragPos);
-    float diffuse_strength = max(dot(normal,light_direction),0.0);
+//     vec3 light_direction = normalize(light.position.xyz-fragPos);
+//     float diffuse_strength = max(dot(normal,light_direction),0.0);
 
-    vec3 diffuse_color = light.color.xyz * diffuse_strength * color;
+//     vec3 diffuse_color = light.color.xyz * diffuse_strength * color;
 
-    vec3 half_dir = normalize(viewDir + light_direction);
+//     vec3 half_dir = normalize(viewDir + light_direction);
 
-    float specular_strength = pow(max(dot(normal,half_dir),0.0),32);
-    vec3 specular_color = specular_strength * light.color.xyz  * color;
+//     float specular_strength = pow(max(dot(normal,half_dir),0.0),32);
+//     vec3 specular_color = specular_strength * light.color.xyz  * color;
 
-    float theta = dot(light_direction,normalize(-light.direction.xyz));
-    float epsilon = (light.cutoffs.x - light.cutoffs.y);
-    float intensity = clamp((theta - light.cutoffs.y) / epsilon,0.0,1.0);
+//     float theta = dot(light_direction,normalize(-light.direction.xyz));
+//     float epsilon = (light.cutoffs.x - light.cutoffs.y);
+//     float intensity = clamp((theta - light.cutoffs.y) / epsilon,0.0,1.0);
 
-    diffuse_color *= intensity;
-    specular_color *= intensity;
+//     diffuse_color *= intensity;
+//     specular_color *= intensity;
 
-    float dist = length(light.position - WorldFragPos);
-    float attenuation = 1.0 / (light.attenuation.x + light.attenuation.y * dist + light.attenuation.z * (dist * dist)); 
+//     float dist = length(light.position - WorldFragPos);
+//     float attenuation = 1.0 / (light.attenuation.x + light.attenuation.y * dist + light.attenuation.z * (dist * dist)); 
 
-    return (ambient * attenuation +   specular_color * attenuation +     diffuse_color *attenuation);
-}
+//     return (ambient * attenuation +   specular_color * attenuation +     diffuse_color *attenuation);
+// }

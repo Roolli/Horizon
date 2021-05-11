@@ -90,6 +90,7 @@ impl<'a> System<'a> for RenderShadowPass {
                 0,
                 bytemuck::cast_slice(&instance_buffer),
             );
+
             for mesh in &model.meshes {
                 pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
                 pass.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);

@@ -106,6 +106,7 @@ impl Texture {
             depth_or_array_layers: 1,
             height: sc_desc.height,
         };
+
         let desc = wgpu::TextureDescriptor {
             label: Some(label),
             size,

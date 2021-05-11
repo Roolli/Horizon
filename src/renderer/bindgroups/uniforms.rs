@@ -111,7 +111,7 @@ impl<'a> HorizonBindGroup<'a> for UniformBindGroup {
         BindGroupContainer::new(uniform_bind_group_layout, uniform_bind_group)
     }
 
-    fn get_binding_resources(
+    fn get_resources(
         device: &wgpu::Device,
         resource_container: &mut crate::resources::bindingresourcecontainer::BindingResourceContainer,
     ) {

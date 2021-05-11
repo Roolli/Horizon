@@ -7,7 +7,7 @@ use crate::{
             lights::{
                 directionallight::DirectionalLight, pointlight::PointLight, spotlight::SpotLight,
             },
-            uniforms::Globals,
+            uniforms::{CanvasConstants, Globals},
         },
         state::State,
     },
@@ -49,29 +49,30 @@ impl<'a> System<'a> for UpdateBuffers {
             bytemuck::bytes_of(&dir_light.to_raw(&cam)),
         );
         //TODO: optimize to minimize copying
-        // let point_light_raw = point_lights
-        //     .join()
-        //     .map(PointLight::to_raw)
-        //     .collect::<Vec<_>>();
-        // let spot_light_raw = spot_lights
-        //     .join()
-        //     .map(SpotLight::to_raw)
-        //     .collect::<Vec<_>>();
-        // state.queue.write_buffer(
-        //     binding_resource_container
-        //         .buffers
-        //         .get("spot_light_buffer")
-        //         .unwrap(),
-        //     0,
-        //     bytemuck::cast_slice(&spot_light_raw),
-        // );
-        // state.queue.write_buffer(
-        //     binding_resource_container
-        //         .buffers
-        //         .get("point_light_buffer")
-        //         .unwrap(),
-        //     0,
-        //     bytemuck::cast_slice(&point_light_raw),
-        // );
+        let point_light_raw = point_lights
+            .join()
+            .map(PointLight::to_raw)
+            .collect::<Vec<_>>();
+        let spot_light_raw = spot_lights
+            .join()
+            .map(SpotLight::to_raw)
+            .collect::<Vec<_>>();
+        state.queue.write_buffer(
+            binding_resource_container
+                .buffers
+                .get("spot_light_buffer")
+                .unwrap(),
+            0,
+            bytemuck::cast_slice(&spot_light_raw),
+        );
+        state.queue.write_buffer(
+            binding_resource_container
+                .buffers
+                .get("point_light_buffer")
+                .unwrap(),
+            0,
+            bytemuck::cast_slice(&point_light_raw),
+        );
+        //TODO: move to a system which handles resizing to reduce unneeded copies.
     }
 }

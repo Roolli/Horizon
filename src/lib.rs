@@ -1,6 +1,7 @@
 use core::panic;
 use std::io::BufRead;
 
+use crate::{renderer::bindgroups::gbuffer::GBuffer, systems::writegbuffer::WriteGBuffer};
 use components::{
     physicshandle::PhysicsHandle,
     transform::{Transform, TransformRaw},
@@ -9,18 +10,19 @@ use filesystem::modelimporter::Importer;
 //use wasm_bindgen::prelude::*;
 use futures::executor::block_on;
 use nalgebra::Isometry3;
+use rand::Rng;
 use rapier3d::{dynamics::RigidBodyBuilder, geometry::ColliderBuilder};
 use renderer::{
     bindgroupcontainer::BindGroupContainer,
     bindgroups::{
-        lighting::LightBindGroup, shadow::ShadowBindGroup, uniforms::UniformBindGroup,
-        HorizonBindGroup,
+        deferred::DeferredBindGroup, lighting::LightBindGroup, shadow::ShadowBindGroup,
+        uniforms::UniformBindGroup, HorizonBindGroup,
     },
     model::HorizonModel,
     modelbuilder::ModelBuilder,
     pipelines::{
-        forwardpipeline::ForwardPipeline, lightpipeline::LightPipeline,
-        shadowpipeline::ShadowPipeline, HorizonPipeline,
+        forwardpipeline::ForwardPipeline, gbufferpipeline::GBufferPipeline,
+        lightpipeline::LightPipeline, shadowpipeline::ShadowPipeline, HorizonPipeline,
     },
     primitives::{
         lights::{
@@ -176,6 +178,7 @@ fn setup_ecs<'a, 'b>(state: State) -> (World, Dispatcher<'a, 'b>) {
         .with_thread_local(Resize)
         .with_thread_local(UpdateBuffers)
         .with_thread_local(RenderShadowPass)
+        .with_thread_local(WriteGBuffer)
         .with_thread_local(RenderForwardPass)
         .build();
     dispatcher.setup(&mut world);
@@ -208,15 +211,22 @@ fn register_components(mut world: &mut World) {
     world.register::<ShadowBindGroup>();
     world.register::<UniformBindGroup>();
     world.register::<LightBindGroup>();
+    world.register::<DeferredBindGroup>();
     setup_pipelines(&mut world);
 }
 
 fn setup_pipelines(world: &mut World) {
     let state = world.read_resource::<State>();
     let mut binding_resource_container = world.write_resource::<BindingResourceContainer>();
-    UniformBindGroup::get_binding_resources(&state.device, &mut binding_resource_container);
-    ShadowBindGroup::get_binding_resources(&state.device, &mut binding_resource_container);
-    LightBindGroup::get_binding_resources(&state.device, &mut binding_resource_container);
+    UniformBindGroup::get_resources(&state.device, &mut binding_resource_container);
+    ShadowBindGroup::get_resources(&state.device, &mut binding_resource_container);
+    LightBindGroup::get_resources(&state.device, &mut binding_resource_container);
+    DeferredBindGroup::get_resources(&state.device, &mut binding_resource_container);
+    GBuffer::generate_g_buffers(
+        &state.device,
+        &state.sc_descriptor,
+        &mut binding_resource_container,
+    );
 
     let uniform_container = UniformBindGroup::create_container(
         &state.device,
@@ -275,29 +285,67 @@ fn setup_pipelines(world: &mut World) {
                 .unwrap(),
         ),
     );
-
-    let forward_pipeline = ForwardPipeline::create_pipeline(
+    let deferred_container = DeferredBindGroup::create_container(
         &state.device,
-        &state.sc_descriptor,
+        (
+            binding_resource_container
+                .samplers
+                .get("texture_sampler")
+                .unwrap(),
+            binding_resource_container
+                .texture_views
+                .get("position_view")
+                .unwrap(),
+            binding_resource_container
+                .texture_views
+                .get("normal_view")
+                .unwrap(),
+            binding_resource_container
+                .texture_views
+                .get("albedo_view")
+                .unwrap(),
+            binding_resource_container
+                .buffers
+                .get("canvas_size_buffer")
+                .unwrap(),
+        ),
+    );
+
+    let gbuffer_pipeline = GBufferPipeline::create_pipeline(
+        &state.device,
         (
             &world
                 .read_resource::<ModelBuilder>()
                 .diffuse_texture_bind_group_layout,
             &uniform_container.layout,
+        ),
+        &[
+            wgpu::TextureFormat::Rgba32Float.into(),
+            wgpu::TextureFormat::Rgba32Float.into(),
+            wgpu::TextureFormat::Bgra8Unorm.into(),
+        ],
+    );
+
+    let forward_pipeline = ForwardPipeline::create_pipeline(
+        &state.device,
+        (
+            &deferred_container.layout,
+            &uniform_container.layout,
             &light_container.layout,
         ),
+        &[state.sc_descriptor.format.into()],
     );
 
     let shadow_pipeline = ShadowPipeline::create_pipeline(
         &state.device,
-        &state.sc_descriptor,
         &shadow_container.layout,
+        &[wgpu::TextureFormat::Depth32Float.into()],
     );
 
     let light_pipeline = LightPipeline::create_pipeline(
         &state.device,
-        &state.sc_descriptor,
         (&uniform_container.layout, &light_container.layout),
+        &[state.sc_descriptor.format.into()],
     );
 
     drop(state);
@@ -305,6 +353,7 @@ fn setup_pipelines(world: &mut World) {
     world.insert(LightPipeline(light_pipeline));
     world.insert(ForwardPipeline(forward_pipeline));
     world.insert(ShadowPipeline(shadow_pipeline));
+    world.insert(GBufferPipeline(gbuffer_pipeline));
     world
         .create_entity()
         .with(UniformBindGroup)
@@ -321,10 +370,16 @@ fn setup_pipelines(world: &mut World) {
         .with(ShadowBindGroup)
         .with(shadow_container)
         .build();
+    world
+        .create_entity()
+        .with(DeferredBindGroup)
+        .with(deferred_container)
+        .build();
 }
 
 async fn create_debug_scene(world: &mut World) {
     let mut js = V8ScriptingEngine::new();
+    // TODO: load all the scripts and execute them before the first frame is rendered. maybe do modules and whatnot.
     js.execute(
         "test.js",
         String::from_utf8(Importer::default().import_file("./test.js").await)
@@ -333,15 +388,13 @@ async fn create_debug_scene(world: &mut World) {
     );
 
     {
+        let global_context = js.global_context();
         let isolate = &mut js.isolate;
 
         let state_rc = V8ScriptingEngine::state(isolate);
         let js_state = state_rc.borrow();
-        let handle_scope = &mut rusty_v8::HandleScope::with_context(
-            isolate,
-            js_state.global_context.clone().unwrap(),
-        );
-        for (k, v) in js_state.callbacks.iter() {
+        let handle_scope = &mut rusty_v8::HandleScope::with_context(isolate, global_context);
+        for (_k, v) in js_state.callbacks.iter() {
             let func = v.get(handle_scope);
             let recv = rusty_v8::Integer::new(handle_scope, 1).into();
             func.call(handle_scope, recv, &[]);
@@ -352,9 +405,9 @@ async fn create_debug_scene(world: &mut World) {
     world.insert(DirectionalLight::new(
         glm::vec3(1.0, -1.0, 0.0),
         wgpu::Color {
-            r: 1.0,
-            g: 0.5,
-            b: 1.0,
+            r: 0.1,
+            g: 0.2,
+            b: 0.3,
             a: 1.0,
         },
     ));
@@ -381,32 +434,52 @@ async fn create_debug_scene(world: &mut World) {
     let collision_builder =
         ColliderBuilder::convex_hull(obj_model.meshes[0].points.as_slice()).unwrap();
 
-    let mut globals = Globals::new(0, 0);
-    globals.update_view_proj_matrix(&cam);
     let model_entity = world.create_entity().with(obj_model).build();
-    world
-        .create_entity()
-        .with(SpotLight::new(
-            glm::vec3(0.0, 0.0, 0.0),
-            glm::Mat4::identity(),
-            wgpu::Color::BLUE,
-            1.0,
-            0.4,
-            0.6,
-            20.0,
-            40.0,
-        ))
-        .build();
-    world
-        .create_entity()
-        .with(PointLight::new(
-            glm::vec3(0.0, 0.0, 0.0),
-            wgpu::Color::BLUE,
-            1.0,
-            0.4,
-            0.6,
-        ))
-        .build();
+    let mut rng = rand::thread_rng();
+    let light_count = 0;
+    for _ in 0..light_count {
+        world
+            .create_entity()
+            .with(SpotLight::new(
+                glm::vec3(rng.gen_range(-50.0..50.0), 10.0, rng.gen_range(-50.0..50.0)),
+                glm::Mat4::identity(),
+                wgpu::Color {
+                    a: 1.0,
+                    b: rng.gen::<f64>(),
+                    r: rng.gen::<f64>(),
+                    g: rng.gen::<f64>(),
+                },
+                1.0,
+                0.4,
+                0.6,
+                20.0,
+                40.0,
+            ))
+            .build();
+        world
+            .create_entity()
+            .with(PointLight::new(
+                glm::vec3(
+                    rng.gen_range(-100.0..100.0),
+                    2.0,
+                    rng.gen_range(-100.0..100.0),
+                ),
+                wgpu::Color {
+                    a: 1.0,
+                    b: rng.gen_range(0.0..1.0),
+                    r: rng.gen_range(0.0..1.0),
+                    g: rng.gen_range(0.0..1.0),
+                },
+                1.0,
+                10.0,
+                10.0,
+            ))
+            .build();
+    }
+    log::info!(" light count: {} ", light_count);
+    let mut globals = Globals::new(light_count as u32, light_count as u32);
+    globals.update_view_proj_matrix(&cam);
+
     world.insert(globals);
     world.insert(cam);
     // INSTANCING

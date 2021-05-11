@@ -33,3 +33,8 @@ impl Globals {
 pub struct ShadowUniforms {
     proj: [[f32; 4]; 4],
 }
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Pod, Zeroable)]
+pub struct CanvasConstants {
+    pub size: [f32; 2],
+}

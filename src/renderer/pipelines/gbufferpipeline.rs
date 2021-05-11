@@ -1,56 +1,44 @@
+use crate::renderer::{
+    pipelines::RenderPipelineBuilder,
+    primitives::{
+        texture::Texture,
+        vertex::{ModelVertex, Vertex},
+    },
+};
+
 use super::HorizonPipeline;
-use crate::renderer::bindgroupcontainer::BindGroupContainer;
-use crate::renderer::pipelines::RenderPipelineBuilder;
-use crate::renderer::primitives::texture::Texture;
-use crate::renderer::primitives::vertex::{ModelVertex, Vertex};
-use specs::*;
-use wgpu::ColorTargetState;
 
-pub struct ForwardPipeline(pub wgpu::RenderPipeline);
+pub struct GBufferPipeline(pub wgpu::RenderPipeline);
 
-impl<'a> HorizonPipeline<'a> for ForwardPipeline {
-    type RequiredLayouts = (
-        &'a wgpu::BindGroupLayout,
-        &'a wgpu::BindGroupLayout,
-        &'a wgpu::BindGroupLayout,
-    );
-
+impl<'a> HorizonPipeline<'a> for GBufferPipeline {
+    type RequiredLayouts = (&'a wgpu::BindGroupLayout, &'a wgpu::BindGroupLayout);
     fn create_pipeline(
         device: &wgpu::Device,
         bind_group_layouts: Self::RequiredLayouts,
-        targets: &[ColorTargetState],
+        targets: &[wgpu::ColorTargetState],
     ) -> wgpu::RenderPipeline {
-        let (deferred_bind_group, uniform_bind_group, light_bind_group) = bind_group_layouts;
+        let (diffuse_bind_group, uniform_bind_group) = bind_group_layouts;
 
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                bind_group_layouts: &[&deferred_bind_group, &uniform_bind_group, &light_bind_group],
-                label: Some("Render pipeline layout"),
+                bind_group_layouts: &[&diffuse_bind_group, &uniform_bind_group],
+                label: Some("GBuffer pipeline layout"),
                 push_constant_ranges: &[],
             });
 
         let vs_module = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
-            source: wgpu::util::make_spirv(include_bytes!("../../shaders/shader.vert.spv")),
+            source: wgpu::util::make_spirv(include_bytes!("../../shaders/gbuffer.vert.spv")),
             flags: wgpu::ShaderFlags::empty(),
-            label: Some("Forward vertex shader"),
+            label: Some("Gbuffer vertex shader"),
         });
-        // let vs_module =
-        //     device.create_shader_module(&wgpu::include_spirv!("../../shaders/shader.vert.spv"));
         let fs_module = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
-            source: wgpu::util::make_spirv(include_bytes!("../../shaders/shader.frag.spv")),
+            source: wgpu::util::make_spirv(include_bytes!("../../shaders/gbuffer.frag.spv")),
             flags: wgpu::ShaderFlags::empty(),
-            label: Some("forward fragment shader"),
+            label: Some("GBuffer fragment shader"),
         });
-        // let fs_module =
-        //     device.create_shader_module(&wgpu::include_spirv!("../../shaders/shader.frag.spv"));
-        let vbo_layout = wgpu::vertex_attr_array![0=>Float32x2];
 
         let vertex_state = wgpu::VertexState {
-            buffers: &[wgpu::VertexBufferLayout {
-                array_stride: (std::mem::size_of::<f32>() * 2) as wgpu::BufferAddress,
-                attributes: &vbo_layout,
-                step_mode: wgpu::InputStepMode::Vertex,
-            }],
+            buffers: &[ModelVertex::desc()],
             entry_point: "main",
             module: &vs_module,
         };
@@ -89,7 +77,7 @@ impl<'a> HorizonPipeline<'a> for ForwardPipeline {
             vertex_state,
             &device,
             &render_pipeline_layout,
-            Some("Render pipeline"),
+            Some("GBuffer pipeline"),
             Some(depth_stencil_state),
         )
     }

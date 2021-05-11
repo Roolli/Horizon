@@ -1,6 +1,6 @@
 use crate::renderer::pipelines::RenderPipelineBuilder;
 use crate::renderer::primitives::vertex::{ModelVertex, Vertex};
-use wgpu::{BindGroupLayout, ShaderFlags};
+use wgpu::{BindGroupLayout, ColorTargetState, ShaderFlags};
 
 use super::HorizonPipeline;
 use crate::renderer::bindgroupcontainer::BindGroupContainer;
@@ -15,8 +15,8 @@ impl<'a> HorizonPipeline<'a> for LightPipeline {
 
     fn create_pipeline(
         device: &wgpu::Device,
-        swap_chain_desc: &wgpu::SwapChainDescriptor,
         bind_group_layouts: Self::RequiredLayouts,
+        targets: &[ColorTargetState],
     ) -> wgpu::RenderPipeline {
         let (uniform_bind_group, light_bind_group) = bind_group_layouts;
         let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -50,9 +50,9 @@ impl<'a> HorizonPipeline<'a> for LightPipeline {
         };
         let light_fs =
             device.create_shader_module(&wgpu::include_spirv!("../../shaders/light.frag.spv"));
-        let view_targets = &[swap_chain_desc.format.into()];
+
         let fragment_state = Some(wgpu::FragmentState {
-            targets: view_targets,
+            targets,
             module: &light_fs,
             entry_point: "main",
         });

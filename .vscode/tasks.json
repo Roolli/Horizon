@@ -29,6 +29,21 @@
             ]
         },
         {
+            "label": "cargo build linux",
+            "command": "cargo",
+            "type": "shell",
+            "args": [
+                "build",
+                "--bin",
+                "horizon-native",
+                "--target",
+                "x86_64-unknown-linux-gnu"
+            ],
+            "problemMatcher": [
+                "$rustc"
+            ]
+        },
+        {
             "label": "cargo release",
             "command": "cargo",
             "type": "shell",
@@ -155,6 +170,14 @@
             "problemMatcher": [
                 "$rustc"
             ]
+        },
+        {
+            "label": "Watch",
+            "group": "build",
+            "type": "shell",
+            "command": "cargo watch",
+            "problemMatcher": "$rustc-watch",
+            "isBackground": true
         }
     ],
     "options": {

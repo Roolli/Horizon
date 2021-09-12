@@ -49,8 +49,7 @@ pub struct State {
     pub surface: wgpu::Surface,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
-    pub sc_descriptor: wgpu::SwapChainDescriptor,
-    pub swap_chain: wgpu::SwapChain,
+    pub sc_descriptor: wgpu::SurfaceConfiguration,
     pub size: winit::dpi::PhysicalSize<u32>,
     pub depth_texture: Texture,
 }
@@ -74,7 +73,7 @@ impl State {
     pub async fn new(window: &Window) -> Self {
         let size = window.inner_size();
 
-        let instance = wgpu::Instance::new(wgpu::BackendBit::all());
+        let instance = wgpu::Instance::new(wgpu::Backends::PRIMARY);
         let surface = unsafe { instance.create_surface(window) };
 
         let adapter = instance
@@ -95,8 +94,8 @@ impl State {
             )
             .await
             .unwrap();
-        let sc_desc = wgpu::SwapChainDescriptor {
-            usage: wgpu::TextureUsage::RENDER_ATTACHMENT | wgpu::TextureUsage::COPY_SRC,
+        let sc_desc = wgpu::SurfaceConfiguration {
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
             format: if cfg!(target_arch = "wasm32") {
                 wgpu::TextureFormat::Bgra8Unorm
             } else {
@@ -106,14 +105,12 @@ impl State {
             height: size.height,
             present_mode: wgpu::PresentMode::Mailbox,
         };
-        let swap_chain = device.create_swap_chain(&surface, &sc_desc);
         Self {
             depth_texture: Texture::create_depth_texture(&device, &sc_desc, "depth_texture"),
             device,
             surface,
             queue,
             sc_descriptor: sc_desc,
-            swap_chain,
             size,
         }
     }
@@ -142,9 +139,9 @@ impl State {
         }
     }
     pub fn update(&mut self) {}
-    pub fn render(&mut self) -> Result<(), wgpu::SwapChainError> {
-        Ok(())
+    // pub fn render(&mut self) -> Result<(), wgpu::SwapChainError> {
+    //     Ok(())
 
-        // Ok(())
-    }
+    //     // Ok(())
+    // }
 }

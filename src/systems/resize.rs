@@ -40,9 +40,6 @@ impl<'a> System<'a> for Resize {
         state.sc_descriptor.width = resize_event.new_size.width;
         state.depth_texture =
             Texture::create_depth_texture(&state.device, &state.sc_descriptor, "depth_texture");
-        state.swap_chain = state
-            .device
-            .create_swap_chain(&state.surface, &state.sc_descriptor);
         GBuffer::generate_g_buffers(&state.device, &state.sc_descriptor, &mut resource_container);
         let (_, _, entity) = (&deferred_bind_group, &bind_group_container, &entites)
             .join()

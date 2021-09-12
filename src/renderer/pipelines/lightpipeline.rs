@@ -1,6 +1,6 @@
 use crate::renderer::pipelines::RenderPipelineBuilder;
 use crate::renderer::primitives::vertex::{ModelVertex, Vertex};
-use wgpu::{BindGroupLayout, ColorTargetState, ShaderFlags};
+use wgpu::{BindGroupLayout, ColorTargetState};
 
 use super::HorizonPipeline;
 use crate::renderer::bindgroupcontainer::BindGroupContainer;
@@ -27,7 +27,6 @@ impl<'a> HorizonPipeline<'a> for LightPipeline {
         // https://github.com/gfx-rs/naga/issues/406 have to disable validation
         let vs_module = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
             source: wgpu::util::make_spirv(include_bytes!("../../shaders/light.vert.spv")),
-            flags: ShaderFlags::empty(),
             label: Some("light_vertex_shader"),
         });
         let vertex_state = wgpu::VertexState {
@@ -48,8 +47,10 @@ impl<'a> HorizonPipeline<'a> for LightPipeline {
             polygon_mode: wgpu::PolygonMode::Fill,
             ..Default::default()
         };
-        let light_fs =
-            device.create_shader_module(&wgpu::include_spirv!("../../shaders/light.frag.spv"));
+        let light_fs = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+            label: Some("light_fragment_shader"),
+            source: wgpu::util::make_spirv(include_bytes!("../../shaders/light.frag.spv")),
+        });
 
         let fragment_state = Some(wgpu::FragmentState {
             targets,
@@ -61,7 +62,6 @@ impl<'a> HorizonPipeline<'a> for LightPipeline {
             bias: wgpu::DepthBiasState {
                 ..Default::default()
             },
-            clamp_depth: device.features().contains(wgpu::Features::DEPTH_CLAMPING),
             depth_compare: wgpu::CompareFunction::Less,
             format: Texture::DEPTH_FORMAT,
             depth_write_enabled: true,

@@ -14,7 +14,7 @@ impl<'a> HorizonBindGroup<'a> for ShadowBindGroup {
             entries: &[
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: wgpu::ShaderStage::VERTEX,
+                    visibility: wgpu::ShaderStages::VERTEX,
                     count: None,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
@@ -24,7 +24,7 @@ impl<'a> HorizonBindGroup<'a> for ShadowBindGroup {
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
-                    visibility: wgpu::ShaderStage::VERTEX,
+                    visibility: wgpu::ShaderStages::VERTEX,
                     count: None,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Storage { read_only: true },
@@ -69,7 +69,7 @@ impl<'a> HorizonBindGroup<'a> for ShadowBindGroup {
             label: None,
             mapped_at_creation: false,
             size: shadow_uniforms_size,
-            usage: wgpu::BufferUsage::COPY_DST | wgpu::BufferUsage::UNIFORM,
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
         });
 
         resource_container

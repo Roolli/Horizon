@@ -31,14 +31,13 @@ impl<'a> HorizonPipeline<'a> for ForwardPipeline {
 
         let vs_module = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
             source: wgpu::util::make_spirv(include_bytes!("../../shaders/shader.vert.spv")),
-            flags: wgpu::ShaderFlags::empty(),
+
             label: Some("Forward vertex shader"),
         });
         // let vs_module =
         //     device.create_shader_module(&wgpu::include_spirv!("../../shaders/shader.vert.spv"));
         let fs_module = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
             source: wgpu::util::make_spirv(include_bytes!("../../shaders/shader.frag.spv")),
-            flags: wgpu::ShaderFlags::empty(),
             label: Some("forward fragment shader"),
         });
         // let fs_module =
@@ -49,7 +48,7 @@ impl<'a> HorizonPipeline<'a> for ForwardPipeline {
             buffers: &[wgpu::VertexBufferLayout {
                 array_stride: (std::mem::size_of::<f32>() * 2) as wgpu::BufferAddress,
                 attributes: &vbo_layout,
-                step_mode: wgpu::InputStepMode::Vertex,
+                step_mode: wgpu::VertexStepMode::Vertex,
             }],
             entry_point: "main",
             module: &vs_module,
@@ -64,7 +63,6 @@ impl<'a> HorizonPipeline<'a> for ForwardPipeline {
             bias: wgpu::DepthBiasState {
                 ..Default::default()
             },
-            clamp_depth: device.features().contains(wgpu::Features::DEPTH_CLAMPING),
             depth_compare: wgpu::CompareFunction::Less,
             format: Texture::DEPTH_FORMAT,
             depth_write_enabled: true,

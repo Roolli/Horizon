@@ -69,6 +69,7 @@ use winit::{
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
+use glm::Vec3;
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub fn setup() {
@@ -509,7 +510,7 @@ async fn create_debug_scene(world: &mut World) {
                 f32::to_radians(45.0) * instance.position.clone().normalize()
             };
             let rigid_body = RigidBodyBuilder::new_dynamic()
-                .position(Isometry3::new(instance.position, axisangle))
+                .position(Isometry3::new(Vec3::new(instance.position.x,instance.position.y,instance.position.z), axisangle))
                 .mass(1.0)
                 .build();
             let rigid_body_handle = physicsworld.add_rigid_body(rigid_body);

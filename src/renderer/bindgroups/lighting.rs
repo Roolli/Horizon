@@ -18,7 +18,7 @@ impl<'a> HorizonBindGroup<'a> for LightBindGroup {
             entries: &[
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
@@ -28,7 +28,7 @@ impl<'a> HorizonBindGroup<'a> for LightBindGroup {
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
-                    visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Storage { read_only: true },
                         has_dynamic_offset: false,
@@ -38,7 +38,7 @@ impl<'a> HorizonBindGroup<'a> for LightBindGroup {
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 2,
-                    visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Storage { read_only: true },
                         has_dynamic_offset: false,
@@ -89,9 +89,9 @@ impl<'a> HorizonBindGroup<'a> for LightBindGroup {
             label: Some("directional_light_buffer"),
             mapped_at_creation: false,
             size: std::mem::size_of::<DirectionalLightRaw>() as wgpu::BufferAddress,
-            usage: wgpu::BufferUsage::UNIFORM
-                | wgpu::BufferUsage::COPY_SRC
-                | wgpu::BufferUsage::COPY_DST,
+            usage: wgpu::BufferUsages::UNIFORM
+                | wgpu::BufferUsages::COPY_SRC
+                | wgpu::BufferUsages::COPY_DST,
         });
         let point_light_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("point_light_buffer"),
@@ -99,9 +99,9 @@ impl<'a> HorizonBindGroup<'a> for LightBindGroup {
 
             size: (State::MAX_POINT_LIGHTS * std::mem::size_of::<PointLightRaw>())
                 as wgpu::BufferAddress,
-            usage: wgpu::BufferUsage::STORAGE
-                | wgpu::BufferUsage::COPY_SRC
-                | wgpu::BufferUsage::COPY_DST,
+            usage: wgpu::BufferUsages::STORAGE
+                | wgpu::BufferUsages::COPY_SRC
+                | wgpu::BufferUsages::COPY_DST,
         });
 
         let spot_light_buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -109,9 +109,9 @@ impl<'a> HorizonBindGroup<'a> for LightBindGroup {
             mapped_at_creation: false,
             size: (State::MAX_SPOT_LIGHTS * std::mem::size_of::<SpotLightRaw>())
                 as wgpu::BufferAddress,
-            usage: wgpu::BufferUsage::STORAGE
-                | wgpu::BufferUsage::COPY_SRC
-                | wgpu::BufferUsage::COPY_DST,
+            usage: wgpu::BufferUsages::STORAGE
+                | wgpu::BufferUsages::COPY_SRC
+                | wgpu::BufferUsages::COPY_DST,
         });
         resource_container.buffers.insert(
             String::from("directional_light_buffer"),

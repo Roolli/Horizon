@@ -1,5 +1,5 @@
 use bytemuck::cast_slice;
-use wgpu::{util::DeviceExt, vertex_attr_array, InputStepMode, MultisampleState};
+use wgpu::{util::DeviceExt, vertex_attr_array, MultisampleState};
 
 use crate::renderer::{self, pass::Pass};
 
@@ -16,14 +16,14 @@ impl TextureRenderer {
     pub fn new(
         device: &wgpu::Device,
         texture: &wgpu::TextureView,
-        swap_chain_descriptor: &wgpu::SwapChainDescriptor,
+        swap_chain_descriptor: &wgpu::SurfaceConfiguration,
     ) -> Self {
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Debug Renderer"),
             entries: &[
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: wgpu::ShaderStage::FRAGMENT,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
                     count: None,
                     ty: wgpu::BindingType::Texture {
                         multisampled: false,
@@ -38,7 +38,7 @@ impl TextureRenderer {
                         comparison: false,
                         filtering: false,
                     },
-                    visibility: wgpu::ShaderStage::FRAGMENT,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
                 },
             ],
         });
@@ -76,7 +76,7 @@ impl TextureRenderer {
             push_constant_ranges: &[],
         });
         let quad_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            usage: wgpu::BufferUsage::COPY_DST | wgpu::BufferUsage::VERTEX,
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::VERTEX,
             contents: bytemuck::cast_slice(&Self::QUAD_VERTEX_ARRAY),
             label: None,
         });
@@ -84,15 +84,13 @@ impl TextureRenderer {
             source: wgpu::util::make_spirv(include_bytes!(
                 "../../shaders/textureRenderer.vert.spv"
             )),
-            flags: wgpu::ShaderFlags::empty(),
-            label: Some("shadow_vertex_shader"),
+            label: Some("texture_renderer_vert"),
         });
         let fs_module = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
             source: wgpu::util::make_spirv(include_bytes!(
                 "../../shaders/textureRenderer.frag.spv"
             )),
-            flags: wgpu::ShaderFlags::empty(),
-            label: Some("shadow_vertex_shader"),
+            label: Some("texture_renderer_frag"),
         });
 
         // let vs_module = device.create_shader_module(&wgpu::include_spirv!(
@@ -105,7 +103,7 @@ impl TextureRenderer {
         let buffer_layout = wgpu::VertexBufferLayout {
             attributes: attribs,
             array_stride: (std::mem::size_of::<f32>() * 2) as wgpu::BufferAddress,
-            step_mode: wgpu::InputStepMode::Vertex,
+            step_mode: wgpu::VertexStepMode::Vertex,
         };
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             vertex: wgpu::VertexState {

@@ -22,7 +22,7 @@ impl<'a> HorizonBindGroup<'a> for UniformBindGroup {
             entries: &[
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
                     count: None,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
@@ -38,11 +38,11 @@ impl<'a> HorizonBindGroup<'a> for UniformBindGroup {
                         has_dynamic_offset: false,
                         min_binding_size: None,
                     },
-                    visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 2,
-                    visibility: wgpu::ShaderStage::VERTEX,
+                    visibility: wgpu::ShaderStages::VERTEX,
                     count: None,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Storage { read_only: true },
@@ -52,7 +52,7 @@ impl<'a> HorizonBindGroup<'a> for UniformBindGroup {
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 3,
-                    visibility: wgpu::ShaderStage::FRAGMENT,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
                     count: None,
                     ty: wgpu::BindingType::Texture {
                         multisampled: false,
@@ -62,11 +62,11 @@ impl<'a> HorizonBindGroup<'a> for UniformBindGroup {
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 4,
-                    visibility: wgpu::ShaderStage::FRAGMENT,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
                     count: None,
                     ty: wgpu::BindingType::Sampler {
                         comparison: true,
-                        filtering: false,
+                        filtering: true,
                     },
                 },
             ],
@@ -131,7 +131,7 @@ impl<'a> HorizonBindGroup<'a> for UniformBindGroup {
             size: State::SHADOW_SIZE,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Depth32Float,
-            usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::RENDER_ATTACHMENT,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT,
             label: Some("shadow texture"),
             mip_level_count: 1,
             sample_count: 1,
@@ -144,20 +144,20 @@ impl<'a> HorizonBindGroup<'a> for UniformBindGroup {
         let normal_matrix_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             mapped_at_creation: false,
             label: Some("model_matrix_buffer"),
-            usage: wgpu::BufferUsage::COPY_DST | wgpu::BufferUsage::STORAGE,
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::STORAGE,
             size: State::MAX_ENTITY_COUNT,
         });
 
         let instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("instance_buffer"),
-            usage: wgpu::BufferUsage::STORAGE | wgpu::BufferUsage::COPY_DST,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
             size: State::MAX_ENTITY_COUNT,
         });
 
         let uniform_size = std::mem::size_of::<Globals>() as wgpu::BufferAddress;
         let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             label: Some("uniform_buffer"),
             size: uniform_size,
             mapped_at_creation: false,

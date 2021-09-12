@@ -33,7 +33,7 @@ impl<'a> HorizonBindGroup<'a> for DeferredBindGroup {
             label: Some("deferred bind group layout"),
             entries: &[
                 wgpu::BindGroupLayoutEntry {
-                    visibility: wgpu::ShaderStage::FRAGMENT,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
                     binding: 0,
                     count: None,
                     ty: wgpu::BindingType::Sampler {
@@ -42,7 +42,7 @@ impl<'a> HorizonBindGroup<'a> for DeferredBindGroup {
                     },
                 },
                 wgpu::BindGroupLayoutEntry {
-                    visibility: wgpu::ShaderStage::FRAGMENT,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
                     binding: 1,
                     count: None,
                     ty: wgpu::BindingType::Texture {
@@ -52,7 +52,7 @@ impl<'a> HorizonBindGroup<'a> for DeferredBindGroup {
                     },
                 },
                 wgpu::BindGroupLayoutEntry {
-                    visibility: wgpu::ShaderStage::FRAGMENT,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
                     binding: 2,
                     count: None,
                     ty: wgpu::BindingType::Texture {
@@ -62,7 +62,7 @@ impl<'a> HorizonBindGroup<'a> for DeferredBindGroup {
                     },
                 },
                 wgpu::BindGroupLayoutEntry {
-                    visibility: wgpu::ShaderStage::FRAGMENT,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
                     binding: 3,
                     count: None,
                     ty: wgpu::BindingType::Texture {
@@ -72,7 +72,7 @@ impl<'a> HorizonBindGroup<'a> for DeferredBindGroup {
                     },
                 },
                 wgpu::BindGroupLayoutEntry {
-                    visibility: wgpu::ShaderStage::FRAGMENT,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
                     binding: 4,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
@@ -130,7 +130,7 @@ impl<'a> HorizonBindGroup<'a> for DeferredBindGroup {
             label: Some("Canvas_size_buffer"),
             mapped_at_creation: false,
             size: std::mem::size_of::<CanvasConstants>() as wgpu::BufferAddress,
-            usage: wgpu::BufferUsage::COPY_DST | wgpu::BufferUsage::UNIFORM,
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
         });
         resource_container.buffers.insert(
             String::from(stringify!(canvas_size_buffer)),
@@ -139,7 +139,7 @@ impl<'a> HorizonBindGroup<'a> for DeferredBindGroup {
 
         let deferred_vao = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             contents: bytemuck::cast_slice(&Self::ARRAY),
-            usage: wgpu::BufferUsage::VERTEX,
+            usage: wgpu::BufferUsages::VERTEX,
             label: Some("deferred_vao"),
         });
         resource_container

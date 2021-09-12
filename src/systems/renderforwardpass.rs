@@ -20,7 +20,7 @@ use chrono::Duration;
 use futures::io::ReadExact;
 use image::flat::View;
 use specs::prelude::*;
-use wgpu::{CommandEncoder, CommandEncoderDescriptor, SwapChainError};
+use wgpu::{CommandEncoder, CommandEncoderDescriptor};
 pub struct RenderForwardPass;
 
 impl<'a> System<'a> for RenderForwardPass {
@@ -50,7 +50,7 @@ impl<'a> System<'a> for RenderForwardPass {
             deferred_bind_group,
         ): Self::SystemData,
     ) {
-        let frame = state.swap_chain.get_current_frame().unwrap().output;
+        let frame = state.surface.get_current_frame().unwrap().output;
         let cmd_encoder = encoder.get_encoder();
 
         // {
@@ -85,11 +85,13 @@ impl<'a> System<'a> for RenderForwardPass {
         //     render_pass.set_vertex_buffer(0, renderer.quad.slice(..));
         //     render_pass.draw(0..TextureRenderer::QUAD_VERTEX_ARRAY.len() as u32, 0..1);
         // }
-
+        let frame_view = &frame
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
         let mut render_pass = cmd_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("forward pass"),
             color_attachments: &[wgpu::RenderPassColorAttachment {
-                view: &frame.view,
+                view: frame_view,
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(wgpu::Color {

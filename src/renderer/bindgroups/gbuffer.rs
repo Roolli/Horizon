@@ -1,4 +1,4 @@
-use wgpu::{util::DeviceExt, Device, SwapChainDescriptor, TextureDescriptor};
+use wgpu::{util::DeviceExt, Device, TextureDescriptor};
 
 use crate::{
     renderer::primitives::uniforms::CanvasConstants,
@@ -10,11 +10,11 @@ pub struct GBuffer;
 impl GBuffer {
     pub fn generate_g_buffers(
         device: &Device,
-        sc_descriptor: &SwapChainDescriptor,
+        sc_descriptor: &wgpu::SurfaceConfiguration,
         resource_container: &mut BindingResourceContainer,
     ) {
         let pos_diffuse_normal_texture = device.create_texture(&TextureDescriptor {
-            usage: wgpu::TextureUsage::RENDER_ATTACHMENT | wgpu::TextureUsage::SAMPLED,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba32Float,
             mip_level_count: 1,
@@ -27,7 +27,7 @@ impl GBuffer {
             },
         });
         let albedo_texture = device.create_texture(&TextureDescriptor {
-            usage: wgpu::TextureUsage::RENDER_ATTACHMENT | wgpu::TextureUsage::SAMPLED,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Bgra8Unorm,
             mip_level_count: 1,

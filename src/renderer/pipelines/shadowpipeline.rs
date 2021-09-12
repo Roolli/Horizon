@@ -26,7 +26,6 @@ impl<'a> HorizonPipeline<'a> for ShadowPipeline {
         //     device.create_shader_module(&wgpu::include_spirv!("../../shaders/shadow.vert.spv"));
         let vs_module = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
             source: wgpu::util::make_spirv(include_bytes!("../../shaders/shadow.vert.spv")),
-            flags: wgpu::ShaderFlags::empty(),
             label: Some("shadow_vertex_shader"),
         });
         let depth_stencil_state = wgpu::DepthStencilState {
@@ -39,7 +38,6 @@ impl<'a> HorizonPipeline<'a> for ShadowPipeline {
             depth_compare: wgpu::CompareFunction::LessEqual,
             depth_write_enabled: true,
             stencil: wgpu::StencilState::default(),
-            clamp_depth: device.features().contains(wgpu::Features::DEPTH_CLAMPING),
         };
         //TODO: create seperate vertex buffer for location only for performance reasons
         let vertex_state = wgpu::VertexState {

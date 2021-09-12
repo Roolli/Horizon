@@ -28,12 +28,10 @@ impl<'a> HorizonPipeline<'a> for GBufferPipeline {
 
         let vs_module = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
             source: wgpu::util::make_spirv(include_bytes!("../../shaders/gbuffer.vert.spv")),
-            flags: wgpu::ShaderFlags::empty(),
             label: Some("Gbuffer vertex shader"),
         });
         let fs_module = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
             source: wgpu::util::make_spirv(include_bytes!("../../shaders/gbuffer.frag.spv")),
-            flags: wgpu::ShaderFlags::empty(),
             label: Some("GBuffer fragment shader"),
         });
 
@@ -52,7 +50,6 @@ impl<'a> HorizonPipeline<'a> for GBufferPipeline {
             bias: wgpu::DepthBiasState {
                 ..Default::default()
             },
-            clamp_depth: device.features().contains(wgpu::Features::DEPTH_CLAMPING),
             depth_compare: wgpu::CompareFunction::Less,
             format: Texture::DEPTH_FORMAT,
             depth_write_enabled: true,

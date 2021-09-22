@@ -24,10 +24,7 @@ impl<'a> HorizonPipeline<'a> for ShadowPipeline {
         // [2021-04-02T16:10:08Z ERROR wgpu_core::validation] Unexpected varying type: Array { base: [1], size: Constant([5]), stride: None }
         // let vs_module =
         //     device.create_shader_module(&wgpu::include_spirv!("../../shaders/shadow.vert.spv"));
-        let vs_module = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
-            source: wgpu::util::make_spirv(include_bytes!("../../shaders/shadow.vert.spv")),
-            label: Some("shadow_vertex_shader"),
-        });
+        let module = device.create_shader_module(&wgpu::include_wgsl!("../../shaders/shadow.wgsl"));
         let depth_stencil_state = wgpu::DepthStencilState {
             format: wgpu::TextureFormat::Depth32Float,
             bias: wgpu::DepthBiasState {
@@ -42,8 +39,8 @@ impl<'a> HorizonPipeline<'a> for ShadowPipeline {
         //TODO: create seperate vertex buffer for location only for performance reasons
         let vertex_state = wgpu::VertexState {
             buffers: &[ModelVertex::desc()],
-            entry_point: "main",
-            module: &vs_module,
+            entry_point: "vs_main",
+            module: &module,
         };
         let primitve_state = wgpu::PrimitiveState {
             front_face: wgpu::FrontFace::Ccw,

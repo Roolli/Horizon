@@ -128,10 +128,7 @@ fn fs_main(in:FragmentInput) -> [[location(0)]] vec4<f32>
     var result = vec3<f32>(0.0);
     let coordinates = in.pos.xy / canvasSize.canvasConstants;
     let position = textureSample(positions,texture_sampler,coordinates).xyz;
-    // if(position.z > 10000.0)
-    // {
-    //     discard;
-    // }
+  
     
     let object_normal = textureSample(normals,texture_sampler,coordinates);
     let object_color = textureSample(albedo,texture_sampler,coordinates);

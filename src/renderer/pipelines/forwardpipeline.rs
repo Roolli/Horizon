@@ -29,17 +29,9 @@ impl<'a> HorizonPipeline<'a> for ForwardPipeline {
                 push_constant_ranges: &[],
             });
 
-        let vs_module = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
-            source: wgpu::util::make_spirv(include_bytes!("../../shaders/shader.vert.spv")),
+        let module =
+            device.create_shader_module(&wgpu::include_wgsl!("../../shaders/forward.wgsl"));
 
-            label: Some("Forward vertex shader"),
-        });
-        // let vs_module =
-        //     device.create_shader_module(&wgpu::include_spirv!("../../shaders/shader.vert.spv"));
-        let fs_module = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
-            source: wgpu::util::make_spirv(include_bytes!("../../shaders/shader.frag.spv")),
-            label: Some("forward fragment shader"),
-        });
         // let fs_module =
         //     device.create_shader_module(&wgpu::include_spirv!("../../shaders/shader.frag.spv"));
         let vbo_layout = wgpu::vertex_attr_array![0=>Float32x2];
@@ -50,13 +42,13 @@ impl<'a> HorizonPipeline<'a> for ForwardPipeline {
                 attributes: &vbo_layout,
                 step_mode: wgpu::VertexStepMode::Vertex,
             }],
-            entry_point: "main",
-            module: &vs_module,
+            entry_point: "vs_main",
+            module: &module,
         };
         let fragment_state = Some(wgpu::FragmentState {
             targets,
-            module: &fs_module,
-            entry_point: "main",
+            module: &module,
+            entry_point: "fs_main",
         });
 
         let depth_stencil_state = wgpu::DepthStencilState {

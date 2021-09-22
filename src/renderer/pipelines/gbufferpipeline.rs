@@ -1,3 +1,5 @@
+use wgpu::ShaderModuleDescriptor;
+
 use crate::renderer::{
     pipelines::RenderPipelineBuilder,
     primitives::{
@@ -25,25 +27,17 @@ impl<'a> HorizonPipeline<'a> for GBufferPipeline {
                 label: Some("GBuffer pipeline layout"),
                 push_constant_ranges: &[],
             });
-
-        let vs_module = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
-            source: wgpu::util::make_spirv(include_bytes!("../../shaders/gbuffer.vert.spv")),
-            label: Some("Gbuffer vertex shader"),
-        });
-        let fs_module = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
-            source: wgpu::util::make_spirv(include_bytes!("../../shaders/gbuffer.frag.spv")),
-            label: Some("GBuffer fragment shader"),
-        });
-
+        let module =
+            device.create_shader_module(&wgpu::include_wgsl!("../../shaders/gbuffer.wgsl"));
         let vertex_state = wgpu::VertexState {
             buffers: &[ModelVertex::desc()],
-            entry_point: "main",
-            module: &vs_module,
+            entry_point: "vs_main",
+            module: &module,
         };
         let fragment_state = Some(wgpu::FragmentState {
             targets,
-            module: &fs_module,
-            entry_point: "main",
+            module: &module,
+            entry_point: "fs_main",
         });
 
         let depth_stencil_state = wgpu::DepthStencilState {

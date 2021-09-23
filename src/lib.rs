@@ -67,9 +67,9 @@ use winit::{
 #[cfg(all(target_arch = "wasm32", feature = "wee_alloc"))]
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+use glm::Vec3;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
-use glm::Vec3;
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub fn setup() {
@@ -326,7 +326,6 @@ fn setup_pipelines(world: &mut World) {
             wgpu::TextureFormat::Bgra8Unorm.into(),
         ],
     );
-
     let forward_pipeline = ForwardPipeline::create_pipeline(
         &state.device,
         (
@@ -510,7 +509,14 @@ async fn create_debug_scene(world: &mut World) {
                 f32::to_radians(45.0) * instance.position.clone().normalize()
             };
             let rigid_body = RigidBodyBuilder::new_dynamic()
-                .position(Isometry3::new(Vec3::new(instance.position.x,instance.position.y,instance.position.z), axisangle))
+                .position(Isometry3::new(
+                    Vec3::new(
+                        instance.position.x,
+                        instance.position.y,
+                        instance.position.z,
+                    ),
+                    axisangle,
+                ))
                 .mass(1.0)
                 .build();
             let rigid_body_handle = physicsworld.add_rigid_body(rigid_body);

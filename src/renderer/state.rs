@@ -105,6 +105,7 @@ impl State {
             height: size.height,
             present_mode: wgpu::PresentMode::Mailbox,
         };
+        surface.configure(&device, &sc_desc);
         Self {
             depth_texture: Texture::create_depth_texture(&device, &sc_desc, "depth_texture"),
             device,

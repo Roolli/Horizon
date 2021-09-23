@@ -46,6 +46,7 @@ impl<'a> System<'a> for Resize {
             .next()
             .unwrap();
         let bind_group = bind_group_container.get_mut(entity).unwrap();
+        state.surface.configure(&state.device, &state.sc_descriptor);
         state.queue.write_buffer(
             resource_container
                 .buffers

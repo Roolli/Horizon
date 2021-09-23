@@ -40,7 +40,7 @@ impl ModelBuilder {
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Sampler {
                         comparison: false,
-                        filtering: false,
+                        filtering: true,
                     },
                     count: None,
                 },
@@ -59,7 +59,7 @@ impl ModelBuilder {
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Sampler {
                         comparison: false,
-                        filtering: false,
+                        filtering: true,
                     },
                     count: None,
                 },

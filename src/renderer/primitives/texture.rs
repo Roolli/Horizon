@@ -1,6 +1,7 @@
-use std::path::Path;
+use std::{num::NonZeroU8, path::Path};
 
 use anyhow::*;
+use bytemuck::Contiguous;
 use image::{DynamicImage, GenericImageView, ImageBuffer};
 
 pub struct Texture {
@@ -74,6 +75,7 @@ impl Texture {
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Nearest,
             mipmap_filter: wgpu::FilterMode::Nearest,
+            anisotropy_clamp: NonZeroU8::from_integer(1),
             ..Default::default()
         });
         Ok(Self {

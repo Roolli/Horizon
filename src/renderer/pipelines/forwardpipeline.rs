@@ -79,7 +79,7 @@ impl<'a> HorizonPipeline<'a> for ForwardPipeline {
             vertex_state,
             &device,
             &render_pipeline_layout,
-            Some("Render pipeline"),
+            Some("forward Render pipeline"),
             Some(depth_stencil_state),
         )
     }

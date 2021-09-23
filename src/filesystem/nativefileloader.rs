@@ -21,6 +21,7 @@ impl FileLoader for Nativefileloader {
     async fn load_file(&self, path: &str) -> Vec<u8> {
         let mut vec = Vec::new();
         let file_path = self.rootdir.clone().join(path);
+        log::info!("{:?}", file_path);
         let mut f = File::open(file_path).unwrap();
         f.read_to_end(&mut vec).unwrap();
         vec

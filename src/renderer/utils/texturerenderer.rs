@@ -80,18 +80,8 @@ impl TextureRenderer {
             contents: bytemuck::cast_slice(&Self::QUAD_VERTEX_ARRAY),
             label: None,
         });
-        let vs_module = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
-            source: wgpu::util::make_spirv(include_bytes!(
-                "../../shaders/textureRenderer.vert.spv"
-            )),
-            label: Some("texture_renderer_vert"),
-        });
-        let fs_module = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
-            source: wgpu::util::make_spirv(include_bytes!(
-                "../../shaders/textureRenderer.frag.spv"
-            )),
-            label: Some("texture_renderer_frag"),
-        });
+        let module =
+            device.create_shader_module(&wgpu::include_wgsl!("../../shaders/textureRenderer.wgsl"));
 
         // let vs_module = device.create_shader_module(&wgpu::include_spirv!(
         //     "../../shaders/textureRenderer.vert.spv"
@@ -107,15 +97,15 @@ impl TextureRenderer {
         };
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             vertex: wgpu::VertexState {
-                module: &vs_module,
+                module: &module,
                 buffers: &[buffer_layout],
-                entry_point: "main",
+                entry_point: "vs_main",
             },
             depth_stencil: None,
             fragment: Some(wgpu::FragmentState {
                 targets: &[swap_chain_descriptor.format.into()],
-                entry_point: "main",
-                module: &fs_module,
+                entry_point: "fs_main",
+                module: &module,
             }),
             label: Some("Debug texture renderer pipeline"),
             layout: Some(&pipeline_layout),

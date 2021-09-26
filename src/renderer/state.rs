@@ -36,6 +36,8 @@ use crate::renderer::utils::texturerenderer::TextureRenderer;
 
 use chrono::{Duration, DurationRound, Timelike};
 
+use egui_winit_platform::Platform;
+use egui_winit_platform::PlatformDescriptor;
 use nalgebra::Isometry3;
 use rapier3d::{
     dynamics::RigidBodyBuilder,
@@ -52,6 +54,7 @@ pub struct State {
     pub sc_descriptor: wgpu::SurfaceConfiguration,
     pub size: winit::dpi::PhysicalSize<u32>,
     pub depth_texture: Texture,
+    pub egui_winit_platform: Platform,
 }
 impl State {
     //TODO: Move this to a constants / limits struct for cleanliness
@@ -106,6 +109,15 @@ impl State {
             present_mode: wgpu::PresentMode::Mailbox,
         };
         surface.configure(&device, &sc_desc);
+
+        let platform = Platform::new(PlatformDescriptor {
+            physical_height: sc_desc.height,
+            physical_width: sc_desc.width,
+            scale_factor: window.scale_factor(),
+            ..Default::default()
+        });
+        let mut demo_app = egui_demo_lib::WrapApp::default();
+
         Self {
             depth_texture: Texture::create_depth_texture(&device, &sc_desc, "depth_texture"),
             device,
@@ -113,6 +125,7 @@ impl State {
             queue,
             sc_descriptor: sc_desc,
             size,
+            egui_winit_platform: platform,
         }
     }
 

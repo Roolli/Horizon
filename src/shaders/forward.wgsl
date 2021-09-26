@@ -134,7 +134,7 @@ fn fs_main(in:FragmentInput) -> [[location(0)]] vec4<f32>
     let view_direction = normalize(-position);
     result = result + calcDirLightContribution(object_normal.xyz,view_direction,object_color.xyz);
 
-    for(var i:u32 =0u; i < arrayLength(&pointLights.elements);i = i+1u)
+    for(var i:u32 =0u; i < arrayLength(&pointLights.elements) && i < u32(globals.lights_num.x) ;i = i+1u)
     {   
        result = result + calcPointLightContribution(pointLights.elements[i],position,object_normal.xyz,view_direction,object_color.xyz);
     }

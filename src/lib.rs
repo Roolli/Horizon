@@ -35,7 +35,8 @@ use renderer::{
 };
 use resources::{
     bindingresourcecontainer::BindingResourceContainer, camera::Camera,
-    commandencoder::HorizonCommandEncoder, windowevents::ResizeEvent,
+    commandencoder::HorizonCommandEncoder, eguirenderpass::EguiRenderPass,
+    windowevents::ResizeEvent,
 };
 use scripting::scriptingengine::V8ScriptingEngine;
 use specs::{Builder, Dispatcher, DispatcherBuilder, World, WorldExt};
@@ -196,8 +197,13 @@ fn register_resources(world: &mut World) {
         });
     let importer = Importer::default();
     let model_builder = ModelBuilder::new(&state.device, importer);
+    let egui_render_pass = EguiRenderPass {
+        pass: egui_wgpu_backend::RenderPass::new(&state.device, state.sc_descriptor.format, 1),
+    };
+
     drop(state);
     world.insert(model_builder);
+    world.insert(egui_render_pass);
     world.insert(ResizeEvent {
         new_size: size,
         handled: false,
@@ -401,7 +407,7 @@ async fn create_debug_scene(world: &mut World) {
         }
     }
 
-    const NUM_INSTANCES_PER_ROW: u32 = 15;
+    const NUM_INSTANCES_PER_ROW: u32 = 5;
     world.insert(DirectionalLight::new(
         glm::vec3(1.0, -1.0, 0.0),
         wgpu::Color {
@@ -436,7 +442,7 @@ async fn create_debug_scene(world: &mut World) {
 
     let model_entity = world.create_entity().with(obj_model).build();
     let mut rng = rand::thread_rng();
-    let light_count = 0;
+    let light_count = 15;
     for _ in 0..light_count {
         world
             .create_entity()

@@ -26,7 +26,7 @@ default = ["console_error_panic_hook"]
 
 [dependencies]
 rand = "0.8"
-winit = "0.24.0"
+
 nalgebra = "0.24.0"
 glm= {version="0.10.0", package="nalgebra-glm"}
 rapier3d={version="0.5.0"}
@@ -37,6 +37,17 @@ anyhow = "1.0.38"
 tobj = "2.0.3"
 log = "0.4"
 async-trait = "0.1.42"
+egui = "0.14"
+epi="0.14"
+egui_wgpu_backend ="0.12"
+egui_winit_platform = "0.10.0"
+egui_demo_lib= "0.14"
+
+[target.'cfg(windows)'.dependencies]
+winit = {version="0.25.0" }
+
+[target.'cfg(unix)'.dependencies]
+winit = {version="0.25.0", features=['x11'] }
 
 [target.'cfg(not(target_arch="wasm32"))'.dependencies]
 env_logger = "0.8.2"

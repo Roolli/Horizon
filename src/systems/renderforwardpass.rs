@@ -50,7 +50,8 @@ impl<'a> System<'a> for RenderForwardPass {
             deferred_bind_group,
         ): Self::SystemData,
     ) {
-        let frame = state.surface.get_current_frame().unwrap().output;
+        let frame = state.surface.get_current_texture().unwrap();
+
         let cmd_encoder = encoder.get_encoder();
 
         // {

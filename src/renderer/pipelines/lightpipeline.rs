@@ -25,14 +25,11 @@ impl<'a> HorizonPipeline<'a> for LightPipeline {
             push_constant_ranges: &[],
         });
         // https://github.com/gfx-rs/naga/issues/406 have to disable validation
-        let vs_module = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
-            source: wgpu::util::make_spirv(include_bytes!("../../shaders/light.vert.spv")),
-            label: Some("light_vertex_shader"),
-        });
+        let module = device.create_shader_module(&wgpu::include_wgsl!("../../shaders/light.wgsl"));
         let vertex_state = wgpu::VertexState {
             buffers: &[ModelVertex::desc()],
             entry_point: "main",
-            module: &vs_module,
+            module: &module,
         };
 
         let primitve_state = wgpu::PrimitiveState {
@@ -47,14 +44,10 @@ impl<'a> HorizonPipeline<'a> for LightPipeline {
             polygon_mode: wgpu::PolygonMode::Fill,
             ..Default::default()
         };
-        let light_fs = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
-            label: Some("light_fragment_shader"),
-            source: wgpu::util::make_spirv(include_bytes!("../../shaders/light.frag.spv")),
-        });
 
         let fragment_state = Some(wgpu::FragmentState {
             targets,
-            module: &light_fs,
+            module: &module,
             entry_point: "main",
         });
 

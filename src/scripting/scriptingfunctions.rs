@@ -1,10 +1,12 @@
+#[cfg(not(target_arch = "wasm32"))]
+use super::scriptingengine::V8ScriptingEngine;
+#[cfg(not(target_arch = "wasm32"))]
 use rusty_v8 as v8;
 use std::collections::HashMap;
 use std::io::Write;
 use std::{convert::TryFrom, io::stdout};
+#[cfg(not(target_arch = "wasm32"))]
 use v8::{Function, Global};
-
-use super::scriptingengine::V8ScriptingEngine;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;

@@ -1,6 +1,8 @@
 use std::{borrow::Borrow, cell::RefCell, collections::HashMap, rc::Rc, sync::Once};
 
+#[cfg(not(target_arch = "wasm32"))]
 use rusty_v8 as v8;
+#[cfg(not(target_arch = "wasm32"))]
 use v8::{
     Context, ContextScope, CreateParams, HandleScope, Local, OwnedIsolate, Platform, UniquePtr,
     UniqueRef,
@@ -9,10 +11,12 @@ use v8::{
 use super::scriptingfunctions::ScriptingFunctions;
 
 static PLATFORM_INIT: Once = Once::new();
+#[cfg(not(target_arch = "wasm32"))]
 pub struct V8ScriptingEngine {
     pub isolate: OwnedIsolate,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn platform_init() {
     PLATFORM_INIT.call_once(|| {
         let platform = v8::new_default_platform().unwrap();
@@ -20,7 +24,7 @@ fn platform_init() {
         v8::V8::initialize();
     });
 }
-
+#[cfg(not(target_arch = "wasm32"))]
 impl V8ScriptingEngine {
     pub fn new() -> Self {
         platform_init();
@@ -144,6 +148,7 @@ impl V8ScriptingEngine {
         state.clone()
     }
 }
+#[cfg(not(target_arch = "wasm32"))]
 pub struct ScriptingEngineState {
     pub global_context: Option<v8::Global<v8::Context>>,
     pub callbacks: HashMap<String, v8::Global<v8::Function>>,

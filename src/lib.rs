@@ -38,6 +38,7 @@ use resources::{
     commandencoder::HorizonCommandEncoder, eguirenderpass::EguiRenderPass,
     windowevents::ResizeEvent,
 };
+#[cfg(not(target_arch = "wasm32"))]
 use scripting::scriptingengine::V8ScriptingEngine;
 use specs::{Builder, Dispatcher, DispatcherBuilder, World, WorldExt};
 use systems::{
@@ -384,26 +385,29 @@ fn setup_pipelines(world: &mut World) {
 }
 
 async fn create_debug_scene(world: &mut World) {
-    let mut js = V8ScriptingEngine::new();
-    // TODO: load all the scripts and execute them before the first frame is rendered. maybe do modules and whatnot.
-    js.execute(
-        "test.js",
-        String::from_utf8(Importer::default().import_file("./test.js").await)
-            .unwrap()
-            .as_str(),
-    );
-
+    #[cfg(not(target_arch = "wasm32"))]
     {
-        let global_context = js.global_context();
-        let isolate = &mut js.isolate;
+        let mut js = V8ScriptingEngine::new();
+        // TODO: load all the scripts and execute them before the first frame is rendered. maybe do modules and whatnot.
+        js.execute(
+            "test.js",
+            String::from_utf8(Importer::default().import_file("./test.js").await)
+                .unwrap()
+                .as_str(),
+        );
 
-        let state_rc = V8ScriptingEngine::state(isolate);
-        let js_state = state_rc.borrow();
-        let handle_scope = &mut rusty_v8::HandleScope::with_context(isolate, global_context);
-        for (_k, v) in js_state.callbacks.iter() {
-            let func = v.get(handle_scope);
-            let recv = rusty_v8::Integer::new(handle_scope, 1).into();
-            func.call(handle_scope, recv, &[]);
+        {
+            let global_context = js.global_context();
+            let isolate = &mut js.isolate;
+
+            let state_rc = V8ScriptingEngine::state(isolate);
+            let js_state = state_rc.borrow();
+            let handle_scope = &mut rusty_v8::HandleScope::with_context(isolate, global_context);
+            for (_k, v) in js_state.callbacks.iter() {
+                let func = v.get(handle_scope);
+                let recv = rusty_v8::Integer::new(handle_scope, 1).into();
+                func.call(handle_scope, recv, &[]);
+            }
         }
     }
 
@@ -441,6 +445,7 @@ async fn create_debug_scene(world: &mut World) {
         ColliderBuilder::convex_hull(obj_model.meshes[0].points.as_slice()).unwrap();
 
     let model_entity = world.create_entity().with(obj_model).build();
+
     let mut rng = rand::thread_rng();
     let light_count = 15;
     for _ in 0..light_count {

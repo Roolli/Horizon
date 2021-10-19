@@ -15,9 +15,7 @@ pub struct ScriptingFunctions;
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
-pub struct ScriptingFunctions {
-    pub lifecycle_event_storage: HashMap<LifeCycleEvent, Vec<&js_sys::Function>>,
-}
+pub struct ScriptingFunctions;
 
 #[cfg(not(target_arch = "wasm32"))]
 impl ScriptingFunctions {

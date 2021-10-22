@@ -16,7 +16,7 @@ fn vs_main([[location(0)]] pos:vec2<f32>) -> [[builtin(position)]] vec4<f32>
 struct PointLight {
     position:vec4<f32>;
     color:vec4<f32>;
-    attenuation:vec4<f32>; 
+    attenuation:vec4<f32>; // x constant, y linear, z quadratic 
 };
 
 [[block]]
@@ -37,7 +37,7 @@ struct DirectionalLight {
 
 [[block]]
 struct Globals {
-    u_view_positionu: vec4<f32>;
+    u_view_position: vec4<f32>;
     u_view_proj: mat4x4<f32>;
     lights_num: vec4<u32>;
 };

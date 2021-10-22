@@ -18,7 +18,7 @@ struct VertexOutputs {
 
 [[block]]
 struct Globals {
-    u_view_positionu: vec4<f32>;
+    u_view_position: vec4<f32>;
     u_view_proj: mat4x4<f32>;
     lights_num: vec4<u32>;
 };

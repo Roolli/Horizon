@@ -1,5 +1,6 @@
 pub mod forwardpipeline;
 pub mod gbufferpipeline;
+pub mod lightcullingpipeline;
 pub mod lightpipeline;
 pub mod shadowpipeline;
 pub mod texturepipeline;
@@ -13,6 +14,15 @@ pub trait HorizonPipeline<'a> {
         targets: &[ColorTargetState],
     ) -> wgpu::RenderPipeline;
 }
+
+pub trait HorizonComputePipeline<'a> {
+    type RequiredLayouts;
+    fn create_compute_pipeline(
+        device: &wgpu::Device,
+        bind_group_layouts: Self::RequiredLayouts,
+    ) -> wgpu::ComputePipeline;
+}
+
 pub struct RenderPipelineBuilder;
 
 impl RenderPipelineBuilder {
@@ -27,7 +37,7 @@ impl RenderPipelineBuilder {
     ) -> wgpu::RenderPipeline {
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label,
-            layout: Some(&pipeline_layout),
+            layout: Some(pipeline_layout),
             vertex,
             fragment: fragment_state,
             primitive: primitve_state,

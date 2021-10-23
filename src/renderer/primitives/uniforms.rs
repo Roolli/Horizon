@@ -38,3 +38,12 @@ pub struct ShadowUniforms {
 pub struct CanvasConstants {
     pub size: [f32; 2],
 }
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Pod, Zeroable)]
+pub struct TileInfo {
+    pub tile_size: i32,
+    pub tile_count_x: i32,
+    pub tile_count_y: i32,
+    pub num_tiles: u32,
+    pub num_tile_light_slot: u32,
+}

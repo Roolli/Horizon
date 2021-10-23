@@ -1,3 +1,6 @@
+
+
+
 //TODO: change attenuation to radius
 struct SpotLight {
     position: vec4<f32>;
@@ -20,18 +23,16 @@ struct TileInfo {
      tile_size: i32;
      tile_count_x:i32;
      tile_count_y:i32;
-
+     num_tiles: u32;
+     num_tile_light_slot: u32;
 };
 
 // Not possible as of 22/10/2021 use uniforms instead
 // [[override(0)]]
 // let TILE_SIZE :i32;
-
-[[block]]
-struct DirectionalLight {
-    dl_projection: mat4x4<f32>;
-    direction: vec4<f32>;
-    color: vec4<f32>;
+[[block]]struct TileLightData {
+    light_count:atomic<u32>;
+    light_ids:array<u32>;
 };
 
 [[block]]struct PointLightContainer
@@ -54,19 +55,23 @@ struct Globals {
 struct CanvasSize {
      canvasConstants :vec2<f32>;
 };
-[[group(0),binding(3)]]
-var<uniform> canvasSize: CanvasSize;
 
 [[group(0),binding(1)]]
-var<storage,read_write>pointLights: PointLightContainer;
+var<storage,read>pointLights: PointLightContainer;
 
 [[group(0),binding(2)]]
-var<storage,read_write> spotLights: SpotLightContainer;
+var<storage,read> spotLights: SpotLightContainer;
+
+
 
 [[group(1),binding(0)]]
 var<uniform> globals: Globals;
-[[group(1),binding(1)]]
+
+
+[[group(2),binding(0)]]
 var<uniform> tileInfo:TileInfo;
+[[group(2),binding(1)]]
+var<uniform> canvasSize: CanvasSize;
 
 
  [[stage(compute),workgroup_size(64,1,1)]]
@@ -130,10 +135,10 @@ var<uniform> tileInfo:TileInfo;
             if (dp >= 0.0) {
                 // light is overlapping with the tile
                 var tileId: u32 = u32(x + y * tileInfo.tile_count_x);
-                if (tileId < 0u || tileId >= u32(tileInfo.tile_count_x* tileInfo.tile_count_y)) { // config.numTiles
+                if (tileId < 0u || tileId >= tileInfo.num_tiles) {
                     continue;
                 }
-                // var offset: u32 = atomicAdd(&(tileLightId.data[tileId].count), 1u);
+                //var offset: u32 = atomicAdd(&(tileLightId.data[tileId].count), 1u);
                 // if (offset >= config.numTileLightSlot) {
                 //     continue;
                 // }

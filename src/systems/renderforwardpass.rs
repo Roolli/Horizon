@@ -20,7 +20,7 @@ use chrono::Duration;
 use futures::io::ReadExact;
 use image::flat::View;
 use specs::prelude::*;
-use wgpu::{CommandEncoder, CommandEncoderDescriptor};
+use wgpu::{CommandEncoder, CommandEncoderDescriptor, SurfaceTexture};
 pub struct RenderForwardPass;
 
 impl<'a> System<'a> for RenderForwardPass {
@@ -160,5 +160,6 @@ impl<'a> System<'a> for RenderForwardPass {
             frame_time.total_frame_time = Duration::seconds(0);
         }
         frame_time.previous_frame_time = Duration::nanoseconds(now.timestamp_nanos());
+        frame.present();
     }
 }

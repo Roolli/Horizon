@@ -23,7 +23,7 @@ impl<'a> HorizonPipeline<'a> for GBufferPipeline {
 
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                bind_group_layouts: &[&diffuse_bind_group, &uniform_bind_group],
+                bind_group_layouts: &[diffuse_bind_group, uniform_bind_group],
                 label: Some("GBuffer pipeline layout"),
                 push_constant_ranges: &[],
             });
@@ -66,7 +66,7 @@ impl<'a> HorizonPipeline<'a> for GBufferPipeline {
             fragment_state,
             primitve_state,
             vertex_state,
-            &device,
+            device,
             &render_pipeline_layout,
             Some("GBuffer pipeline"),
             Some(depth_stencil_state),

@@ -1,7 +1,10 @@
 use core::panic;
 use std::io::BufRead;
 
-use crate::{renderer::bindgroups::gbuffer::GBuffer, systems::writegbuffer::WriteGBuffer};
+use crate::{
+    renderer::bindgroups::gbuffer::GBuffer,
+    systems::{computelightculling::ComputeLightCulling, writegbuffer::WriteGBuffer},
+};
 use components::{
     physicshandle::PhysicsHandle,
     transform::{Transform, TransformRaw},
@@ -16,13 +19,14 @@ use renderer::{
     bindgroupcontainer::BindGroupContainer,
     bindgroups::{
         deferred::DeferredBindGroup, lighting::LightBindGroup, shadow::ShadowBindGroup,
-        uniforms::UniformBindGroup, HorizonBindGroup,
+        tiling::TilingBindGroup, uniforms::UniformBindGroup, HorizonBindGroup,
     },
     model::HorizonModel,
     modelbuilder::ModelBuilder,
     pipelines::{
         forwardpipeline::ForwardPipeline, gbufferpipeline::GBufferPipeline,
-        lightpipeline::LightPipeline, shadowpipeline::ShadowPipeline, HorizonPipeline,
+        lightcullingpipeline::LightCullingPipeline, lightpipeline::LightPipeline,
+        shadowpipeline::ShadowPipeline, HorizonComputePipeline, HorizonPipeline,
     },
     primitives::{
         lights::{
@@ -182,6 +186,7 @@ fn setup_ecs<'a, 'b>(state: State) -> (World, Dispatcher<'a, 'b>) {
         .with_thread_local(UpdateBuffers)
         .with_thread_local(RenderShadowPass)
         .with_thread_local(WriteGBuffer)
+        .with_thread_local(ComputeLightCulling)
         .with_thread_local(RenderForwardPass)
         .build();
     dispatcher.setup(&mut world);
@@ -220,6 +225,7 @@ fn register_components(mut world: &mut World) {
     world.register::<UniformBindGroup>();
     world.register::<LightBindGroup>();
     world.register::<DeferredBindGroup>();
+    world.register::<TilingBindGroup>();
     setup_pipelines(&mut world);
 }
 
@@ -230,6 +236,7 @@ fn setup_pipelines(world: &mut World) {
     ShadowBindGroup::get_resources(&state.device, &mut binding_resource_container);
     LightBindGroup::get_resources(&state.device, &mut binding_resource_container);
     DeferredBindGroup::get_resources(&state.device, &mut binding_resource_container);
+    TilingBindGroup::get_resources(&state.device, &mut binding_resource_container);
     GBuffer::generate_g_buffers(
         &state.device,
         &state.sc_descriptor,
@@ -293,6 +300,20 @@ fn setup_pipelines(world: &mut World) {
                 .unwrap(),
         ),
     );
+    let tiling_container = TilingBindGroup::create_container(
+        &state.device,
+        (
+            binding_resource_container
+                .buffers
+                .get("tiling_buffer")
+                .unwrap(),
+            binding_resource_container
+                .buffers
+                .get("canvas_constants")
+                .unwrap(),
+        ),
+    );
+
     let deferred_container = DeferredBindGroup::create_container(
         &state.device,
         (
@@ -354,6 +375,14 @@ fn setup_pipelines(world: &mut World) {
         (&uniform_container.layout, &light_container.layout),
         &[state.sc_descriptor.format.into()],
     );
+    let lightculling_pipeline = LightCullingPipeline::create_compute_pipeline(
+        &state.device,
+        (
+            &light_container.layout,
+            &uniform_container.layout,
+            &tiling_container.layout,
+        ),
+    );
 
     drop(state);
     drop(binding_resource_container);
@@ -361,6 +390,7 @@ fn setup_pipelines(world: &mut World) {
     world.insert(ForwardPipeline(forward_pipeline));
     world.insert(ShadowPipeline(shadow_pipeline));
     world.insert(GBufferPipeline(gbuffer_pipeline));
+    world.insert(LightCullingPipeline(lightculling_pipeline));
     world
         .create_entity()
         .with(UniformBindGroup)
@@ -381,6 +411,11 @@ fn setup_pipelines(world: &mut World) {
         .create_entity()
         .with(DeferredBindGroup)
         .with(deferred_container)
+        .build();
+    world
+        .create_entity()
+        .with(TilingBindGroup)
+        .with(tiling_container)
         .build();
 }
 

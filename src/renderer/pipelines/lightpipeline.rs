@@ -21,14 +21,13 @@ impl<'a> HorizonPipeline<'a> for LightPipeline {
         let (uniform_bind_group, light_bind_group) = bind_group_layouts;
         let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Light Pipeline"),
-            bind_group_layouts: &[&uniform_bind_group, &light_bind_group],
+            bind_group_layouts: &[uniform_bind_group, light_bind_group],
             push_constant_ranges: &[],
         });
-        // https://github.com/gfx-rs/naga/issues/406 have to disable validation
         let module = device.create_shader_module(&wgpu::include_wgsl!("../../shaders/light.wgsl"));
         let vertex_state = wgpu::VertexState {
             buffers: &[ModelVertex::desc()],
-            entry_point: "main",
+            entry_point: "vs_main",
             module: &module,
         };
 
@@ -48,7 +47,7 @@ impl<'a> HorizonPipeline<'a> for LightPipeline {
         let fragment_state = Some(wgpu::FragmentState {
             targets,
             module: &module,
-            entry_point: "main",
+            entry_point: "fs_main",
         });
 
         let depth_stencil_state = wgpu::DepthStencilState {
@@ -65,7 +64,7 @@ impl<'a> HorizonPipeline<'a> for LightPipeline {
             fragment_state,
             primitve_state,
             vertex_state,
-            &device,
+            device,
             &layout,
             Some("Light Render pipeline"),
             Some(depth_stencil_state),

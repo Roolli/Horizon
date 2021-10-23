@@ -8,6 +8,7 @@ pub mod deferred;
 pub mod gbuffer;
 pub mod lighting;
 pub mod shadow;
+pub mod tiling;
 pub mod uniforms;
 
 pub trait HorizonBindGroup<'a> {

@@ -24,7 +24,7 @@ impl<'a> HorizonPipeline<'a> for ForwardPipeline {
 
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                bind_group_layouts: &[&deferred_bind_group, &uniform_bind_group, &light_bind_group],
+                bind_group_layouts: &[deferred_bind_group, uniform_bind_group, light_bind_group],
                 label: Some("Render pipeline layout"),
                 push_constant_ranges: &[],
             });
@@ -32,8 +32,6 @@ impl<'a> HorizonPipeline<'a> for ForwardPipeline {
         let module =
             device.create_shader_module(&wgpu::include_wgsl!("../../shaders/forward.wgsl"));
 
-        // let fs_module =
-        //     device.create_shader_module(&wgpu::include_spirv!("../../shaders/shader.frag.spv"));
         let vbo_layout = wgpu::vertex_attr_array![0=>Float32x2];
 
         let vertex_state = wgpu::VertexState {
@@ -77,7 +75,7 @@ impl<'a> HorizonPipeline<'a> for ForwardPipeline {
             fragment_state,
             primitve_state,
             vertex_state,
-            &device,
+            device,
             &render_pipeline_layout,
             Some("forward Render pipeline"),
             Some(depth_stencil_state),

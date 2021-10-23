@@ -1,3 +1,4 @@
+pub mod computelightculling;
 pub mod movement;
 pub mod physics;
 pub mod renderbatch;

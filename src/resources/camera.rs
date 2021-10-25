@@ -20,4 +20,15 @@ impl Camera {
         );
         glm::Mat4::from(State::OPENGL_TO_WGPU_MATRIX) * proj * view
     }
+    pub fn get_view_matrix(&self) -> glm::Mat4 {
+        glm::look_at_rh(&self.eye, &self.target, &self.up)
+    }
+    pub fn get_projection_matrix(&self) -> glm::Mat4 {
+        glm::perspective(
+            self.aspect_ratio,
+            f32::to_radians(self.fov_y),
+            self.z_near,
+            self.z_far,
+        )
+    }
 }

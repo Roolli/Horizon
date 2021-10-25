@@ -1,20 +1,17 @@
 
 
 
-//TODO: change attenuation to radius
 struct SpotLight {
     position: vec4<f32>;
     direction: vec4<f32>;
     color: vec4<f32>;
     attenuation: vec4<f32>; // x constant, y linear, z quadratic
-    radius: f32;
     cutoffs: vec4<f32>;  // X inner , Y outer
 };
 
 struct PointLight {
     position:vec4<f32>;
     color:vec4<f32>;
-     radius: f32;
     attenuation:vec4<f32>; // x constant, y linear, z quadratic 
 };
 
@@ -88,6 +85,7 @@ var<uniform> canvasSize: CanvasSize;
 
     var lightPos = pointLights.elements[index].position;
         lightPos = lightPos / lightPos.w;
+        
         var lightRadius: f32 = pointLights.elements[index].radius;
         //TODO: multiply by view matrix (and add view matrix to a uniform)
     var bounding_box_min = lightPos - vec4<f32>(vec3<f32>(lightRadius),0.0);

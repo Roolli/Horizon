@@ -3,6 +3,7 @@ use std::io::BufRead;
 
 use crate::{
     renderer::bindgroups::gbuffer::GBuffer,
+    resources::windowevents::{KeyboardEvent, MouseEvent},
     systems::{computelightculling::ComputeLightCulling, writegbuffer::WriteGBuffer},
 };
 use components::{
@@ -130,6 +131,11 @@ fn run(
                 ref event,
             } if window_id == window.id() => {
                 match event {
+                    WindowEvent::MouseInput { button, state, .. } => {
+                        let mut mouse_event = ecs.0.write_resource::<MouseEvent>();
+                        mouse_event.info = (*button, *state);
+                        mouse_event.handled = false;
+                    }
                     WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
                     //TODO: add keyboard and mouse resources
                     WindowEvent::KeyboardInput { input, .. } => {
@@ -141,18 +147,27 @@ fn run(
                         {
                             *control_flow = ControlFlow::Exit
                         }
+                        let mut keyboard_event = ecs.0.write_resource::<KeyboardEvent>();
+                        keyboard_event.info = *input;
+                        keyboard_event.handled = false;
                     }
                     WindowEvent::Resized(physical_size) => {
                         let mut resize_event = ecs.0.write_resource::<ResizeEvent>();
                         resize_event.new_size = *physical_size;
                         resize_event.handled = false;
-                        //state.resize(*physical_size);
                     }
                     WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                        //state.resize(**new_inner_size);
                         let mut resize_event = ecs.0.write_resource::<ResizeEvent>();
                         resize_event.new_size = **new_inner_size;
                         resize_event.handled = false;
+                    }
+                    //Not working on the web currently
+                    WindowEvent::ModifiersChanged(state) => {}
+                    WindowEvent::CursorMoved { position, .. } => {
+                        // (x,y) coords in pixels relative to the top-left corner of the window. Because the range of this data is
+                        // limited by the display area and it may have been transformed by the OS to implement effects such as cursor
+                        // acceleration, it should not be used to implement non-cursor-like interactions such as 3D camera control
+                        // ! use what then?
                     }
                     _ => {}
                 }

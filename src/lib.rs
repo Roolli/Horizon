@@ -95,10 +95,17 @@ pub fn setup() {
         use web_sys::Window;
         use winit::platform::web::WindowExtWebSys;
         let win: Window = web_sys::window().unwrap();
+        let screen_x = win.screen_x().unwrap();
+        let screen_y = win.screen_y().unwrap();
         let doc = win.document().unwrap();
+
         let body = doc.body().unwrap();
-        body.append_child(&web_sys::Element::from(window.canvas()))
-            .ok();
+
+        let canvas = window.canvas();
+        // TODO: if on web resize accordingly in the event.
+        canvas.set_height(screen_y.as_f64().unwrap() as u32);
+        canvas.set_width(screen_x.as_f64().unwrap() as u32);
+        body.append_child(&web_sys::Element::from(canvas)).ok();
         std::panic::set_hook(Box::new(console_error_panic_hook::hook));
         wasm_bindgen_futures::spawn_local(async move {
             let state = State::new(&window).await;

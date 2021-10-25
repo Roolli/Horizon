@@ -3,11 +3,11 @@ pub struct ResizeEvent {
     pub handled: bool,
 }
 
-pub struct MouseEvent {
+pub struct MouseInputEvent {
     pub info: (winit::event::MouseButton, winit::event::ElementState),
     pub handled: bool,
 }
-impl Default for MouseEvent {
+impl Default for MouseInputEvent {
     fn default() -> Self {
         Self {
             info: (
@@ -32,6 +32,18 @@ impl Default for KeyboardEvent {
                 scancode: 0,
                 modifiers: winit::event::ModifiersState::ALT,
             },
+            handled: true,
+        }
+    }
+}
+pub struct MouseMoveEvent {
+    pub info: (f64, f64),
+    pub handled: bool,
+}
+impl Default for MouseMoveEvent {
+    fn default() -> Self {
+        Self {
+            info: (0.0, 0.0),
             handled: true,
         }
     }

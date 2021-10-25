@@ -3,7 +3,10 @@ use std::io::BufRead;
 
 use crate::{
     renderer::bindgroups::gbuffer::GBuffer,
-    resources::windowevents::{KeyboardEvent, MouseEvent},
+    resources::{
+        renderresult::RenderResult,
+        windowevents::{KeyboardEvent, MouseInputEvent, MouseMoveEvent},
+    },
     systems::{computelightculling::ComputeLightCulling, writegbuffer::WriteGBuffer},
 };
 use components::{
@@ -132,12 +135,11 @@ fn run(
             } if window_id == window.id() => {
                 match event {
                     WindowEvent::MouseInput { button, state, .. } => {
-                        let mut mouse_event = ecs.0.write_resource::<MouseEvent>();
+                        let mut mouse_event = ecs.0.write_resource::<MouseInputEvent>();
                         mouse_event.info = (*button, *state);
                         mouse_event.handled = false;
                     }
                     WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
-                    //TODO: add keyboard and mouse resources
                     WindowEvent::KeyboardInput { input, .. } => {
                         if let KeyboardInput {
                             state: ElementState::Pressed,
@@ -163,21 +165,33 @@ fn run(
                     }
                     //Not working on the web currently
                     WindowEvent::ModifiersChanged(state) => {}
-                    WindowEvent::CursorMoved { position, .. } => {
-                        // (x,y) coords in pixels relative to the top-left corner of the window. Because the range of this data is
-                        // limited by the display area and it may have been transformed by the OS to implement effects such as cursor
-                        // acceleration, it should not be used to implement non-cursor-like interactions such as 3D camera control
-                        // ! use what then?
-                    }
                     _ => {}
+                }
+            }
+            Event::DeviceEvent { event, .. } => {
+                if let DeviceEvent::MouseMotion { delta } = event {
+                    let mut mouse_position_event = ecs.0.write_resource::<MouseMoveEvent>();
+                    mouse_position_event.info = delta;
+                    mouse_position_event.handled = false;
                 }
             }
             Event::RedrawRequested(_) => {
                 ecs.1.dispatch(&ecs.0);
                 //TODO: handle events related to wgpu errors
-                // Err(wgpu::SwapChainError::OutOfMemory) => *control_flow = ControlFlow::Exit,
-                // Err(wgpu::SwapChainError::Lost) => state.resize(state.size),
-                // Err(e) => log::error!("{:?}", e),
+                let render_result = ecs.0.read_resource::<RenderResult>();
+                match render_result.result {
+                    Some(wgpu::SurfaceError::Lost) => {
+                        let mut resize_event = ecs.0.write_resource::<ResizeEvent>();
+                        let state = ecs.0.read_resource::<State>();
+                        resize_event.new_size = state.size;
+                        resize_event.handled = false;
+                    }
+                    Some(wgpu::SurfaceError::OutOfMemory) => {
+                        log::error!("Not enough memory to allocate new frame!");
+                        *control_flow = ControlFlow::Exit;
+                    }
+                    _ => {}
+                };
             }
             Event::MainEventsCleared => {
                 window.request_redraw();

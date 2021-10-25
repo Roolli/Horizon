@@ -12,7 +12,8 @@ use crate::{
     },
     resources::{
         bindingresourcecontainer::BindingResourceContainer, camera::Camera,
-        commandencoder::HorizonCommandEncoder, windowevents::ResizeEvent,
+        commandencoder::HorizonCommandEncoder, renderresult::RenderResult,
+        windowevents::ResizeEvent,
     },
 };
 use crate::{renderer::utils::texturerenderer::TextureRenderer, resources::deltatime::DeltaTime};
@@ -33,6 +34,7 @@ impl<'a> System<'a> for RenderForwardPass {
         ReadStorage<'a, BindGroupContainer>,
         ReadExpect<'a, ForwardPipeline>,
         Write<'a, DeltaTime>,
+        Write<'a, RenderResult>,
         ReadStorage<'a, DeferredBindGroup>,
     );
 
@@ -47,10 +49,18 @@ impl<'a> System<'a> for RenderForwardPass {
             bind_group_containers,
             forward_pipeline,
             mut frame_time,
+            mut render_result,
             deferred_bind_group,
         ): Self::SystemData,
     ) {
-        let frame = state.surface.get_current_texture().unwrap();
+        let frame_result = state.surface.get_current_texture();
+        let frame;
+        if let Ok(f) = frame_result {
+            frame = f;
+        } else {
+            render_result.result = frame_result.err();
+            return;
+        }
 
         let cmd_encoder = encoder.get_encoder();
 

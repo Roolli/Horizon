@@ -63,14 +63,14 @@ impl<'a> System<'a> for Resize {
         *bind_group = DeferredBindGroup::create_container(
             &state.device,
             (
-                &resource_container.samplers.get("texture_sampler").unwrap(),
-                &resource_container
+                resource_container.samplers.get("texture_sampler").unwrap(),
+                resource_container
                     .texture_views
                     .get("position_view")
                     .unwrap(),
-                &resource_container.texture_views.get("normal_view").unwrap(),
-                &resource_container.texture_views.get("albedo_view").unwrap(),
-                &resource_container
+                resource_container.texture_views.get("normal_view").unwrap(),
+                resource_container.texture_views.get("albedo_view").unwrap(),
+                resource_container
                     .buffers
                     .get("canvas_size_buffer")
                     .unwrap(),

@@ -31,4 +31,10 @@ impl Camera {
             self.z_far,
         )
     }
+    pub fn look_at(&mut self, point: glm::Vec3) {
+        self.target = point;
+    }
+    pub fn set_position(&mut self, point: glm::Vec3) {
+        self.eye = point;
+    }
 }

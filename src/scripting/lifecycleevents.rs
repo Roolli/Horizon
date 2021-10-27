@@ -1,4 +1,4 @@
-pub enum LifeCycleEvents {
+pub enum LifeCycleEvent {
     Init = 0,
     OnResourceStart = 1,
     OnTick = 2,

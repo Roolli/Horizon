@@ -1,3 +1,4 @@
+use super::lifecycleevents::LifeCycleEvent;
 #[cfg(not(target_arch = "wasm32"))]
 use super::scriptingengine::V8ScriptingEngine;
 #[cfg(not(target_arch = "wasm32"))]
@@ -55,5 +56,7 @@ impl ScriptingFunctions {
 }
 #[cfg(target_arch = "wasm32")]
 impl ScriptingFunctions {
-    fn register_callback(&self, function: &js_sys::Function) {}
+    fn register_callback(&self, function: js_sys::Function) {
+        
+    }
 }

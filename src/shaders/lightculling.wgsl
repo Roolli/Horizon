@@ -85,8 +85,8 @@ var<uniform> canvasSize: CanvasSize;
 
     var lightPos = pointLights.elements[index].position;
         lightPos = lightPos / lightPos.w;
-        
-        var lightRadius: f32 = pointLights.elements[index].radius;
+        //TODO: calculate range based on attenuation values.
+        var lightRadius: f32 = pointLights.elements[index].attenuation.x;
         //TODO: multiply by view matrix (and add view matrix to a uniform)
     var bounding_box_min = lightPos - vec4<f32>(vec3<f32>(lightRadius),0.0);
     var bounding_box_max = lightPos + vec4<f32>(vec3<f32>(lightRadius),0.0);

@@ -64,6 +64,7 @@ std::thread_local! {
 }
 
 #[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
 impl ScriptingFunctions {
     fn register_callback(event_type: &LifeCycleEvent, function: js_sys::Function) {
         LIFECYCLE_EVENTS.with(|v| {

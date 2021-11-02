@@ -3,6 +3,9 @@ use super::lifecycleevents::LifeCycleEvent;
 use super::scriptingengine::V8ScriptingEngine;
 #[cfg(not(target_arch = "wasm32"))]
 use rusty_v8 as v8;
+use specs::storage::GenericWriteStorage;
+use std::borrow::BorrowMut;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::io::Write;
 use std::{convert::TryFrom, io::stdout};
@@ -54,9 +57,19 @@ impl ScriptingFunctions {
             .insert(string, v8::Global::new(scope, function));
     }
 }
+
+// ! https://github.com/rustwasm/wasm-bindgen/issues/858 might need JsValue instead of function
+std::thread_local! {
+    pub static LIFECYCLE_EVENTS: RefCell<HashMap<LifeCycleEvent,Vec<js_sys::Function>>> = RefCell::new(HashMap::new());
+}
+
 #[cfg(target_arch = "wasm32")]
 impl ScriptingFunctions {
-    fn register_callback(&self, function: js_sys::Function) {
-        
+    fn register_callback(event_type: &LifeCycleEvent, function: js_sys::Function) {
+        LIFECYCLE_EVENTS.with(|v| {
+            if let Some(vec) = v.borrow_mut().get_mut(event_type) {
+                vec.push(function);
+            }
+        });
     }
 }

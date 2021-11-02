@@ -1,3 +1,4 @@
+#[derive(PartialEq, Eq, Hash)]
 pub enum LifeCycleEvent {
     Init = 0,
     OnResourceStart = 1,

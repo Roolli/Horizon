@@ -118,7 +118,7 @@ pub fn setup() {
         wasm_bindgen_futures::spawn_local(async move {
             let state = State::new(&window).await;
             unsafe {
-                if !ECS_INSTANCE.set(ECSContainer::new(state)).is_ok() {
+                if ECS_INSTANCE.set(ECSContainer::new(state)).is_err() {
                     panic!();
                 }
             }

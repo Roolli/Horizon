@@ -36,9 +36,9 @@
 // }
 
 [[stage(vertex)]]
-fn vs_main()
+fn vs_main() -> [[builtin(position)]] vec4<f32>
 {
-
+    return vec4<f32>(1.0);
 }
 // #version 450
 

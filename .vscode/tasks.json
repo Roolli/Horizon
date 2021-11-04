@@ -53,7 +53,7 @@
                 "horizon-native",
                 "--target",
                 "x86_64-pc-windows-msvc",
-                "--release",
+                "--release"
             ],
             "problemMatcher": [
                 "$rustc"
@@ -156,6 +156,9 @@
                 "target/generated",
                 "--web",
                 "./target/wasm32-unknown-unknown/release/horizon.wasm"
+            ],
+            "problemMatcher": [
+                "$rustc"
             ]
         },
         {

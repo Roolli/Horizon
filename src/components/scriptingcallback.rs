@@ -12,7 +12,7 @@ pub struct ScriptingCallback {
 #[derive(Component)]
 #[storage(VecStorage)]
 pub struct ScriptingCallback {
-    callback: v8::Global<v8::Function>,
+    callback: rusty_v8::Global<rusty_v8::Function>,
 }
 
 #[derive(Component)]

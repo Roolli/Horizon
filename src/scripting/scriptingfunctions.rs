@@ -42,7 +42,7 @@ impl ScriptingFunctions {
         args: v8::FunctionCallbackArguments,
         _rv: v8::ReturnValue,
     ) {
-        let state_rc = V8ScriptingEngine::state(scope);
+        let mut state_rc = V8ScriptingEngine::state(scope);
         let mut state = state_rc.borrow_mut();
         let string = args.get(0).to_rust_string_lossy(scope);
         let function = match v8::Local::<v8::Function>::try_from(args.get(1)) {
@@ -52,25 +52,25 @@ impl ScriptingFunctions {
             }
         };
         log::info!("added callback:{}", string);
-        state
-            .callbacks
-            .insert(string, v8::Global::new(scope, function));
+        // state
+        //     .callbacks
+        //     .insert(string, v8::Global::new(scope, function));
     }
 }
 
 // ! https://github.com/rustwasm/wasm-bindgen/issues/858 might need JsValue instead of function
-std::thread_local! {
-    pub static LIFECYCLE_EVENTS: RefCell<HashMap<LifeCycleEvent,Vec<js_sys::Function>>> = RefCell::new(HashMap::new());
-}
+// std::thread_local! {
+//     pub static LIFECYCLE_EVENTS: RefCell<HashMap<LifeCycleEvent,Vec<js_sys::Function>>> = RefCell::new(HashMap::new());
+// }
 
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen]
-impl ScriptingFunctions {
-    fn register_callback(event_type: &LifeCycleEvent, function: js_sys::Function) {
-        LIFECYCLE_EVENTS.with(|v| {
-            if let Some(vec) = v.borrow_mut().get_mut(event_type) {
-                vec.push(function);
-            }
-        });
-    }
-}
+// #[cfg(target_arch = "wasm32")]
+// #[wasm_bindgen]
+// impl ScriptingFunctions {
+//     fn register_callback(event_type: &LifeCycleEvent, function: js_sys::Function) {
+//         LIFECYCLE_EVENTS.with(|v| {
+//             if let Some(vec) = v.borrow_mut().get_mut(event_type) {
+//                 vec.push(function);
+//             }
+//         });
+//     }
+// }

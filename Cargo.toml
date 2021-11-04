@@ -41,6 +41,7 @@ egui_wgpu_backend ="0.13"
 egui_winit_platform = "0.10.0"
 egui_demo_lib= "0.14"
 rand = "0.8"
+once_cell = "1.8.0"
 
 [target.'cfg(windows)'.dependencies]
 winit = {version="0.25.0"}

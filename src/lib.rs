@@ -40,6 +40,7 @@ use renderer::{
         },
         uniforms::Globals,
     },
+    utils::ecscontainer::ECSContainer,
 };
 use resources::{
     bindingresourcecontainer::BindingResourceContainer, camera::Camera,
@@ -78,12 +79,15 @@ use winit::{
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 use glm::Vec3;
+use once_cell::sync::OnceCell;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
-std::thread_local! {
-    pub static ECS: RefCell<(specs::World, specs::Dispatcher<'static, 'static>)> = RefCell::new((World::new(),DispatcherBuilder::new().build()));
-}
+static mut ECS_INSTANCE: OnceCell<ECSContainer> = OnceCell::new();
+
+// std::thread_local! {
+//     pub static ECS: RefCell<(, > = RefCell::new((World::new(),DispatcherBuilder::new().build()));
+// }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub fn setup() {
@@ -113,7 +117,12 @@ pub fn setup() {
         std::panic::set_hook(Box::new(console_error_panic_hook::hook));
         wasm_bindgen_futures::spawn_local(async move {
             let state = State::new(&window).await;
-            setup_ecs(state);
+            unsafe {
+                if !ECS_INSTANCE.set(ECSContainer::new(state)).is_ok() {
+                    panic!();
+                }
+            }
+            setup_pipelines(&mut ECSContainer::global_mut().world);
             create_debug_scene().await;
             run(event_loop, window);
         });
@@ -123,10 +132,15 @@ pub fn setup() {
     {
         env_logger::init();
         let state = block_on(State::new(&window));
-        let mut ecs = setup_ecs(state);
+        unsafe {
+            if !ECS_INSTANCE.set(ECSContainer::new(state)).is_ok() {
+                panic!();
+            }
+        }
+        setup_pipelines(&mut ECSContainer::global_mut().world);
         // ! for now block
-        block_on(create_debug_scene(&mut ecs.0));
-        run(event_loop, window, ecs);
+        block_on(create_debug_scene());
+        run(event_loop, window);
     }
 }
 fn run(event_loop: EventLoop<()>, window: winit::window::Window) {
@@ -134,7 +148,6 @@ fn run(event_loop: EventLoop<()>, window: winit::window::Window) {
 
     event_loop.run(move |event, _, control_flow| {
         // take ownership of ecs
-        let _ = &ecs;
         match event {
             Event::WindowEvent {
                 window_id,
@@ -142,7 +155,9 @@ fn run(event_loop: EventLoop<()>, window: winit::window::Window) {
             } if window_id == window.id() => {
                 match event {
                     WindowEvent::MouseInput { button, state, .. } => {
-                        let mut mouse_event = ecs.0.write_resource::<MouseInputEvent>();
+                        let mut mouse_event = ECSContainer::global_mut()
+                            .world
+                            .write_resource::<MouseInputEvent>();
                         mouse_event.info = (*button, *state);
                         mouse_event.handled = false;
                     }
@@ -156,17 +171,23 @@ fn run(event_loop: EventLoop<()>, window: winit::window::Window) {
                         {
                             *control_flow = ControlFlow::Exit
                         }
-                        let mut keyboard_event = ecs.0.write_resource::<KeyboardEvent>();
+                        let mut keyboard_event = ECSContainer::global_mut()
+                            .world
+                            .write_resource::<KeyboardEvent>();
                         keyboard_event.info = *input;
                         keyboard_event.handled = false;
                     }
                     WindowEvent::Resized(physical_size) => {
-                        let mut resize_event = ecs.0.write_resource::<ResizeEvent>();
+                        let mut resize_event = ECSContainer::global_mut()
+                            .world
+                            .write_resource::<ResizeEvent>();
                         resize_event.new_size = *physical_size;
                         resize_event.handled = false;
                     }
                     WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                        let mut resize_event = ecs.0.write_resource::<ResizeEvent>();
+                        let mut resize_event = ECSContainer::global_mut()
+                            .world
+                            .write_resource::<ResizeEvent>();
                         resize_event.new_size = **new_inner_size;
                         resize_event.handled = false;
                     }
@@ -177,19 +198,22 @@ fn run(event_loop: EventLoop<()>, window: winit::window::Window) {
             }
             Event::DeviceEvent { event, .. } => {
                 if let DeviceEvent::MouseMotion { delta } = event {
-                    let mut mouse_position_event = ecs.0.write_resource::<MouseMoveEvent>();
+                    let mut mouse_position_event = ECSContainer::global_mut()
+                        .world
+                        .write_resource::<MouseMoveEvent>();
                     mouse_position_event.info = delta;
                     mouse_position_event.handled = false;
                 }
             }
             Event::RedrawRequested(_) => {
-                ecs.1.dispatch(&ecs.0);
+                let mut container = ECSContainer::global_mut();
+                container.dispatcher.dispatch(&container.world);
                 //TODO: handle events related to wgpu errors
-                let render_result = ecs.0.read_resource::<RenderResult>();
+                let render_result = container.world.read_resource::<RenderResult>();
                 match render_result.result {
                     Some(wgpu::SurfaceError::Lost) => {
-                        let mut resize_event = ecs.0.write_resource::<ResizeEvent>();
-                        let state = ecs.0.read_resource::<State>();
+                        let mut resize_event = container.world.write_resource::<ResizeEvent>();
+                        let state = container.world.read_resource::<State>();
                         resize_event.new_size = state.size;
                         resize_event.handled = false;
                     }
@@ -208,66 +232,6 @@ fn run(event_loop: EventLoop<()>, window: winit::window::Window) {
     });
 }
 /// Initializes a new ECS container (World) and registers the components, creates the dependency chain for the system and sets up resources.
-fn setup_ecs<'a, 'b>(state: State) {
-    ECS.with(|e| {
-        let mut ecs = e.borrow_mut();
-
-        let mut world = World::new();
-        world.insert(state);
-
-        register_resources(&mut world);
-        register_components(&mut world);
-        // TODO: setup dispatcher
-
-        let mut dispatcher = DispatcherBuilder::new()
-            .with(Physics, stringify!(Physics), &[])
-            .with_thread_local(Resize)
-            .with_thread_local(UpdateBuffers)
-            .with_thread_local(RenderShadowPass)
-            .with_thread_local(WriteGBuffer)
-            .with_thread_local(ComputeLightCulling)
-            .with_thread_local(RenderForwardPass)
-            .build();
-        dispatcher.setup(&mut world);
-        ecs.1 = dispatcher;
-        ecs.0 = world;
-    });
-}
-fn register_resources(world: &mut World) {
-    let state = world.read_resource::<State>();
-    let size = state.size;
-    let encoder = state
-        .device
-        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Render encoder"),
-        });
-    let importer = Importer::default();
-    let model_builder = ModelBuilder::new(&state.device, importer);
-    let egui_render_pass = EguiRenderPass {
-        pass: egui_wgpu_backend::RenderPass::new(&state.device, state.sc_descriptor.format, 1),
-    };
-
-    drop(state);
-    world.insert(model_builder);
-    world.insert(egui_render_pass);
-    world.insert(ResizeEvent {
-        new_size: size,
-        handled: false,
-    });
-    world.insert(PhysicsWorld::new(glm::Vec3::y() * -9.81));
-    world.insert(BindingResourceContainer::default());
-
-    world.insert(HorizonCommandEncoder::new(encoder));
-}
-fn register_components(mut world: &mut World) {
-    world.register::<BindGroupContainer>();
-    world.register::<ShadowBindGroup>();
-    world.register::<UniformBindGroup>();
-    world.register::<LightBindGroup>();
-    world.register::<DeferredBindGroup>();
-    world.register::<TilingBindGroup>();
-    setup_pipelines(&mut world);
-}
 
 fn setup_pipelines(world: &mut World) {
     let state = world.read_resource::<State>();
@@ -349,7 +313,7 @@ fn setup_pipelines(world: &mut World) {
                 .unwrap(),
             binding_resource_container
                 .buffers
-                .get("canvas_constants")
+                .get("canvas_size_buffer")
                 .unwrap(),
         ),
     );
@@ -485,177 +449,176 @@ async fn create_debug_scene() {
             }
         }
     }
-    ECS.with(|e| {
-        let ecs = e.borrow_mut();
-        const NUM_INSTANCES_PER_ROW: u32 = 5;
-        ecs.0.insert(DirectionalLight::new(
-            glm::vec3(1.0, -1.0, 0.0),
-            wgpu::Color {
-                r: 0.1,
-                g: 0.2,
-                b: 0.3,
-                a: 1.0,
-            },
-        ));
 
-        let state = ecs.0.write_resource::<State>();
-        // CAMERA
-        let cam = Camera {
-            eye: glm::vec3(-10.0, 15.0, 10.0),
-            target: glm::vec3(0.0, 0.0, 0.0),
-            up: glm::vec3(0.0, 1.0, 0.0), // Unit Y vector
-            aspect_ratio: state.sc_descriptor.width as f32 / state.sc_descriptor.height as f32,
-            fov_y: 90.0,
-            z_near: 0.1,
-            z_far: 200.0,
-        };
+    let mut ecs = &mut ECSContainer::global_mut();
+    const NUM_INSTANCES_PER_ROW: u32 = 5;
+    ecs.world.insert(DirectionalLight::new(
+        glm::vec3(1.0, -1.0, 0.0),
+        wgpu::Color {
+            r: 0.1,
+            g: 0.2,
+            b: 0.3,
+            a: 1.0,
+        },
+    ));
 
-        //    MODEL LOADING
+    let state = ecs.world.write_resource::<State>();
+    // CAMERA
+    let cam = Camera {
+        eye: glm::vec3(-10.0, 15.0, 10.0),
+        target: glm::vec3(0.0, 0.0, 0.0),
+        up: glm::vec3(0.0, 1.0, 0.0), // Unit Y vector
+        aspect_ratio: state.sc_descriptor.width as f32 / state.sc_descriptor.height as f32,
+        fov_y: 90.0,
+        z_near: 0.1,
+        z_far: 200.0,
+    };
 
-        let obj_model = ecs
-            .0
-            .read_resource::<ModelBuilder>()
-            .create(&state.device, &state.queue, "cube.obj")
-            .await;
-        drop(state);
-        let collision_builder =
-            ColliderBuilder::convex_hull(obj_model.meshes[0].points.as_slice()).unwrap();
+    //    MODEL LOADING
 
-        let model_entity = ecs.0.create_entity().with(obj_model).build();
+    let obj_model = ecs
+        .world
+        .read_resource::<ModelBuilder>()
+        .create(&state.device, &state.queue, "cube.obj")
+        .await;
+    drop(state);
+    let collision_builder =
+        ColliderBuilder::convex_hull(obj_model.meshes[0].points.as_slice()).unwrap();
 
-        let mut rng = rand::thread_rng();
-        let light_count = 15;
-        for _ in 0..light_count {
-            ecs.0
-                .create_entity()
-                .with(SpotLight::new(
-                    glm::vec3(rng.gen_range(-50.0..50.0), 10.0, rng.gen_range(-50.0..50.0)),
-                    glm::Mat4::identity(),
-                    wgpu::Color {
-                        a: 1.0,
-                        b: rng.gen::<f64>(),
-                        r: rng.gen::<f64>(),
-                        g: rng.gen::<f64>(),
-                    },
-                    1.0,
-                    0.4,
-                    0.6,
-                    20.0,
-                    40.0,
-                ))
-                .build();
-            ecs.0
-                .create_entity()
-                .with(PointLight::new(
-                    glm::vec3(
-                        rng.gen_range(-100.0..100.0),
-                        2.0,
-                        rng.gen_range(-100.0..100.0),
-                    ),
-                    wgpu::Color {
-                        a: 1.0,
-                        b: rng.gen_range(0.0..1.0),
-                        r: rng.gen_range(0.0..1.0),
-                        g: rng.gen_range(0.0..1.0),
-                    },
-                    1.0,
-                    10.0,
-                    10.0,
-                ))
-                .build();
-        }
-        log::info!(" light count: {} ", light_count);
-        let mut globals = Globals::new(light_count as u32, light_count as u32);
-        globals.update_view_proj_matrix(&cam);
+    let model_entity = ecs.world.create_entity().with(obj_model).build();
 
-        ecs.0.insert(globals);
-        ecs.0.insert(cam);
-        // INSTANCING
-        let mut physicsworld = ecs.0.write_resource::<PhysicsWorld>();
-        const SPACE: f32 = 10.0;
-        let mut instances = (0..NUM_INSTANCES_PER_ROW)
-            .flat_map(|z| {
-                (0..NUM_INSTANCES_PER_ROW).map(move |x| {
-                    let x = SPACE * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 1.5);
-                    let z = SPACE * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 1.5);
-                    let pos = glm::Vec3::new(x as f32, 10.0, z as f32);
-                    let rot = if pos == glm::vec3(0.0, 0.0, 0.0) {
-                        glm::quat_angle_axis(f32::to_radians(0.0), &glm::vec3(0.0, 0.0, 1.0))
-                    } else {
-                        glm::quat_angle_axis(f32::to_radians(45.0), &pos.clone().normalize())
-                    };
-                    Transform::new(pos, rot, glm::vec3(1.0, 1.0, 1.0), model_entity)
-                })
-            })
-            .collect::<Vec<_>>();
-        let physics_handles = instances
-            .iter()
-            .map(|instance| {
-                let axisangle = if instance.position == glm::vec3(0.0, 0.0, 0.0) {
-                    f32::to_radians(0.0) * glm::vec3(0.0, 0.0, 1.0)
-                } else {
-                    f32::to_radians(45.0) * instance.position.clone().normalize()
-                };
-                let rigid_body = RigidBodyBuilder::new_dynamic()
-                    .position(Isometry3::new(
-                        Vec3::new(
-                            instance.position.x,
-                            instance.position.y,
-                            instance.position.z,
-                        ),
-                        axisangle,
-                    ))
-                    .mass(1.0)
-                    .build();
-                let rigid_body_handle = physicsworld.add_rigid_body(rigid_body);
-
-                let collider = collision_builder.build();
-                let collider_handle = physicsworld.add_collider(collider, rigid_body_handle);
-
-                PhysicsHandle {
-                    collider_handle,
-                    rigid_body_handle,
-                }
-            })
-            .collect::<Vec<_>>();
-
-        // ground object
-        let plane = Transform::new(
-            glm::vec3(0.0, 0.5, 0.0),
-            glm::quat_angle_axis(f32::to_radians(0.0), &glm::vec3(0.0, 0.0, 1.0)),
-            glm::vec3(100.0, 1.0, 100.0),
-            model_entity,
-        );
-        instances.push(plane);
-        // ground shape
-        let ground_shape = ColliderBuilder::cuboid(100.0, 1.0, 100.0).build();
-
-        let ground_handle = physicsworld.add_rigid_body(
-            RigidBodyBuilder::new_static()
-                .position(Isometry3::new(
-                    glm::vec3(0.0, 0.5, 0.0),
-                    glm::vec3(0.0, 0.0, 1.0) * f32::to_radians(0.0),
-                ))
-                .build(),
-        );
-        let ground_collider = physicsworld.add_collider(ground_shape, ground_handle);
-
-        drop(physicsworld); // have to drop this to get world as mutable
-                            // create the entities themselves.
-        ecs.0
+    let mut rng = rand::thread_rng();
+    let light_count = 15;
+    for _ in 0..light_count {
+        ecs.world
             .create_entity()
-            .with(plane)
-            .with(PhysicsHandle {
-                collider_handle: ground_collider,
-                rigid_body_handle: ground_handle,
-            })
+            .with(SpotLight::new(
+                glm::vec3(rng.gen_range(-50.0..50.0), 10.0, rng.gen_range(-50.0..50.0)),
+                glm::Mat4::identity(),
+                wgpu::Color {
+                    a: 1.0,
+                    b: rng.gen::<f64>(),
+                    r: rng.gen::<f64>(),
+                    g: rng.gen::<f64>(),
+                },
+                1.0,
+                0.4,
+                0.6,
+                20.0,
+                40.0,
+            ))
             .build();
-        for (transform, physics_handle) in instances.iter().zip(physics_handles.iter()) {
-            ecs.0
-                .create_entity()
-                .with(*transform)
-                .with(*physics_handle)
+        ecs.world
+            .create_entity()
+            .with(PointLight::new(
+                glm::vec3(
+                    rng.gen_range(-100.0..100.0),
+                    2.0,
+                    rng.gen_range(-100.0..100.0),
+                ),
+                wgpu::Color {
+                    a: 1.0,
+                    b: rng.gen_range(0.0..1.0),
+                    r: rng.gen_range(0.0..1.0),
+                    g: rng.gen_range(0.0..1.0),
+                },
+                1.0,
+                10.0,
+                10.0,
+            ))
+            .build();
+    }
+    log::info!(" light count: {} ", light_count);
+    let mut globals = Globals::new(light_count as u32, light_count as u32);
+    globals.update_view_proj_matrix(&cam);
+
+    ecs.world.insert(globals);
+    ecs.world.insert(cam);
+    // INSTANCING
+    let mut physicsworld = ecs.world.write_resource::<PhysicsWorld>();
+    const SPACE: f32 = 10.0;
+    let mut instances = (0..NUM_INSTANCES_PER_ROW)
+        .flat_map(|z| {
+            (0..NUM_INSTANCES_PER_ROW).map(move |x| {
+                let x = SPACE * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 1.5);
+                let z = SPACE * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 1.5);
+                let pos = glm::Vec3::new(x as f32, 10.0, z as f32);
+                let rot = if pos == glm::vec3(0.0, 0.0, 0.0) {
+                    glm::quat_angle_axis(f32::to_radians(0.0), &glm::vec3(0.0, 0.0, 1.0))
+                } else {
+                    glm::quat_angle_axis(f32::to_radians(45.0), &pos.clone().normalize())
+                };
+                Transform::new(pos, rot, glm::vec3(1.0, 1.0, 1.0), model_entity)
+            })
+        })
+        .collect::<Vec<_>>();
+    let physics_handles = instances
+        .iter()
+        .map(|instance| {
+            let axisangle = if instance.position == glm::vec3(0.0, 0.0, 0.0) {
+                f32::to_radians(0.0) * glm::vec3(0.0, 0.0, 1.0)
+            } else {
+                f32::to_radians(45.0) * instance.position.clone().normalize()
+            };
+            let rigid_body = RigidBodyBuilder::new_dynamic()
+                .position(Isometry3::new(
+                    Vec3::new(
+                        instance.position.x,
+                        instance.position.y,
+                        instance.position.z,
+                    ),
+                    axisangle,
+                ))
+                .mass(1.0)
                 .build();
-        }
-    });
+            let rigid_body_handle = physicsworld.add_rigid_body(rigid_body);
+
+            let collider = collision_builder.build();
+            let collider_handle = physicsworld.add_collider(collider, rigid_body_handle);
+
+            PhysicsHandle {
+                collider_handle,
+                rigid_body_handle,
+            }
+        })
+        .collect::<Vec<_>>();
+
+    // ground object
+    let plane = Transform::new(
+        glm::vec3(0.0, 0.5, 0.0),
+        glm::quat_angle_axis(f32::to_radians(0.0), &glm::vec3(0.0, 0.0, 1.0)),
+        glm::vec3(100.0, 1.0, 100.0),
+        model_entity,
+    );
+    instances.push(plane);
+    // ground shape
+    let ground_shape = ColliderBuilder::cuboid(100.0, 1.0, 100.0).build();
+
+    let ground_handle = physicsworld.add_rigid_body(
+        RigidBodyBuilder::new_static()
+            .position(Isometry3::new(
+                glm::vec3(0.0, 0.5, 0.0),
+                glm::vec3(0.0, 0.0, 1.0) * f32::to_radians(0.0),
+            ))
+            .build(),
+    );
+    let ground_collider = physicsworld.add_collider(ground_shape, ground_handle);
+
+    drop(physicsworld); // have to drop this to get world as mutable
+                        // create the entities themselves.
+    ecs.world
+        .create_entity()
+        .with(plane)
+        .with(PhysicsHandle {
+            collider_handle: ground_collider,
+            rigid_body_handle: ground_handle,
+        })
+        .build();
+    for (transform, physics_handle) in instances.iter().zip(physics_handles.iter()) {
+        ecs.world
+            .create_entity()
+            .with(*transform)
+            .with(*physics_handle)
+            .build();
+    }
 }

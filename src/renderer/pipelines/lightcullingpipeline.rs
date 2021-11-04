@@ -15,7 +15,7 @@ impl<'a> HorizonComputePipeline<'a> for LightCullingPipeline {
         device: &wgpu::Device,
         bind_group_layouts: Self::RequiredLayouts,
     ) -> wgpu::ComputePipeline {
-        let (uniform_bind_group, light_bind_group, tile_bind_group) = &bind_group_layouts;
+        let (uniform_bind_group, light_bind_group, tile_bind_group) = bind_group_layouts;
         let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             bind_group_layouts: &[light_bind_group, uniform_bind_group, tile_bind_group],
             label: Some("Light Culling Pipeline Layout"),

@@ -14,8 +14,10 @@ use crate::{
         state::State,
     },
     resources::{
-        bindingresourcecontainer::BindingResourceContainer, commandencoder::HorizonCommandEncoder,
-        eguirenderpass::EguiRenderPass, windowevents::ResizeEvent,
+        bindingresourcecontainer::BindingResourceContainer,
+        commandencoder::HorizonCommandEncoder,
+        eguirenderpass::EguiRenderPass,
+        windowevents::{KeyboardEvent, MouseInputEvent, MouseMoveEvent, ResizeEvent},
     },
     systems::{
         computelightculling::ComputeLightCulling,
@@ -81,6 +83,9 @@ impl ECSContainer {
             new_size: size,
             handled: false,
         });
+        world.insert(KeyboardEvent::default());
+        world.insert(MouseMoveEvent::default());
+        world.insert(MouseInputEvent::default());
         world.insert(PhysicsWorld::new(glm::Vec3::y() * -9.81));
         world.insert(BindingResourceContainer::default());
 

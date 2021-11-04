@@ -30,7 +30,7 @@ impl ModelBuilder {
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Texture {
                         multisampled: false,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
                         view_dimension: wgpu::TextureViewDimension::D2,
                     },
                     count: None,
@@ -49,7 +49,7 @@ impl ModelBuilder {
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Texture {
                         multisampled: false,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
                         view_dimension: wgpu::TextureViewDimension::D2,
                     },
                     count: None,

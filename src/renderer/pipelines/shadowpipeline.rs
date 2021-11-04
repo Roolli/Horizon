@@ -46,11 +46,12 @@ impl<'a> HorizonPipeline<'a> for ShadowPipeline {
             front_face: wgpu::FrontFace::Ccw,
             topology: wgpu::PrimitiveTopology::TriangleList,
             cull_mode: Some(wgpu::Face::Front),
-            strip_index_format: if cfg!(target_arch = "wasm32") {
-                Some(wgpu::IndexFormat::Uint32)
-            } else {
-                None
-            },
+            strip_index_format: None,
+            //  if cfg!(target_arch = "wasm32") {
+            //     Some(wgpu::IndexFormat::Uint32)
+            // } else {
+            //     None
+            // },
             polygon_mode: wgpu::PolygonMode::Fill,
             ..Default::default()
         };

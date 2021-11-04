@@ -41,6 +41,8 @@ impl GBuffer {
         });
         let texture_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             compare: None,
+            label: Some("Texture_Sampler"),
+
             ..Default::default()
         });
 

@@ -76,6 +76,7 @@ impl<'a> System<'a> for Resize {
                     .unwrap(),
             ),
         );
+        log::info!("resize has occured!");
         resize_event.handled = true;
     }
 }

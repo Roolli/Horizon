@@ -1,5 +1,5 @@
 use core::panic;
-use std::{cell::RefCell, io::BufRead};
+use std::{cell::RefCell, convert::TryInto, io::BufRead};
 
 use crate::{
     renderer::bindgroups::gbuffer::GBuffer,
@@ -85,10 +85,6 @@ use wasm_bindgen::prelude::*;
 
 static mut ECS_INSTANCE: OnceCell<ECSContainer> = OnceCell::new();
 
-// std::thread_local! {
-//     pub static ECS: RefCell<(, > = RefCell::new((World::new(),DispatcherBuilder::new().build()));
-// }
-
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub fn setup() {
     let event_loop = EventLoop::new();
@@ -103,17 +99,29 @@ pub fn setup() {
         use web_sys::Window;
         use winit::platform::web::WindowExtWebSys;
         let win: Window = web_sys::window().unwrap();
-        let screen_x = win.screen_x().unwrap();
-        let screen_y = win.screen_y().unwrap();
+
+        let screen_x = win.inner_width().unwrap().as_f64().unwrap();
+
+        let screen_y = win.inner_height().unwrap().as_f64().unwrap();
+        log::info!("x: {}", screen_x);
+        log::info!("y: {}", screen_y);
         let doc = win.document().unwrap();
 
         let body = doc.body().unwrap();
+        body.style().set_property("margin", "0px").unwrap();
 
         let canvas = window.canvas();
+
         // TODO: if on web resize accordingly in the event.
-        canvas.set_height(screen_y.as_f64().unwrap() as u32);
-        canvas.set_width(screen_x.as_f64().unwrap() as u32);
+        canvas.set_height(screen_y as u32);
+        canvas.set_width(screen_x as u32);
+
         body.append_child(&web_sys::Element::from(canvas)).ok();
+        doc.query_selector("canvas")
+            .unwrap()
+            .unwrap()
+            .remove_attribute("style")
+            .unwrap();
         std::panic::set_hook(Box::new(console_error_panic_hook::hook));
         wasm_bindgen_futures::spawn_local(async move {
             let state = State::new(&window).await;

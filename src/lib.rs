@@ -382,8 +382,8 @@ fn setup_pipelines(world: &mut World) {
     let lightculling_pipeline = LightCullingPipeline::create_compute_pipeline(
         &state.device,
         (
-            &light_container.layout,
             &uniform_container.layout,
+            &light_container.layout,
             &tiling_container.layout,
         ),
     );

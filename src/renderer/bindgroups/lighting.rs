@@ -19,6 +19,7 @@ impl<'a> HorizonBindGroup<'a> for LightBindGroup {
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
                     visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
@@ -28,7 +29,9 @@ impl<'a> HorizonBindGroup<'a> for LightBindGroup {
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                    visibility: wgpu::ShaderStages::VERTEX
+                        | wgpu::ShaderStages::FRAGMENT
+                        | wgpu::ShaderStages::COMPUTE,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Storage { read_only: true },
                         has_dynamic_offset: false,
@@ -38,7 +41,9 @@ impl<'a> HorizonBindGroup<'a> for LightBindGroup {
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 2,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                    visibility: wgpu::ShaderStages::VERTEX
+                        | wgpu::ShaderStages::FRAGMENT
+                        | wgpu::ShaderStages::COMPUTE,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Storage { read_only: true },
                         has_dynamic_offset: false,
@@ -57,7 +62,7 @@ impl<'a> HorizonBindGroup<'a> for LightBindGroup {
     ) -> crate::renderer::bindgroupcontainer::BindGroupContainer {
         let (directional_light_buffer, point_light_buffer, spot_light_buffer) = binding_resources;
 
-        let light_bind_group_layout = Self::get_layout(&device);
+        let light_bind_group_layout = Self::get_layout(device);
 
         let light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &light_bind_group_layout,

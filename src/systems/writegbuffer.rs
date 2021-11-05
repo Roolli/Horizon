@@ -50,7 +50,7 @@ impl<'a> System<'a> for WriteGBuffer {
             label: Some("writeGBuffer"),
             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                 depth_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(1.0f32),
+                    load: wgpu::LoadOp::Clear(0.0f32),
                     store: true,
                 }),
                 stencil_ops: None,

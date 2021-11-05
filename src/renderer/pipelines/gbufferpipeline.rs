@@ -44,7 +44,7 @@ impl<'a> HorizonPipeline<'a> for GBufferPipeline {
             bias: wgpu::DepthBiasState {
                 ..Default::default()
             },
-            depth_compare: wgpu::CompareFunction::Less,
+            depth_compare: wgpu::CompareFunction::Greater,
             format: Texture::DEPTH_FORMAT,
             depth_write_enabled: true,
             stencil: wgpu::StencilState::default(),
@@ -54,12 +54,8 @@ impl<'a> HorizonPipeline<'a> for GBufferPipeline {
             topology: wgpu::PrimitiveTopology::TriangleList,
             cull_mode: Some(wgpu::Face::Back),
             strip_index_format: None,
-            //if cfg!(target_arch = "wasm32") {
-            //     Some(wgpu::IndexFormat::Uint32)
-            // } else {
-            //     None
-            // },
             polygon_mode: wgpu::PolygonMode::Fill,
+            clamp_depth: device.features().contains(wgpu::Features::DEPTH_CLAMPING),
             ..Default::default()
         };
 

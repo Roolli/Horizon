@@ -15,7 +15,7 @@ impl TextureRenderer {
         [[-1.0, 1.0], [-1.0, -1.0], [1.0, 1.0], [1.0, -1.0]];
     pub fn new(
         device: &wgpu::Device,
-        texture: &wgpu::TextureView,
+        texture_view: &wgpu::TextureView,
         swap_chain_descriptor: &wgpu::SurfaceConfiguration,
     ) -> Self {
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -27,7 +27,7 @@ impl TextureRenderer {
                     count: None,
                     ty: wgpu::BindingType::Texture {
                         multisampled: false,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
                         view_dimension: wgpu::TextureViewDimension::D2,
                     },
                 },
@@ -36,7 +36,7 @@ impl TextureRenderer {
                     count: None,
                     ty: wgpu::BindingType::Sampler {
                         comparison: false,
-                        filtering: false,
+                        filtering: true,
                     },
                     visibility: wgpu::ShaderStages::FRAGMENT,
                 },
@@ -59,14 +59,14 @@ impl TextureRenderer {
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&texture),
+                    resource: wgpu::BindingResource::TextureView(texture_view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
                     resource: wgpu::BindingResource::Sampler(&sampler),
                 },
             ],
-            label: Some("Texture renderer bind_group"),
+            label: Some("Texture_renderer bind_group"),
             layout: &bind_group_layout,
         });
 
@@ -83,12 +83,6 @@ impl TextureRenderer {
         let module =
             device.create_shader_module(&wgpu::include_wgsl!("../../shaders/textureRenderer.wgsl"));
 
-        // let vs_module = device.create_shader_module(&wgpu::include_spirv!(
-        //     "../../shaders/textureRenderer.vert.spv"
-        // ));
-        // let fs_module = device.create_shader_module(&wgpu::include_spirv!(
-        //     "../../shaders/textureRenderer.frag.spv"
-        // ));
         let attribs = &wgpu::vertex_attr_array![0=>Float32x2];
         let buffer_layout = wgpu::VertexBufferLayout {
             attributes: attribs,

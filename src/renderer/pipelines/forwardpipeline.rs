@@ -53,9 +53,9 @@ impl<'a> HorizonPipeline<'a> for ForwardPipeline {
             bias: wgpu::DepthBiasState {
                 ..Default::default()
             },
-            depth_compare: wgpu::CompareFunction::Less,
+            depth_compare: wgpu::CompareFunction::Greater,
             format: Texture::DEPTH_FORMAT,
-            depth_write_enabled: true,
+            depth_write_enabled: false,
             stencil: wgpu::StencilState::default(),
         };
         let primitve_state = wgpu::PrimitiveState {
@@ -63,12 +63,9 @@ impl<'a> HorizonPipeline<'a> for ForwardPipeline {
             topology: wgpu::PrimitiveTopology::TriangleList,
             cull_mode: Some(wgpu::Face::Back),
             strip_index_format: None,
-            //  if cfg!(target_arch = "wasm32") {
-            //     Some(wgpu::IndexFormat::Uint32)
-            // } else {
-            //     None
-            // },
+
             polygon_mode: wgpu::PolygonMode::Fill,
+            clamp_depth: device.features().contains(wgpu::Features::DEPTH_CLAMPING),
             ..Default::default()
         };
 
@@ -79,7 +76,7 @@ impl<'a> HorizonPipeline<'a> for ForwardPipeline {
             device,
             &render_pipeline_layout,
             Some("forward Render pipeline"),
-            Some(depth_stencil_state),
+            None,
         )
     }
 }

@@ -128,9 +128,10 @@ impl Texture {
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
             mipmap_filter: wgpu::FilterMode::Nearest,
-            compare: Some(wgpu::CompareFunction::LessEqual),
+            compare: Some(wgpu::CompareFunction::Greater),
             lod_min_clamp: 1.0,
             lod_max_clamp: 100.0,
+            label: Some("depth_texture_sampler"),
             ..Default::default()
         });
         Self {
@@ -148,6 +149,6 @@ impl Texture {
     ) -> Result<Self, Error> {
         let img = image::load_from_memory(buffer).unwrap();
 
-        Self::from_image(&device, &queue, &img, label, is_normal)
+        Self::from_image(device, queue, &img, label, is_normal)
     }
 }

@@ -18,7 +18,11 @@ impl Camera {
             self.z_near,
             self.z_far,
         );
-        glm::Mat4::from(State::OPENGL_TO_WGPU_MATRIX) * proj * view
+        let mut reversed_z_matrix = glm::Mat4::identity();
+        *reversed_z_matrix.get_mut(10).unwrap() = -1.0;
+        *reversed_z_matrix.get_mut(14).unwrap() = 1.0;
+
+        glm::Mat4::from(State::OPENGL_TO_WGPU_MATRIX) * (reversed_z_matrix * proj * view)
     }
     pub fn get_view_matrix(&self) -> glm::Mat4 {
         glm::look_at_rh(&self.eye, &self.target, &self.up)

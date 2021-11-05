@@ -32,7 +32,7 @@ impl<'a> HorizonPipeline<'a> for ShadowPipeline {
                 constant: 2, // bilinear filtering
                 slope_scale: 2.0,
             },
-            depth_compare: wgpu::CompareFunction::LessEqual,
+            depth_compare: wgpu::CompareFunction::Greater,
             depth_write_enabled: true,
             stencil: wgpu::StencilState::default(),
         };
@@ -47,11 +47,6 @@ impl<'a> HorizonPipeline<'a> for ShadowPipeline {
             topology: wgpu::PrimitiveTopology::TriangleList,
             cull_mode: Some(wgpu::Face::Front),
             strip_index_format: None,
-            //  if cfg!(target_arch = "wasm32") {
-            //     Some(wgpu::IndexFormat::Uint32)
-            // } else {
-            //     None
-            // },
             polygon_mode: wgpu::PolygonMode::Fill,
             ..Default::default()
         };

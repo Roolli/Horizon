@@ -1,9 +1,11 @@
+use crate::renderer::utils::ecscontainer::ECSContainer;
+
 use super::lifecycleevents::LifeCycleEvent;
 #[cfg(not(target_arch = "wasm32"))]
 use super::scriptingengine::V8ScriptingEngine;
 #[cfg(not(target_arch = "wasm32"))]
 use rusty_v8 as v8;
-use specs::storage::GenericWriteStorage;
+use specs::prelude::*;
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -17,9 +19,17 @@ use wasm_bindgen::prelude::*;
 #[cfg(not(target_arch = "wasm32"))]
 pub struct ScriptingFunctions;
 
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
+
+pub struct ScriptingFunctions;
+
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
-pub struct ScriptingFunctions;
+impl ScriptingFunctions {
+    pub fn register_callback(event_type: LifeCycleEvent, function: js_sys::Function) {
+        let mut ecs = ECSContainer::global_mut();
+    }
+}
 
 #[cfg(not(target_arch = "wasm32"))]
 impl ScriptingFunctions {
@@ -59,18 +69,3 @@ impl ScriptingFunctions {
 }
 
 // ! https://github.com/rustwasm/wasm-bindgen/issues/858 might need JsValue instead of function
-// std::thread_local! {
-//     pub static LIFECYCLE_EVENTS: RefCell<HashMap<LifeCycleEvent,Vec<js_sys::Function>>> = RefCell::new(HashMap::new());
-// }
-
-// #[cfg(target_arch = "wasm32")]
-// #[wasm_bindgen]
-// impl ScriptingFunctions {
-//     fn register_callback(event_type: &LifeCycleEvent, function: js_sys::Function) {
-//         LIFECYCLE_EVENTS.with(|v| {
-//             if let Some(vec) = v.borrow_mut().get_mut(event_type) {
-//                 vec.push(function);
-//             }
-//         });
-//     }
-// }

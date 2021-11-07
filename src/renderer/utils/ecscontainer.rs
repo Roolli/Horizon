@@ -92,7 +92,7 @@ impl ECSContainer {
         world.insert(HorizonCommandEncoder::new(encoder));
     }
 
-    fn register_components(mut world: &mut World) {
+    fn register_components(world: &mut World) {
         world.register::<BindGroupContainer>();
         world.register::<ShadowBindGroup>();
         world.register::<UniformBindGroup>();
@@ -104,6 +104,10 @@ impl ECSContainer {
         unsafe { ECS_INSTANCE.get().expect("ECS was not initialized") }
     }
     pub fn global_mut() -> &'static mut ECSContainer {
-        unsafe { ECS_INSTANCE.get_mut().expect("ECS was not initialized") }
+        unsafe {
+            ECS_INSTANCE
+                .get_mut()
+                .expect("ECS was not initialized or another mutable borrow is active!")
+        }
     }
 }

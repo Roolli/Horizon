@@ -53,6 +53,7 @@ impl<'a> System<'a> for RenderShadowPass {
             .get("shadow_uniform_buffer")
             .unwrap();
         cmd_encoder.copy_buffer_to_buffer(dir_light_buf, 0, shadow_uniform_buf, 0, 64);
+
         cmd_encoder.insert_debug_marker("render_entities");
         let mut pass = cmd_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("shadow pass descriptor"),

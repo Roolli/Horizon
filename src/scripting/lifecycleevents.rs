@@ -1,8 +1,10 @@
+use specs::Component;
+use specs::DenseVecStorage;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
-#[derive(PartialEq, Eq, Hash)]
+#[derive(PartialEq, Eq, Hash, Component)]
 pub enum LifeCycleEvent {
     Init = 0,
     OnResourceStart = 1,

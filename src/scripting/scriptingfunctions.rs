@@ -1,3 +1,4 @@
+use crate::components::scriptingcallback::ScriptingCallback;
 use crate::renderer::utils::ecscontainer::ECSContainer;
 
 use super::lifecycleevents::LifeCycleEvent;
@@ -16,18 +17,23 @@ use v8::{Function, Global};
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
-#[cfg(not(target_arch = "wasm32"))]
-pub struct ScriptingFunctions;
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 
 pub struct ScriptingFunctions;
 
+// ! https://github.com/rustwasm/wasm-bindgen/issues/858 might need JsValue instead of function
+
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 impl ScriptingFunctions {
     pub fn register_callback(event_type: LifeCycleEvent, function: js_sys::Function) {
-        let mut ecs = ECSContainer::global_mut();
+        let ecs = ECSContainer::global_mut();
+        let builder = ecs.world.create_entity();
+        builder
+            .with(ScriptingCallback::new(function))
+            .with(event_type)
+            .build();
     }
 }
 
@@ -67,5 +73,3 @@ impl ScriptingFunctions {
         //     .insert(string, v8::Global::new(scope, function));
     }
 }
-
-// ! https://github.com/rustwasm/wasm-bindgen/issues/858 might need JsValue instead of function

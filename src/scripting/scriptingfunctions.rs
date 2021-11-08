@@ -30,6 +30,8 @@ impl ScriptingFunctions {
     pub fn register_callback(event_type: LifeCycleEvent, callback: js_sys::Function) {
         let ecs = ECSContainer::global_mut();
         let builder = ecs.world.create_entity();
+        log::info!("{:?}", callback);
+        callback.call0(&JsValue::NULL).unwrap();
         builder
             .with(ScriptingCallback::new(callback))
             .with(event_type)

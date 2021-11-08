@@ -464,8 +464,8 @@ async fn create_debug_scene() {
         glm::vec3(1.0, -1.0, 0.0),
         wgpu::Color {
             r: 0.1,
-            g: 0.2,
-            b: 0.3,
+            g: 0.1,
+            b: 0.1,
             a: 1.0,
         },
     ));
@@ -496,7 +496,7 @@ async fn create_debug_scene() {
     let model_entity = ecs.world.create_entity().with(obj_model).build();
 
     let mut rng = rand::thread_rng();
-    let light_count = 15;
+    let light_count = 5;
     for _ in 0..light_count {
         ecs.world
             .create_entity()
@@ -510,8 +510,8 @@ async fn create_debug_scene() {
                     g: rng.gen::<f64>(),
                 },
                 1.0,
-                0.4,
-                0.6,
+                1.0,
+                0.2,
                 20.0,
                 40.0,
             ))
@@ -531,8 +531,8 @@ async fn create_debug_scene() {
                     g: rng.gen_range(0.0..1.0),
                 },
                 1.0,
-                10.0,
-                10.0,
+                0.1,
+                0.01,
             ))
             .build();
     }

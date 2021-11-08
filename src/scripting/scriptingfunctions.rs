@@ -27,11 +27,11 @@ pub struct ScriptingFunctions;
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 impl ScriptingFunctions {
-    pub fn register_callback(event_type: LifeCycleEvent, function: js_sys::Function) {
+    pub fn register_callback(event_type: LifeCycleEvent, callback: js_sys::Function) {
         let ecs = ECSContainer::global_mut();
         let builder = ecs.world.create_entity();
         builder
-            .with(ScriptingCallback::new(function))
+            .with(ScriptingCallback::new(callback))
             .with(event_type)
             .build();
     }

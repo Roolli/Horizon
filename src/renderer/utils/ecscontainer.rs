@@ -2,7 +2,9 @@ use std::fmt::Debug;
 
 use specs::{DispatcherBuilder, World, WorldExt};
 
+use crate::scripting::lifecycleevents::LifeCycleEvent;
 use crate::{
+    components::scriptingcallback::ScriptingCallback,
     filesystem::modelimporter::Importer,
     renderer::{
         bindgroupcontainer::BindGroupContainer,
@@ -99,6 +101,8 @@ impl ECSContainer {
         world.register::<LightBindGroup>();
         world.register::<DeferredBindGroup>();
         world.register::<TilingBindGroup>();
+        world.register::<ScriptingCallback>();
+        world.register::<LifeCycleEvent>();
     }
     pub fn global() -> &'static ECSContainer {
         unsafe { ECS_INSTANCE.get().expect("ECS was not initialized") }

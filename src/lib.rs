@@ -124,13 +124,15 @@ pub fn setup() {
             .unwrap();
         std::panic::set_hook(Box::new(console_error_panic_hook::hook));
         wasm_bindgen_futures::spawn_local(async move {
-            let state = State::new(&window).await;
             unsafe {
-                if ECS_INSTANCE.set(ECSContainer::new(state)).is_err() {
+                if ECS_INSTANCE.set(ECSContainer::new()).is_err() {
                     panic!();
                 }
             }
-            setup_pipelines(&mut ECSContainer::global_mut().world);
+            let state = State::new(&window).await;
+            let ecs = ECSContainer::global_mut();
+            ecs.setup(state);
+            setup_pipelines(&mut ecs.world);
             create_debug_scene().await;
             run(event_loop, window);
         });
@@ -139,14 +141,18 @@ pub fn setup() {
     #[cfg(not(target_arch = "wasm32"))]
     {
         env_logger::init();
-        let state = block_on(State::new(&window));
+
         unsafe {
-            if !ECS_INSTANCE.set(ECSContainer::new(state)).is_ok() {
+            if !ECS_INSTANCE.set(ECSContainer::new()).is_ok() {
                 panic!();
             }
+
+            let state = block_on(State::new(&window));
         }
-        setup_pipelines(&mut ECSContainer::global_mut().world);
         // ! for now block
+        let ecs = ECSContainer::global_mut();
+        ecs.setup(state);
+        setup_pipelines(&mut ecs.world);
         block_on(create_debug_scene());
         run(event_loop, window);
     }

@@ -1,5 +1,6 @@
 use std::fmt::Debug;
 
+use once_cell::sync::OnceCell;
 use specs::{DispatcherBuilder, World, WorldExt};
 
 use crate::scripting::lifecycleevents::LifeCycleEvent;
@@ -44,12 +45,9 @@ pub struct ECSContainer {
 // }
 
 impl ECSContainer {
-    pub fn new(state: State) -> Self {
+    pub fn new() -> Self {
         let mut world = World::new();
-        world.insert(state);
 
-        ECSContainer::register_resources(&mut world);
-        ECSContainer::register_components(&mut world);
         // TODO: setup dispatcher
 
         let mut dispatcher = DispatcherBuilder::new()
@@ -62,7 +60,13 @@ impl ECSContainer {
             .with_thread_local(RenderForwardPass)
             .build();
         dispatcher.setup(&mut world);
+        ECSContainer::register_components(&mut world);
         Self { dispatcher, world }
+    }
+    pub fn setup(&mut self, state: State) {
+        self.world.insert(state);
+
+        ECSContainer::register_resources(&mut self.world);
     }
     fn register_resources(world: &mut specs::World) {
         let state = world.read_resource::<State>();
@@ -108,10 +112,6 @@ impl ECSContainer {
         unsafe { ECS_INSTANCE.get().expect("ECS was not initialized") }
     }
     pub fn global_mut() -> &'static mut ECSContainer {
-        unsafe {
-            ECS_INSTANCE
-                .get_mut()
-                .expect("ECS was not initialized or another mutable borrow is active!")
-        }
+        unsafe { ECS_INSTANCE.get_mut().unwrap() }
     }
 }

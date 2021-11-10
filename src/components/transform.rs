@@ -8,13 +8,18 @@ pub struct Transform {
     pub position: glm::Vec3,
     pub rotation: glm::Quat,
     pub scale: glm::Vec3,
-    pub model: Entity,
+    pub model: Option<Entity>,
 }
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
 impl Transform {
-    pub fn new(position: glm::Vec3, rotation: glm::Quat, scale: glm::Vec3, model: Entity) -> Self {
+    pub fn new(
+        position: glm::Vec3,
+        rotation: glm::Quat,
+        scale: glm::Vec3,
+        model: Option<Entity>,
+    ) -> Self {
         Self {
             position,
             rotation,
@@ -31,10 +36,10 @@ impl Transform {
     pub fn set_scale(&mut self, scale: glm::Vec3) {
         self.scale = scale;
     }
-    pub fn set_model(&mut self, model_id: Entity) {
+    pub fn set_model(&mut self, model_id: Option<Entity>) {
         self.model = model_id;
     }
-    pub fn get_model(self) -> Entity {
+    pub fn get_model(self) -> Option<Entity> {
         self.model
     }
     pub fn get_position(&self) -> glm::Vec3 {

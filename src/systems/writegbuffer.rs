@@ -110,8 +110,10 @@ impl<'a> System<'a> for WriteGBuffer {
         for (model, model_ent) in (&models, &*entities).join() {
             let mut instance_buffer = Vec::new();
             for transform in transforms.join() {
-                if model_ent == transform.model {
-                    instance_buffer.push(transform.to_raw());
+                if let Some(model) = transform.model {
+                    if model_ent == model {
+                        instance_buffer.push(transform.to_raw());
+                    }
                 }
             }
             state.queue.write_buffer(

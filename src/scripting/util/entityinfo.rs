@@ -16,7 +16,7 @@ pub struct Component {
     pub scale: Option<Vec3>,
     pub position: Option<Vec3>,
     pub rotation: Option<Vec4>,
-    pub model: Option<i64>,
+    pub model: Option<u32>,
     pub attenuation: Option<Vec3>,
     pub color: Option<Vec4>,
     pub body_type: Option<String>,

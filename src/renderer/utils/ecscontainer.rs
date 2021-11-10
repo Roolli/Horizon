@@ -1,8 +1,10 @@
 use std::fmt::Debug;
 
 use once_cell::sync::OnceCell;
-use specs::{DispatcherBuilder, World, WorldExt};
+use rapier3d::geometry::ColliderBuilder;
+use specs::{Component, DispatcherBuilder, World, WorldExt};
 
+use crate::components::modelcollider::ModelCollider;
 use crate::scripting::lifecycleevents::LifeCycleEvent;
 use crate::{
     components::scriptingcallback::ScriptingCallback,
@@ -99,6 +101,7 @@ impl ECSContainer {
     }
 
     fn register_components(world: &mut World) {
+        world.register::<ModelCollider>();
         world.register::<BindGroupContainer>();
         world.register::<ShadowBindGroup>();
         world.register::<UniformBindGroup>();

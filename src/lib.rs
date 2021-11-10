@@ -464,7 +464,7 @@ async fn create_debug_scene() {
         }
     }
 
-    let mut ecs = &mut ECSContainer::global_mut();
+    let ecs = ECSContainer::global_mut();
     const NUM_INSTANCES_PER_ROW: u32 = 5;
     ecs.world.insert(DirectionalLight::new(
         glm::vec3(1.0, -1.0, 0.0),
@@ -498,7 +498,6 @@ async fn create_debug_scene() {
     drop(state);
     let collision_builder =
         ColliderBuilder::convex_hull(obj_model.meshes[0].points.as_slice()).unwrap();
-
     let model_entity = ecs.world.create_entity().with(obj_model).build();
 
     let mut rng = rand::thread_rng();
@@ -562,7 +561,7 @@ async fn create_debug_scene() {
                 } else {
                     glm::quat_angle_axis(f32::to_radians(45.0), &pos.clone().normalize())
                 };
-                Transform::new(pos, rot, glm::vec3(1.0, 1.0, 1.0), model_entity)
+                Transform::new(pos, rot, glm::vec3(1.0, 1.0, 1.0), Some(model_entity))
             })
         })
         .collect::<Vec<_>>();
@@ -602,7 +601,7 @@ async fn create_debug_scene() {
         glm::vec3(0.0, 0.5, 0.0),
         glm::quat_angle_axis(f32::to_radians(0.0), &glm::vec3(0.0, 0.0, 1.0)),
         glm::vec3(100.0, 1.0, 100.0),
-        model_entity,
+        Some(model_entity),
     );
     instances.push(plane);
     // ground shape

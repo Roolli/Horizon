@@ -1,11 +1,16 @@
+use crate::components::modelcollider::ModelCollider;
+use crate::components::physicshandle::PhysicsHandle;
 use crate::components::scriptingcallback::ScriptingCallback;
 use crate::components::transform::Transform;
 use crate::renderer::utils::ecscontainer::ECSContainer;
+use crate::systems::physics::PhysicsWorld;
 
 use super::lifecycleevents::LifeCycleEvent;
 #[cfg(not(target_arch = "wasm32"))]
 use super::scriptingengine::V8ScriptingEngine;
 use super::util::entityinfo::EntityInfo;
+use nalgebra::Isometry3;
+use rapier3d::dynamics::RigidBodyBuilder;
 #[cfg(not(target_arch = "wasm32"))]
 use rusty_v8 as v8;
 use specs::prelude::*;
@@ -43,18 +48,48 @@ impl ScriptingFunctions {
     pub fn create_entity(entity_info: &wasm_bindgen::JsValue) -> wasm_bindgen::JsValue {
         let entity_info: EntityInfo = entity_info.into_serde().unwrap();
         let ecs = ECSContainer::global_mut();
-        let builder = ecs.world.create_entity();
+        let mut builder: EntityBuilder = ecs.world.create_entity_unchecked();
+
         let mut transform: Transform;
+        let mut model_id: Option<Entity> = None;
         for component in entity_info.components {
             match component.component_type.as_str() {
                 "transform" => {
-                    // transform = Transform::new(
-                    //     component.position.unwrap().into(),
-                    //     component.rotation.unwrap().into(),
-                    //     component.scale.unwrap().into(),
-                    // );
+                    if let Some(model) = component.model {
+                        let entities = ecs.world.read_resource::<Entities>();
+                        for e in entities.join() {
+                            if e.id() == model {
+                                model_id = Some(e);
+                                break;
+                            }
+                        }
+                    }
+                    transform = Transform::new(
+                        component.position.unwrap().into(),
+                        component.rotation.unwrap().into(),
+                        component.scale.unwrap().into(),
+                        model_id,
+                    );
+                    builder = builder.with(transform);
                 }
-                "physics" => {}
+                "physics" => {
+                    let world = ecs.world.write_resource::<PhysicsWorld>();
+                    let collider = ecs.world.write_resource::<ModelCollider>();
+                    // if Some(model_id) {}
+                    let rigid_body = RigidBodyBuilder::new_dynamic()
+                        .position(Isometry3::new(transform.position, glm::vec3(0.0, 0.0, 0.0)))
+                        .mass(1.0)
+                        .build();
+                    let rigid_body_handle = world.add_rigid_body(rigid_body);
+
+                    // let collider = collision_builder.build();
+                    // let collider_handle = world.add_collider(collider, rigid_body_handle);
+
+                    // builder = builder.with(PhysicsHandle {
+                    //     collider_handle,
+                    //     rigid_body_handle,
+                    // })
+                }
                 "pointLight" => {}
                 _ => {}
             }

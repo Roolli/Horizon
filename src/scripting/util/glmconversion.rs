@@ -1,17 +1,16 @@
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
-
 use crate::renderer::utils::ecscontainer::ECSContainer;
+use serde::Deserialize;
+use serde::Serialize;
 
-#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Vec3 {
     pub x: f32,
     pub y: f32,
     pub z: f32,
 }
-#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
+
 impl Vec3 {
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen(constructor))]
     pub fn new(x: f32, y: f32, z: f32) -> Self {
         Self { x, y, z }
     }
@@ -21,17 +20,16 @@ impl From<Vec3> for glm::Vec3 {
         glm::Vec3::new(val.x, val.y, val.z)
     }
 }
-
-#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Vec4 {
     x: f32,
     y: f32,
     z: f32,
     w: f32,
 }
-#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
+
 impl Vec4 {
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen(constructor))]
     pub fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
         Self { x, y, z, w }
     }
@@ -59,5 +57,10 @@ impl Vec4 {
 impl From<Vec4> for glm::Vec4 {
     fn from(val: Vec4) -> Self {
         glm::vec4(val.x, val.y, val.z, val.w)
+    }
+}
+impl From<Vec4> for glm::Quat {
+    fn from(val: Vec4) -> Self {
+        glm::quat_angle_axis(val.w, &glm::vec3(val.x, val.y, val.z))
     }
 }

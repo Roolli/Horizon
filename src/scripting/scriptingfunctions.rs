@@ -1,12 +1,15 @@
 use crate::components::scriptingcallback::ScriptingCallback;
+use crate::components::transform::Transform;
 use crate::renderer::utils::ecscontainer::ECSContainer;
 
 use super::lifecycleevents::LifeCycleEvent;
 #[cfg(not(target_arch = "wasm32"))]
 use super::scriptingengine::V8ScriptingEngine;
+use super::util::entityinfo::EntityInfo;
 #[cfg(not(target_arch = "wasm32"))]
 use rusty_v8 as v8;
 use specs::prelude::*;
+use specs::world::Generation;
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -36,6 +39,28 @@ impl ScriptingFunctions {
             .with(ScriptingCallback::new(callback))
             .with(event_type)
             .build();
+    }
+    pub fn create_entity(entity_info: &wasm_bindgen::JsValue) -> wasm_bindgen::JsValue {
+        let entity_info: EntityInfo = entity_info.into_serde().unwrap();
+        let ecs = ECSContainer::global_mut();
+        let builder = ecs.world.create_entity();
+        let mut transform: Transform;
+        for component in entity_info.components {
+            match component.component_type.as_str() {
+                "transform" => {
+                    // transform = Transform::new(
+                    //     component.position.unwrap().into(),
+                    //     component.rotation.unwrap().into(),
+                    //     component.scale.unwrap().into(),
+                    // );
+                }
+                "physics" => {}
+                "pointLight" => {}
+                _ => {}
+            }
+        }
+
+        JsValue::from_f64(builder.build().id().into())
     }
 }
 

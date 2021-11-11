@@ -50,7 +50,7 @@ use resources::{
 };
 #[cfg(not(target_arch = "wasm32"))]
 use scripting::scriptingengine::V8ScriptingEngine;
-use specs::{Builder, Dispatcher, DispatcherBuilder, World, WorldExt};
+use specs::{Builder, Dispatcher, DispatcherBuilder, Join, World, WorldExt};
 use systems::{
     physics::{Physics, PhysicsWorld},
     renderforwardpass::RenderForwardPass,
@@ -466,7 +466,7 @@ async fn create_debug_scene() {
     }
 
     let ecs = ECSContainer::global_mut();
-    const NUM_INSTANCES_PER_ROW: u32 = 5;
+    const NUM_INSTANCES_PER_ROW: u32 = 0;
     ecs.world.insert(DirectionalLight::new(
         glm::vec3(1.0, -1.0, 0.0),
         wgpu::Color {
@@ -501,6 +501,7 @@ async fn create_debug_scene() {
     let collision_builder =
         ColliderBuilder::convex_hull(obj_model.meshes[0].points.as_slice()).unwrap();
     let model_entity = ecs.world.create_entity().with(obj_model).build();
+
     log::info!("{:?}", model_entity);
     let mut rng = rand::thread_rng();
     let light_count = 5;
@@ -636,8 +637,9 @@ async fn create_debug_scene() {
             .with(*physics_handle)
             .build();
     }
-    ecs.world
-        .create_entity()
-        .with(ModelCollider(collision_builder))
-        .build();
+
+    let mut storage = ecs.world.write_storage::<ModelCollider>();
+    storage
+        .insert(model_entity, ModelCollider(collision_builder))
+        .unwrap();
 }

@@ -2,6 +2,7 @@ use core::panic;
 use std::{cell::RefCell, convert::TryInto, io::BufRead};
 
 use crate::{
+    components::modelcollider::ModelCollider,
     renderer::bindgroups::gbuffer::GBuffer,
     resources::{
         renderresult::RenderResult,
@@ -495,11 +496,12 @@ async fn create_debug_scene() {
         .read_resource::<ModelBuilder>()
         .create(&state.device, &state.queue, "cube.obj")
         .await;
+
     drop(state);
     let collision_builder =
         ColliderBuilder::convex_hull(obj_model.meshes[0].points.as_slice()).unwrap();
     let model_entity = ecs.world.create_entity().with(obj_model).build();
-
+    log::info!("{:?}", model_entity);
     let mut rng = rand::thread_rng();
     let light_count = 5;
     for _ in 0..light_count {
@@ -634,4 +636,8 @@ async fn create_debug_scene() {
             .with(*physics_handle)
             .build();
     }
+    ecs.world
+        .create_entity()
+        .with(ModelCollider(collision_builder))
+        .build();
 }

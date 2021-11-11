@@ -2,6 +2,7 @@ use crate::components::modelcollider::ModelCollider;
 use crate::components::physicshandle::PhysicsHandle;
 use crate::components::scriptingcallback::ScriptingCallback;
 use crate::components::transform::{self, Transform};
+use crate::renderer::primitives::lights::pointlight::PointLight;
 use crate::renderer::utils::ecscontainer::ECSContainer;
 use crate::systems::physics::PhysicsWorld;
 
@@ -76,31 +77,57 @@ impl ScriptingFunctions {
                 }
                 "physics" => {
                     // Only add phyics to valid already created objects
+                    if let Some(model) = model_id {
+                        let mut world = ecs.world.write_resource::<PhysicsWorld>();
 
-                    let mut world = ecs.world.write_resource::<PhysicsWorld>();
-                    let collider = ecs.world.read_component::<ModelCollider>();
-                    let ents = ecs.world.entities();
-                    for (collider_builder, entity) in (&collider, &ents).join() {}
+                        let collider = ecs.world.read_component::<ModelCollider>();
+                        let ents = ecs.world.entities();
+                        for (collider_builder, entity) in (&collider, &ents).join() {
+                            if entity == model {
+                                let pos = if let Some(val) = transform {
+                                    val.position
+                                } else {
+                                    glm::vec3(0.0, 0.0, 0.0)
+                                };
+                                let rigid_body = RigidBodyBuilder::new_dynamic()
+                                    .position(Isometry3::new(pos, glm::vec3(0.0, 0.0, 0.0)))
+                                    .mass(component.mass.unwrap() as f32)
+                                    .build();
+                                let rigid_body_handle = world.add_rigid_body(rigid_body);
+
+                                let collider = collider_builder.0.build();
+                                let collider_handle =
+                                    world.add_collider(collider, rigid_body_handle);
+
+                                builder = builder.with(PhysicsHandle {
+                                    collider_handle,
+                                    rigid_body_handle,
+                                })
+                            }
+                        }
+                    }
+                }
+                "pointLight" => {
                     let pos = if let Some(val) = transform {
                         val.position
                     } else {
                         glm::vec3(0.0, 0.0, 0.0)
                     };
-                    let rigid_body = RigidBodyBuilder::new_dynamic()
-                        .position(Isometry3::new(pos, glm::vec3(0.0, 0.0, 0.0)))
-                        .mass(component.mass.unwrap() as f32)
-                        .build();
-                    let rigid_body_handle = world.add_rigid_body(rigid_body);
-
-                    // let collider = collision_builder.build();
-                    // let collider_handle = world.add_collider(collider, rigid_body_handle);
-
-                    // builder = builder.with(PhysicsHandle {
-                    //     collider_handle,
-                    //     rigid_body_handle,
-                    // })
+                    let attenuation_values = component.attenuation.unwrap();
+                    let color = component.color.unwrap();
+                    builder = builder.with(PointLight::new(
+                        pos,
+                        wgpu::Color {
+                            r: color.x() as f64,
+                            g: color.y() as f64,
+                            b: color.z() as f64,
+                            a: color.w() as f64,
+                        },
+                        attenuation_values.x,
+                        attenuation_values.y,
+                        attenuation_values.z,
+                    ));
                 }
-                "pointLight" => {}
                 _ => {}
             }
         }

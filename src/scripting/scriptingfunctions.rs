@@ -1,7 +1,7 @@
 use crate::components::modelcollider::ModelCollider;
 use crate::components::physicshandle::PhysicsHandle;
 use crate::components::scriptingcallback::ScriptingCallback;
-use crate::components::transform::Transform;
+use crate::components::transform::{self, Transform};
 use crate::renderer::utils::ecscontainer::ECSContainer;
 use crate::systems::physics::PhysicsWorld;
 
@@ -45,18 +45,19 @@ impl ScriptingFunctions {
             .with(event_type)
             .build();
     }
+    // Might need to change to an object instead of an array
     pub fn create_entity(entity_info: &wasm_bindgen::JsValue) -> wasm_bindgen::JsValue {
         let entity_info: EntityInfo = entity_info.into_serde().unwrap();
         let ecs = ECSContainer::global_mut();
         let mut builder: EntityBuilder = ecs.world.create_entity_unchecked();
 
-        let mut transform: Transform;
+        let mut transform: Option<Transform> = None;
         let mut model_id: Option<Entity> = None;
         for component in entity_info.components {
             match component.component_type.as_str() {
                 "transform" => {
                     if let Some(model) = component.model {
-                        let entities = ecs.world.read_resource::<Entities>();
+                        let entities = ecs.world.entities();
                         for e in entities.join() {
                             if e.id() == model {
                                 model_id = Some(e);
@@ -64,21 +65,30 @@ impl ScriptingFunctions {
                             }
                         }
                     }
-                    transform = Transform::new(
+                    let transform_val = Transform::new(
                         component.position.unwrap().into(),
                         component.rotation.unwrap().into(),
                         component.scale.unwrap().into(),
                         model_id,
                     );
-                    builder = builder.with(transform);
+                    builder = builder.with(transform_val);
+                    transform = Some(transform_val);
                 }
                 "physics" => {
-                    let world = ecs.world.write_resource::<PhysicsWorld>();
-                    let collider = ecs.world.write_resource::<ModelCollider>();
-                    // if Some(model_id) {}
+                    // Only add phyics to valid already created objects
+
+                    let mut world = ecs.world.write_resource::<PhysicsWorld>();
+                    let collider = ecs.world.read_component::<ModelCollider>();
+                    let ents = ecs.world.entities();
+                    for (collider_builder, entity) in (&collider, &ents).join() {}
+                    let pos = if let Some(val) = transform {
+                        val.position
+                    } else {
+                        glm::vec3(0.0, 0.0, 0.0)
+                    };
                     let rigid_body = RigidBodyBuilder::new_dynamic()
-                        .position(Isometry3::new(transform.position, glm::vec3(0.0, 0.0, 0.0)))
-                        .mass(1.0)
+                        .position(Isometry3::new(pos, glm::vec3(0.0, 0.0, 0.0)))
+                        .mass(component.mass.unwrap() as f32)
                         .build();
                     let rigid_body_handle = world.add_rigid_body(rigid_body);
 

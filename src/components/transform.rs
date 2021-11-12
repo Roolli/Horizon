@@ -2,7 +2,7 @@ use bytemuck::{Pod, Zeroable};
 
 use specs::prelude::*;
 use specs::{Component, VecStorage};
-#[derive(Component, Copy, Clone)]
+#[derive(Component, Copy, Clone, Debug)]
 #[storage(VecStorage)]
 pub struct Transform {
     pub position: glm::Vec3,

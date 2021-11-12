@@ -59,12 +59,7 @@ impl ScriptingFunctions {
                 "transform" => {
                     if let Some(model) = component.model {
                         let entities = ecs.world.entities();
-                        for e in entities.join() {
-                            if e.id() == model {
-                                model_id = Some(e);
-                                break;
-                            }
-                        }
+                        model_id = Some(entities.entity(model));
                     }
                     let transform_val = Transform::new(
                         component.position.unwrap().into(),
@@ -72,8 +67,8 @@ impl ScriptingFunctions {
                         component.scale.unwrap().into(),
                         model_id,
                     );
-                    builder = builder.with(transform_val);
                     transform = Some(transform_val);
+                    builder = builder.with(transform_val);
                 }
                 "physics" => {
                     // Only add phyics to valid already created objects

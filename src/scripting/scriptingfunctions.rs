@@ -2,16 +2,20 @@ use crate::components::modelcollider::ModelCollider;
 use crate::components::physicshandle::PhysicsHandle;
 use crate::components::scriptingcallback::ScriptingCallback;
 use crate::components::transform::{self, Transform};
+use crate::filesystem::modelimporter::Importer;
+use crate::renderer::modelbuilder::ModelBuilder;
 use crate::renderer::primitives::lights::pointlight::PointLight;
+use crate::renderer::state::State;
 use crate::renderer::utils::ecscontainer::ECSContainer;
 use crate::systems::physics::PhysicsWorld;
 
-use super::lifecycleevents::LifeCycleEvent;
+use super::scriptevent::ScriptEvent;
 #[cfg(not(target_arch = "wasm32"))]
 use super::scriptingengine::V8ScriptingEngine;
 use super::util::entityinfo::EntityInfo;
 use nalgebra::Isometry3;
 use rapier3d::dynamics::RigidBodyBuilder;
+use rapier3d::geometry::ColliderBuilder;
 #[cfg(not(target_arch = "wasm32"))]
 use rusty_v8 as v8;
 use specs::prelude::*;
@@ -23,6 +27,7 @@ use std::io::Write;
 use std::{convert::TryFrom, io::stdout};
 #[cfg(not(target_arch = "wasm32"))]
 use v8::{Function, Global};
+use wasm_bindgen_futures::{future_to_promise, spawn_local};
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -36,17 +41,17 @@ pub struct ScriptingFunctions;
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 impl ScriptingFunctions {
-    pub fn register_callback(event_type: LifeCycleEvent, callback: js_sys::Function) {
+    #[wasm_bindgen(js_name = "registerCallback")]
+    pub fn register_callback(event_type: ScriptEvent, callback: js_sys::Function) {
         let ecs = ECSContainer::global_mut();
         let builder = ecs.world.create_entity();
-        log::info!("{:?}", callback);
-        callback.call0(&JsValue::NULL).unwrap();
         builder
             .with(ScriptingCallback::new(callback))
             .with(event_type)
             .build();
     }
     // Might need to change to an object instead of an array
+    #[wasm_bindgen(js_name = "createEntity")]
     pub fn create_entity(entity_info: &wasm_bindgen::JsValue) -> wasm_bindgen::JsValue {
         let entity_info: EntityInfo = entity_info.into_serde().unwrap();
         let ecs = ECSContainer::global_mut();
@@ -84,7 +89,17 @@ impl ScriptingFunctions {
                                 } else {
                                     glm::vec3(0.0, 0.0, 0.0)
                                 };
-                                let rigid_body = RigidBodyBuilder::new_dynamic()
+
+                                let rigid_body =
+                                    if let Some(body_type) = component.body_type.clone() {
+                                        if body_type == "DynamicRigidBody" {
+                                            RigidBodyBuilder::new_dynamic()
+                                        } else {
+                                            RigidBodyBuilder::new_static()
+                                        }
+                                    } else {
+                                        RigidBodyBuilder::new_static()
+                                    }
                                     .position(Isometry3::new(pos, glm::vec3(0.0, 0.0, 0.0)))
                                     .mass(component.mass.unwrap() as f32)
                                     .build();
@@ -128,6 +143,58 @@ impl ScriptingFunctions {
         }
 
         JsValue::from_f64(builder.build().id().into())
+    }
+    #[wasm_bindgen(js_name = "loadModel")]
+    pub fn load_model(object_name: JsValue) -> js_sys::Promise {
+        log::info!("erm... hello?");
+
+        log::info!("got ecs");
+
+        future_to_promise(async move {
+            let ecs = ECSContainer::global_mut();
+            let state = ecs.world.read_resource::<State>();
+            let obj_model = ecs
+                .world
+                .read_resource::<ModelBuilder>()
+                .create(
+                    &state.device,
+                    &state.queue,
+                    object_name.as_string().unwrap().as_str(),
+                )
+                .await;
+            log::info!("fun!!!");
+            Ok(JsValue::from_f64(0.0))
+        })
+
+        //future_to_promise(async { Ok(JsValue::from_f64(0.0)) })
+
+        //     log::info!("got ecs");
+        //js_sys::Promise::resolve(&JsValue::from_f64(0.0))
+        // if let Some(obj) = object_name.as_string() {
+        //     let ecs = ECSContainer::global_mut();
+        //     let state = ecs.world.read_resource::<State>();
+        //     log::info!("got ecs");
+        //     let obj_model = ecs
+        //         .world
+        //         .read_resource::<ModelBuilder>()
+        //         .create(&state.device, &state.queue, obj.as_str())
+        //         .await; // TODO: change to return result to handle missing assets
+        //                 // log::info!("loaded file");
+        //                 // let collision_builder =
+        //                 //     ColliderBuilder::convex_hull(obj_model.meshes[0].points.as_slice()).unwrap();
+        //                 // let model_entity = ecs
+        //                 //     .world
+        //                 //     .create_entity_unchecked()
+        //                 //     .with(obj_model)
+        //                 //     .with(ModelCollider(collision_builder))
+        //                 //     .build();
+        //                 // log::info!("success!!");
+        //                 // model_entity.id()
+        //     1
+        // } else {
+        //     //js_sys::Promise::reject(&JsValue::NULL)
+        //     0
+        // }
     }
 }
 

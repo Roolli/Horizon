@@ -57,6 +57,8 @@ impl<'a> System<'a> for UpdateBuffers {
             .join()
             .map(SpotLight::to_raw)
             .collect::<Vec<_>>();
+        globals.set_point_light_count(point_light_raw.len() as u32);
+        globals.set_spot_light_count(spot_light_raw.len() as u32);
         state.queue.write_buffer(
             binding_resource_container
                 .buffers

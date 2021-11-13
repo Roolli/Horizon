@@ -94,7 +94,10 @@
                 "--out-dir",
                 "target/generated",
                 "--web",
-                "./target/wasm32-unknown-unknown/debug/horizon.wasm"
+                "./target/wasm32-unknown-unknown/debug/horizon.wasm",
+                "--reference-types",
+                "--keep-debug",
+                "--no-demangle",
             ]
         },
         {
@@ -155,7 +158,7 @@
                 "--out-dir",
                 "target/generated",
                 "--web",
-                "./target/wasm32-unknown-unknown/release/horizon.wasm"
+                "./target/wasm32-unknown-unknown/release/horizon.wasm",
             ],
             "problemMatcher": [
                 "$rustc"

@@ -5,7 +5,7 @@ use rapier3d::geometry::ColliderBuilder;
 use specs::{Component, DispatcherBuilder, World, WorldExt};
 
 use crate::components::modelcollider::ModelCollider;
-use crate::scripting::lifecycleevents::LifeCycleEvent;
+use crate::scripting::scriptevent::ScriptEvent;
 use crate::{
     components::scriptingcallback::ScriptingCallback,
     filesystem::modelimporter::Importer,
@@ -109,7 +109,7 @@ impl ECSContainer {
         world.register::<DeferredBindGroup>();
         world.register::<TilingBindGroup>();
         world.register::<ScriptingCallback>();
-        world.register::<LifeCycleEvent>();
+        world.register::<ScriptEvent>();
     }
     pub fn global() -> &'static ECSContainer {
         unsafe { ECS_INSTANCE.get().expect("ECS was not initialized") }

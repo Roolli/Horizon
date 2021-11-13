@@ -491,155 +491,156 @@ async fn create_debug_scene() {
 
     //    MODEL LOADING
 
-    let obj_model = ecs
-        .world
-        .read_resource::<ModelBuilder>()
-        .create(&state.device, &state.queue, "cube.obj")
-        .await;
+    // let obj_model = ecs
+    //     .world
+    //     .read_resource::<ModelBuilder>()
+    //     .create(&state.device, &state.queue, "cube.obj")
+    //     .await;
 
     drop(state);
-    let collision_builder =
-        ColliderBuilder::convex_hull(obj_model.meshes[0].points.as_slice()).unwrap();
-    let model_entity = ecs.world.create_entity().with(obj_model).build();
-
-    log::info!("{:?}", model_entity);
-    let mut rng = rand::thread_rng();
-    let light_count = 5;
-    for _ in 0..light_count {
-        ecs.world
-            .create_entity()
-            .with(SpotLight::new(
-                glm::vec3(rng.gen_range(-50.0..50.0), 10.0, rng.gen_range(-50.0..50.0)),
-                glm::Mat4::identity(),
-                wgpu::Color {
-                    a: 1.0,
-                    b: rng.gen::<f64>(),
-                    r: rng.gen::<f64>(),
-                    g: rng.gen::<f64>(),
-                },
-                1.0,
-                1.0,
-                0.2,
-                20.0,
-                40.0,
-            ))
-            .build();
-        ecs.world
-            .create_entity()
-            .with(PointLight::new(
-                glm::vec3(
-                    rng.gen_range(-100.0..100.0),
-                    2.0,
-                    rng.gen_range(-100.0..100.0),
-                ),
-                wgpu::Color {
-                    a: 1.0,
-                    b: rng.gen_range(0.0..1.0),
-                    r: rng.gen_range(0.0..1.0),
-                    g: rng.gen_range(0.0..1.0),
-                },
-                1.0,
-                0.1,
-                0.01,
-            ))
-            .build();
-    }
-    log::info!(" light count: {} ", light_count);
-    let mut globals = Globals::new(light_count as u32, light_count as u32);
+    let mut globals = Globals::new(0, 0);
     globals.update_view_proj_matrix(&cam);
 
     ecs.world.insert(globals);
     ecs.world.insert(cam);
-    // INSTANCING
-    let mut physicsworld = ecs.world.write_resource::<PhysicsWorld>();
-    const SPACE: f32 = 10.0;
-    let mut instances = (0..NUM_INSTANCES_PER_ROW)
-        .flat_map(|z| {
-            (0..NUM_INSTANCES_PER_ROW).map(move |x| {
-                let x = SPACE * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 1.5);
-                let z = SPACE * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 1.5);
-                let pos = glm::Vec3::new(x as f32, 10.0, z as f32);
-                let rot = if pos == glm::vec3(0.0, 0.0, 0.0) {
-                    glm::quat_angle_axis(f32::to_radians(0.0), &glm::vec3(0.0, 0.0, 1.0))
-                } else {
-                    glm::quat_angle_axis(f32::to_radians(45.0), &pos.clone().normalize())
-                };
-                Transform::new(pos, rot, glm::vec3(1.0, 1.0, 1.0), Some(model_entity))
-            })
-        })
-        .collect::<Vec<_>>();
-    let physics_handles = instances
-        .iter()
-        .map(|instance| {
-            let axisangle = if instance.position == glm::vec3(0.0, 0.0, 0.0) {
-                f32::to_radians(0.0) * glm::vec3(0.0, 0.0, 1.0)
-            } else {
-                f32::to_radians(45.0) * instance.position.clone().normalize()
-            };
-            let rigid_body = RigidBodyBuilder::new_dynamic()
-                .position(Isometry3::new(
-                    Vec3::new(
-                        instance.position.x,
-                        instance.position.y,
-                        instance.position.z,
-                    ),
-                    axisangle,
-                ))
-                .mass(1.0)
-                .build();
-            let rigid_body_handle = physicsworld.add_rigid_body(rigid_body);
 
-            let collider = collision_builder.build();
-            let collider_handle = physicsworld.add_collider(collider, rigid_body_handle);
+    // let collision_builder =
+    //     ColliderBuilder::convex_hull(obj_model.meshes[0].points.as_slice()).unwrap();
+    // let model_entity = ecs.world.create_entity().with(obj_model).build();
 
-            PhysicsHandle {
-                collider_handle,
-                rigid_body_handle,
-            }
-        })
-        .collect::<Vec<_>>();
+    // let mut rng = rand::thread_rng();
+    // let light_count = 5;
+    // for _ in 0..light_count {
+    //     ecs.world
+    //         .create_entity()
+    //         .with(SpotLight::new(
+    //             glm::vec3(rng.gen_range(-50.0..50.0), 10.0, rng.gen_range(-50.0..50.0)),
+    //             glm::Mat4::identity(),
+    //             wgpu::Color {
+    //                 a: 1.0,
+    //                 b: rng.gen::<f64>(),
+    //                 r: rng.gen::<f64>(),
+    //                 g: rng.gen::<f64>(),
+    //             },
+    //             1.0,
+    //             1.0,
+    //             0.2,
+    //             20.0,
+    //             40.0,
+    //         ))
+    //         .build();
+    //     ecs.world
+    //         .create_entity()
+    //         .with(PointLight::new(
+    //             glm::vec3(
+    //                 rng.gen_range(-100.0..100.0),
+    //                 2.0,
+    //                 rng.gen_range(-100.0..100.0),
+    //             ),
+    //             wgpu::Color {
+    //                 a: 1.0,
+    //                 b: rng.gen_range(0.0..1.0),
+    //                 r: rng.gen_range(0.0..1.0),
+    //                 g: rng.gen_range(0.0..1.0),
+    //             },
+    //             1.0,
+    //             0.1,
+    //             0.01,
+    //         ))
+    //         .build();
+    // }
+    // log::info!(" light count: {} ", light_count);
 
-    // ground object
-    let plane = Transform::new(
-        glm::vec3(0.0, 0.5, 0.0),
-        glm::quat_angle_axis(f32::to_radians(0.0), &glm::vec3(0.0, 0.0, 1.0)),
-        glm::vec3(100.0, 1.0, 100.0),
-        Some(model_entity),
-    );
-    instances.push(plane);
-    // ground shape
-    let ground_shape = ColliderBuilder::cuboid(100.0, 1.0, 100.0).build();
+    // // INSTANCING
+    // let mut physicsworld = ecs.world.write_resource::<PhysicsWorld>();
+    // const SPACE: f32 = 10.0;
+    // let mut instances = (0..NUM_INSTANCES_PER_ROW)
+    //     .flat_map(|z| {
+    //         (0..NUM_INSTANCES_PER_ROW).map(move |x| {
+    //             let x = SPACE * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 1.5);
+    //             let z = SPACE * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 1.5);
+    //             let pos = glm::Vec3::new(x as f32, 10.0, z as f32);
+    //             let rot = if pos == glm::vec3(0.0, 0.0, 0.0) {
+    //                 glm::quat_angle_axis(f32::to_radians(0.0), &glm::vec3(0.0, 0.0, 1.0))
+    //             } else {
+    //                 glm::quat_angle_axis(f32::to_radians(45.0), &pos.clone().normalize())
+    //             };
+    //             Transform::new(pos, rot, glm::vec3(1.0, 1.0, 1.0), Some(model_entity))
+    //         })
+    //     })
+    //     .collect::<Vec<_>>();
+    // let physics_handles = instances
+    //     .iter()
+    //     .map(|instance| {
+    //         let axisangle = if instance.position == glm::vec3(0.0, 0.0, 0.0) {
+    //             f32::to_radians(0.0) * glm::vec3(0.0, 0.0, 1.0)
+    //         } else {
+    //             f32::to_radians(45.0) * instance.position.clone().normalize()
+    //         };
+    //         let rigid_body = RigidBodyBuilder::new_dynamic()
+    //             .position(Isometry3::new(
+    //                 Vec3::new(
+    //                     instance.position.x,
+    //                     instance.position.y,
+    //                     instance.position.z,
+    //                 ),
+    //                 axisangle,
+    //             ))
+    //             .mass(1.0)
+    //             .build();
+    //         let rigid_body_handle = physicsworld.add_rigid_body(rigid_body);
 
-    let ground_handle = physicsworld.add_rigid_body(
-        RigidBodyBuilder::new_static()
-            .position(Isometry3::new(
-                glm::vec3(0.0, 0.5, 0.0),
-                glm::vec3(0.0, 0.0, 1.0) * f32::to_radians(0.0),
-            ))
-            .build(),
-    );
-    let ground_collider = physicsworld.add_collider(ground_shape, ground_handle);
+    //         let collider = collision_builder.build();
+    //         let collider_handle = physicsworld.add_collider(collider, rigid_body_handle);
 
-    drop(physicsworld); // have to drop this to get world as mutable
-                        // create the entities themselves.
-    ecs.world
-        .create_entity()
-        .with(plane)
-        .with(PhysicsHandle {
-            collider_handle: ground_collider,
-            rigid_body_handle: ground_handle,
-        })
-        .build();
-    for (transform, physics_handle) in instances.iter().zip(physics_handles.iter()) {
-        ecs.world
-            .create_entity()
-            .with(*transform)
-            .with(*physics_handle)
-            .build();
-    }
+    //         PhysicsHandle {
+    //             collider_handle,
+    //             rigid_body_handle,
+    //         }
+    //     })
+    //     .collect::<Vec<_>>();
 
-    let mut storage = ecs.world.write_storage::<ModelCollider>();
-    storage
-        .insert(model_entity, ModelCollider(collision_builder))
-        .unwrap();
+    // // ground object
+    // let plane = Transform::new(
+    //     glm::vec3(0.0, 0.5, 0.0),
+    //     glm::quat_angle_axis(f32::to_radians(0.0), &glm::vec3(0.0, 0.0, 1.0)),
+    //     glm::vec3(100.0, 1.0, 100.0),
+    //     Some(model_entity),
+    // );
+    // instances.push(plane);
+    // // ground shape
+    // let ground_shape = ColliderBuilder::cuboid(100.0, 1.0, 100.0).build();
+
+    // let ground_handle = physicsworld.add_rigid_body(
+    //     RigidBodyBuilder::new_static()
+    //         .position(Isometry3::new(
+    //             glm::vec3(0.0, 0.5, 0.0),
+    //             glm::vec3(0.0, 0.0, 1.0) * f32::to_radians(0.0),
+    //         ))
+    //         .build(),
+    // );
+    // let ground_collider = physicsworld.add_collider(ground_shape, ground_handle);
+
+    // drop(physicsworld); // have to drop this to get world as mutable
+    //                     // create the entities themselves.
+    // ecs.world
+    //     .create_entity()
+    //     .with(plane)
+    //     .with(PhysicsHandle {
+    //         collider_handle: ground_collider,
+    //         rigid_body_handle: ground_handle,
+    //     })
+    //     .build();
+    // for (transform, physics_handle) in instances.iter().zip(physics_handles.iter()) {
+    //     ecs.world
+    //         .create_entity()
+    //         .with(*transform)
+    //         .with(*physics_handle)
+    //         .build();
+    // }
+
+    // let mut storage = ecs.world.write_storage::<ModelCollider>();
+    // storage
+    //     .insert(model_entity, ModelCollider(collision_builder))
+    //     .unwrap();
 }

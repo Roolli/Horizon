@@ -1,6 +1,6 @@
 use specs::*;
 
-use crate::scripting::lifecycleevents::LifeCycleEvent;
+use crate::scripting::scriptevent::ScriptEvent;
 #[cfg(target_arch = "wasm32")]
 #[derive(Component)]
 #[storage(VecStorage)]

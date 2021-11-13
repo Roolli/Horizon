@@ -146,55 +146,31 @@ impl ScriptingFunctions {
     }
     #[wasm_bindgen(js_name = "loadModel")]
     pub fn load_model(object_name: JsValue) -> js_sys::Promise {
-        log::info!("erm... hello?");
-
-        log::info!("got ecs");
-
-        future_to_promise(async move {
-            let ecs = ECSContainer::global_mut();
-            let state = ecs.world.read_resource::<State>();
-            let obj_model = ecs
-                .world
-                .read_resource::<ModelBuilder>()
-                .create(
-                    &state.device,
-                    &state.queue,
-                    object_name.as_string().unwrap().as_str(),
-                )
-                .await;
-            log::info!("fun!!!");
-            Ok(JsValue::from_f64(0.0))
-        })
-
-        //future_to_promise(async { Ok(JsValue::from_f64(0.0)) })
-
-        //     log::info!("got ecs");
-        //js_sys::Promise::resolve(&JsValue::from_f64(0.0))
-        // if let Some(obj) = object_name.as_string() {
-        //     let ecs = ECSContainer::global_mut();
-        //     let state = ecs.world.read_resource::<State>();
-        //     log::info!("got ecs");
-        //     let obj_model = ecs
-        //         .world
-        //         .read_resource::<ModelBuilder>()
-        //         .create(&state.device, &state.queue, obj.as_str())
-        //         .await; // TODO: change to return result to handle missing assets
-        //                 // log::info!("loaded file");
-        //                 // let collision_builder =
-        //                 //     ColliderBuilder::convex_hull(obj_model.meshes[0].points.as_slice()).unwrap();
-        //                 // let model_entity = ecs
-        //                 //     .world
-        //                 //     .create_entity_unchecked()
-        //                 //     .with(obj_model)
-        //                 //     .with(ModelCollider(collision_builder))
-        //                 //     .build();
-        //                 // log::info!("success!!");
-        //                 // model_entity.id()
-        //     1
-        // } else {
-        //     //js_sys::Promise::reject(&JsValue::NULL)
-        //     0
-        // }
+        if let Some(obj) = object_name.as_string() {
+            future_to_promise(async move {
+                let ecs = ECSContainer::global_mut();
+                let state = ecs.world.read_resource::<State>();
+                log::info!("got ecs");
+                let obj_model = ecs
+                    .world
+                    .read_resource::<ModelBuilder>()
+                    .create(&state.device, &state.queue, obj.as_str())
+                    .await; // TODO: change to return result to handle missing assets
+                log::info!("loaded file");
+                let collision_builder =
+                    ColliderBuilder::convex_hull(obj_model.meshes[0].points.as_slice()).unwrap();
+                let model_entity = ecs
+                    .world
+                    .create_entity_unchecked()
+                    .with(obj_model)
+                    .with(ModelCollider(collision_builder))
+                    .build();
+                log::info!("success!!");
+                Ok(JsValue::from_f64(model_entity.id().into()))
+            })
+        } else {
+            js_sys::Promise::reject(&JsValue::from_str("failed to load model"))
+        }
     }
 }
 

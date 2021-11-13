@@ -85,6 +85,11 @@ use once_cell::sync::OnceCell;
 use wasm_bindgen::prelude::*;
 
 static mut ECS_INSTANCE: OnceCell<ECSContainer> = OnceCell::new();
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(catch,js_namespace=Function,js_name="prototype.call.call")]
+    fn call_catch(this: &JsValue) -> Result<(), JsValue>;
+}
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub fn setup() {
@@ -124,10 +129,13 @@ pub fn setup() {
             .remove_attribute("style")
             .unwrap();
         std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+
         wasm_bindgen_futures::spawn_local(async move {
+            use wasm_bindgen::JsCast;
             unsafe {
                 if ECS_INSTANCE.set(ECSContainer::new()).is_err() {
                     panic!();
+                    
                 }
             }
             let state = State::new(&window).await;
@@ -135,7 +143,19 @@ pub fn setup() {
             ecs.setup(state);
             setup_pipelines(&mut ecs.world);
             create_debug_scene().await;
-            run(event_loop, window);
+            // https://github.com/gfx-rs/wgpu/issues/1457
+            // https://github.com/gfx-rs/wgpu/pull/1469/commits/07376d11e8b33639df3e002f2631dff27c289802
+            let run_closure = Closure::once_into_js(move || {
+                run(event_loop, window);
+            });
+            if let Err(error) = call_catch(&run_closure) {
+                let is_winit_error = error.dyn_ref::<js_sys::Error>().map_or(false, |e| {
+                    e.message().includes("using exceptions for control flow", 0)
+                });
+                if !is_winit_error {
+                    web_sys::console::error_1(&error);
+                }
+            }
         });
     }
 

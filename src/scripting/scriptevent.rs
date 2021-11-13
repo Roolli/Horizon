@@ -5,7 +5,7 @@ use wasm_bindgen::prelude::*;
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 #[derive(PartialEq, Eq, Hash, Component)]
-pub enum LifeCycleEvent {
+pub enum ScriptEvent {
     Init = 0,
     OnResourceStart = 1,
     OnTick = 2,
@@ -14,4 +14,6 @@ pub enum LifeCycleEvent {
     BeforeRender = 16,
     AfterRender = 32,
     Cleanup = 64,
+    OnMouseMove = 128,
+    OnKeyDown = 256,
 }

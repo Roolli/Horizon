@@ -85,13 +85,14 @@ use once_cell::sync::OnceCell;
 use wasm_bindgen::prelude::*;
 
 static mut ECS_INSTANCE: OnceCell<ECSContainer> = OnceCell::new();
+static EVENT_LOOP_STARTED: OnceCell<bool> = OnceCell::new();
 #[wasm_bindgen]
 extern "C" {
     #[wasm_bindgen(catch,js_namespace=Function,js_name="prototype.call.call")]
     fn call_catch(this: &JsValue) -> Result<(), JsValue>;
 }
 
-#[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 pub fn setup() {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
@@ -135,7 +136,6 @@ pub fn setup() {
             unsafe {
                 if ECS_INSTANCE.set(ECSContainer::new()).is_err() {
                     panic!();
-                    
                 }
             }
             let state = State::new(&window).await;
@@ -145,6 +145,7 @@ pub fn setup() {
             create_debug_scene().await;
             // https://github.com/gfx-rs/wgpu/issues/1457
             // https://github.com/gfx-rs/wgpu/pull/1469/commits/07376d11e8b33639df3e002f2631dff27c289802
+
             let run_closure = Closure::once_into_js(move || {
                 run(event_loop, window);
             });
@@ -180,7 +181,7 @@ pub fn setup() {
 }
 fn run(event_loop: EventLoop<()>, window: winit::window::Window) {
     log::info!("running event loop");
-
+    EVENT_LOOP_STARTED.set(true).unwrap();
     event_loop.run(move |event, _, control_flow| {
         // take ownership of ecs
         match event {

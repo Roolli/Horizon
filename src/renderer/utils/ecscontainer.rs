@@ -4,6 +4,7 @@ use once_cell::sync::OnceCell;
 use rapier3d::geometry::ColliderBuilder;
 use specs::{Component, DispatcherBuilder, World, WorldExt};
 
+use crate::components::assetidentifier::AssetIdentifier;
 use crate::components::modelcollider::ModelCollider;
 use crate::scripting::scriptevent::ScriptEvent;
 use crate::{
@@ -110,6 +111,7 @@ impl ECSContainer {
         world.register::<TilingBindGroup>();
         world.register::<ScriptingCallback>();
         world.register::<ScriptEvent>();
+        world.register::<AssetIdentifier>();
     }
     pub fn global() -> &'static ECSContainer {
         unsafe { ECS_INSTANCE.get().expect("ECS was not initialized") }

@@ -133,11 +133,6 @@ pub fn setup() {
 
         wasm_bindgen_futures::spawn_local(async move {
             use wasm_bindgen::JsCast;
-            unsafe {
-                if ECS_INSTANCE.set(ECSContainer::new()).is_err() {
-                    panic!();
-                }
-            }
             let state = State::new(&window).await;
             let ecs = ECSContainer::global_mut();
             ecs.setup(state);
@@ -179,6 +174,15 @@ pub fn setup() {
         run(event_loop, window);
     }
 }
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "initECS"))]
+pub fn init_ecs() {
+    unsafe {
+        if ECS_INSTANCE.set(ECSContainer::new()).is_err() {
+            panic!();
+        }
+    }
+}
+
 fn run(event_loop: EventLoop<()>, window: winit::window::Window) {
     log::info!("running event loop");
     EVENT_LOOP_STARTED.set(true).unwrap();

@@ -8,6 +8,7 @@ use crate::renderer::primitives::lights::pointlight::PointLight;
 use crate::renderer::state::State;
 use crate::renderer::utils::ecscontainer::ECSContainer;
 use crate::systems::physics::PhysicsWorld;
+use crate::EVENT_LOOP_STARTED;
 
 use super::scriptevent::ScriptEvent;
 #[cfg(not(target_arch = "wasm32"))]
@@ -146,6 +147,12 @@ impl ScriptingFunctions {
     }
     #[wasm_bindgen(js_name = "loadModel")]
     pub fn load_model(object_name: JsValue) -> js_sys::Promise {
+        if *EVENT_LOOP_STARTED.get().unwrap() {
+            return js_sys::Promise::reject(&JsValue::from(
+                "can not load models after the event loop has been set up!",
+            ));
+        }
+        // if event loop is already running, reject
         if let Some(obj) = object_name.as_string() {
             future_to_promise(async move {
                 let ecs = ECSContainer::global_mut();

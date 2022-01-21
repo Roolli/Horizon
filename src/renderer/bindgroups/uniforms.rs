@@ -66,10 +66,7 @@ impl<'a> HorizonBindGroup<'a> for UniformBindGroup {
                     binding: 4,
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     count: None,
-                    ty: wgpu::BindingType::Sampler {
-                        comparison: true,
-                        filtering: true,
-                    },
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Comparison), // might not work if filtering not enabled
                 },
             ],
         })

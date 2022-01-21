@@ -1,8 +1,8 @@
-use std::fmt::Debug;
 
-use once_cell::sync::OnceCell;
-use rapier3d::geometry::ColliderBuilder;
-use specs::{Component, DispatcherBuilder, World, WorldExt};
+
+
+
+use specs::{DispatcherBuilder, World, WorldExt};
 
 use crate::components::modelcollider::ModelCollider;
 use crate::scripting::scriptevent::ScriptEvent;

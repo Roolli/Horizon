@@ -3,10 +3,10 @@ use crate::renderer::primitives::vertex::{ModelVertex, Vertex};
 use wgpu::{BindGroupLayout, ColorTargetState};
 
 use super::HorizonPipeline;
-use crate::renderer::bindgroupcontainer::BindGroupContainer;
+
 use crate::renderer::primitives::texture::Texture;
 
-use specs::{Component, NullStorage};
+
 
 pub struct LightPipeline(pub wgpu::RenderPipeline);
 

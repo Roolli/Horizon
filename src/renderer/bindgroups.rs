@@ -2,7 +2,7 @@ use wgpu::Device;
 
 use crate::resources::bindingresourcecontainer::BindingResourceContainer;
 
-use super::bindgroupcontainer::{self, BindGroupContainer};
+use super::bindgroupcontainer::{BindGroupContainer};
 
 pub mod deferred;
 pub mod gbuffer;

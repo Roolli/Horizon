@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use std::{
     fs::File,
     io::Read,
-    path::{Path, PathBuf},
+    path::{PathBuf},
 };
 pub struct Nativefileloader {
     rootdir: PathBuf,

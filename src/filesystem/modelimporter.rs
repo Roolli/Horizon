@@ -35,7 +35,7 @@ impl Importer {
     fn get_mtl_file_paths(obj_buffer: &[u8]) -> Result<Vec<String>, anyhow::Error> {
         let mut mtl_paths = Vec::new();
         for line in obj_buffer.lines() {
-            let (line, mut words) = match line {
+            let (_line, mut words) = match line {
                 Ok(ref line) => (&line[..], line[..].split_whitespace()),
                 _ => return Err(anyhow::anyhow!("failure during file parsing")),
             };
@@ -68,7 +68,7 @@ impl Default for Importer {
 impl Default for Importer {
     fn default() -> Self {
         use web_sys::Window;
-        use winit::platform::web::WindowExtWebSys;
+        
         let win: Window = web_sys::window().unwrap();
         let doc = win.document().unwrap();
         use crate::filesystem::webfileloader::WebFileLoader;

@@ -1,4 +1,4 @@
-use std::{num::NonZeroU8, path::Path};
+use std::{num::NonZeroU8};
 
 use anyhow::*;
 use bytemuck::Contiguous;
@@ -92,7 +92,7 @@ impl Texture {
         is_normal: bool,
     ) -> Self {
         let mut buffer: image::RgbImage = ImageBuffer::new(512, 512);
-        for (x, y, pixel) in buffer.enumerate_pixels_mut() {
+        for (_x, _y, pixel) in buffer.enumerate_pixels_mut() {
             *pixel = image::Rgb(color);
         }
 

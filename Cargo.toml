@@ -4,7 +4,7 @@ version = "0.2.0"
 resolver="2"
 authors = ["Roland Mikhel <roland.mikhel@gmail.com>"]
 repository = "https://github.com/Roolli/Horizon/"
-edition = "2018"
+edition = "2021"
 description="Cross-platform 3D engine using WebGPU and Rust (WebAssembly for browsers)"
 
 [lib]
@@ -36,19 +36,19 @@ anyhow = "1.0.38"
 tobj = "2.0.3"
 log = "0.4"
 async-trait = "0.1.42"
-egui = "0.14"
-epi="0.14"
-egui_wgpu_backend ="0.13"
-egui_winit_platform = "0.10.0"
-egui_demo_lib= "0.14"
+egui = "0.16"
+epi="0.16"
+egui_wgpu_backend ="0.16"
+egui_winit_platform = "0.13.0"
+egui_demo_lib= "0.16"
 rand = "0.8"
 once_cell = "1.8.0"
 
 [target.'cfg(windows)'.dependencies]
-winit = {version="0.25.0"}
+winit = {version="0.26.0"}
 
 [target.'cfg(unix)'.dependencies]
-winit = {version="0.25.0", features=['x11'] }
+winit = {version="0.26.0", features=['x11'] }
 
 [target.'cfg(not(target_arch="wasm32"))'.dependencies]
 env_logger = "0.8.2"
@@ -70,8 +70,8 @@ chrono = {version="0.4.19", features=["wasmbind"]}
 wasm-bindgen = {version="0.2.76", features=["serde-serialize"] }
 wasm-bindgen-futures = "0.4.28"
 console_log = "0.2.0"
-wee_alloc = { version = "0.4.5", optional = true }
-winit = {version ="0.25.0", features = ["web-sys"]}
+#wee_alloc = { version = "0.4.5", optional = true }
+winit = {version ="0.26.0"}
 js-sys= "0.3.50"
 console_error_panic_hook = { version = "0.1.6", optional = true }
 web-sys = { version="0.3.53",features = [
@@ -206,8 +206,7 @@ web-sys = { version="0.3.53",features = [
     'CssStyleDeclaration',
   ]}
 [dependencies.wgpu]
-
-version="0.11" 
+version="0.12" 
 
 [dependencies.image]
 version= "0.23"

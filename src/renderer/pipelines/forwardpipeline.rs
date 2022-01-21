@@ -1,9 +1,8 @@
 use super::HorizonPipeline;
-use crate::renderer::bindgroupcontainer::BindGroupContainer;
+
 use crate::renderer::pipelines::RenderPipelineBuilder;
 use crate::renderer::primitives::texture::Texture;
-use crate::renderer::primitives::vertex::{ModelVertex, Vertex};
-use specs::*;
+
 use wgpu::ColorTargetState;
 
 pub struct ForwardPipeline(pub wgpu::RenderPipeline);
@@ -49,7 +48,7 @@ impl<'a> HorizonPipeline<'a> for ForwardPipeline {
             entry_point: "fs_main",
         });
 
-        let depth_stencil_state = wgpu::DepthStencilState {
+        let _depth_stencil_state = wgpu::DepthStencilState {
             bias: wgpu::DepthBiasState {
                 ..Default::default()
             },
@@ -65,7 +64,9 @@ impl<'a> HorizonPipeline<'a> for ForwardPipeline {
             strip_index_format: None,
 
             polygon_mode: wgpu::PolygonMode::Fill,
-            clamp_depth: device.features().contains(wgpu::Features::DEPTH_CLAMPING),
+            unclipped_depth: device
+                .features()
+                .contains(wgpu::Features::DEPTH_CLIP_CONTROL),
             ..Default::default()
         };
 

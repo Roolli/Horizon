@@ -1,32 +1,25 @@
 use core::panic;
-use std::{cell::RefCell, convert::TryInto, io::BufRead};
+
 
 use crate::{
-    components::modelcollider::ModelCollider,
     renderer::bindgroups::gbuffer::GBuffer,
     resources::{
         renderresult::RenderResult,
         windowevents::{KeyboardEvent, MouseInputEvent, MouseMoveEvent},
     },
-    systems::{computelightculling::ComputeLightCulling, writegbuffer::WriteGBuffer},
 };
-use components::{
-    physicshandle::PhysicsHandle,
-    transform::{Transform, TransformRaw},
-};
-use filesystem::modelimporter::Importer;
+
+
 //use wasm_bindgen::prelude::*;
-use futures::executor::block_on;
-use nalgebra::Isometry3;
-use rand::Rng;
-use rapier3d::{dynamics::RigidBodyBuilder, geometry::ColliderBuilder};
+
+
+
+
 use renderer::{
-    bindgroupcontainer::BindGroupContainer,
     bindgroups::{
         deferred::DeferredBindGroup, lighting::LightBindGroup, shadow::ShadowBindGroup,
         tiling::TilingBindGroup, uniforms::UniformBindGroup, HorizonBindGroup,
     },
-    model::HorizonModel,
     modelbuilder::ModelBuilder,
     pipelines::{
         forwardpipeline::ForwardPipeline, gbufferpipeline::GBufferPipeline,
@@ -35,9 +28,7 @@ use renderer::{
     },
     primitives::{
         lights::{
-            directionallight::{DirectionalLight, DirectionalLightRaw},
-            pointlight::{PointLight, PointLightRaw},
-            spotlight::{SpotLight, SpotLightRaw},
+            directionallight::{DirectionalLight},
         },
         uniforms::Globals,
     },
@@ -45,19 +36,12 @@ use renderer::{
 };
 use resources::{
     bindingresourcecontainer::BindingResourceContainer, camera::Camera,
-    commandencoder::HorizonCommandEncoder, eguirenderpass::EguiRenderPass,
     windowevents::ResizeEvent,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use scripting::scriptingengine::V8ScriptingEngine;
-use specs::{Builder, Dispatcher, DispatcherBuilder, Join, World, WorldExt};
-use systems::{
-    physics::{Physics, PhysicsWorld},
-    renderforwardpass::RenderForwardPass,
-    rendershadowpass::RenderShadowPass,
-    resize::Resize,
-    updatebuffers::UpdateBuffers,
-};
+use specs::{Builder, Join, World, WorldExt};
+
 
 mod filesystem;
 mod renderer;
@@ -79,7 +63,7 @@ use winit::{
 #[cfg(all(target_arch = "wasm32", feature = "wee_alloc"))]
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
-use glm::Vec3;
+
 use once_cell::sync::OnceCell;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -227,7 +211,7 @@ fn run(event_loop: EventLoop<()>, window: winit::window::Window) {
                         resize_event.handled = false;
                     }
                     //Not working on the web currently
-                    WindowEvent::ModifiersChanged(state) => {}
+                    WindowEvent::ModifiersChanged(_state) => {}
                     _ => {}
                 }
             }
@@ -241,7 +225,7 @@ fn run(event_loop: EventLoop<()>, window: winit::window::Window) {
                 }
             }
             Event::RedrawRequested(_) => {
-                let mut container = ECSContainer::global_mut();
+                let container = ECSContainer::global_mut();
                 container.dispatcher.dispatch(&container.world);
                 //TODO: handle events related to wgpu errors
                 let render_result = container.world.read_resource::<RenderResult>();

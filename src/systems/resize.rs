@@ -1,6 +1,6 @@
-use std::ops::Deref;
 
-use specs::{Entities, Join, ReadExpect, ReadStorage, System, WriteExpect, WriteStorage};
+
+use specs::{Entities, Join, ReadStorage, System, WriteExpect, WriteStorage};
 
 use crate::{
     renderer::{

@@ -1,7 +1,6 @@
-use wgpu::{util::DeviceExt, Device, TextureDescriptor};
+use wgpu::{Device, TextureDescriptor};
 
 use crate::{
-    renderer::primitives::uniforms::CanvasConstants,
     resources::bindingresourcecontainer::BindingResourceContainer,
 };
 

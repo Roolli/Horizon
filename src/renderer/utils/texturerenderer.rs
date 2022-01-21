@@ -1,7 +1,4 @@
-use bytemuck::cast_slice;
-use wgpu::{util::DeviceExt, vertex_attr_array, MultisampleState};
-
-use crate::renderer::{self, pass::Pass};
+use wgpu::util::DeviceExt;
 
 /// Debug renderer for textures like shadow maps
 pub struct TextureRenderer {
@@ -34,10 +31,7 @@ impl TextureRenderer {
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
                     count: None,
-                    ty: wgpu::BindingType::Sampler {
-                        comparison: false,
-                        filtering: true,
-                    },
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                     visibility: wgpu::ShaderStages::FRAGMENT,
                 },
             ],
@@ -90,6 +84,7 @@ impl TextureRenderer {
             step_mode: wgpu::VertexStepMode::Vertex,
         };
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            multiview: None,
             vertex: wgpu::VertexState {
                 module: &module,
                 buffers: &[buffer_layout],

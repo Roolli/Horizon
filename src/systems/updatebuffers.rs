@@ -1,4 +1,4 @@
-use futures::io::ReadExact;
+
 use specs::{Join, ReadExpect, ReadStorage, System, WriteExpect};
 
 use crate::{
@@ -7,7 +7,7 @@ use crate::{
             lights::{
                 directionallight::DirectionalLight, pointlight::PointLight, spotlight::SpotLight,
             },
-            uniforms::{CanvasConstants, Globals},
+            uniforms::{Globals},
         },
         state::State,
     },

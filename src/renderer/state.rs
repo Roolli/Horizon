@@ -1,49 +1,34 @@
-use crate::renderer::bindgroupcontainer::BindGroupContainer;
-use crate::renderer::bindgroups::lighting::LightBindGroup;
-use crate::renderer::bindgroups::shadow::ShadowBindGroup;
-use crate::renderer::bindgroups::uniforms::UniformBindGroup;
-use crate::renderer::bindgroups::HorizonBindGroup;
-use crate::renderer::primitives::lights::directionallight::DirectionalLight;
-use crate::renderer::primitives::lights::directionallight::DirectionalLightRaw;
-use crate::renderer::primitives::lights::pointlight::PointLightRaw;
-use crate::renderer::primitives::lights::spotlight::SpotLightRaw;
 
-use crate::systems::movement;
+
+
+
+
+
+
+
+
+
+
 use crate::{
-    components::transform,
-    renderer::primitives::{texture::Texture, vertex::Vertex},
-    systems::physics::{Physics, PhysicsWorld},
-};
-use crate::{filesystem::modelimporter::Importer, renderer::model::HorizonModel};
-use std::{
-    num::NonZeroU32,
-    ops::{Add, Deref},
+    renderer::primitives::{texture::Texture},
 };
 
-use super::{
-    model::DrawModel,
-    primitives::{
-        instance::{Instance, InstanceRaw},
-        uniforms::{Globals, ShadowUniforms},
-        vertex::ModelVertex,
-    },
-};
-use crate::components::physicshandle::*;
+
+
+
+
 use crate::components::transform::*;
-use crate::renderer::modelbuilder::ModelBuilder;
-use crate::renderer::pass::Pass;
-use crate::renderer::utils::texturerenderer::TextureRenderer;
 
-use chrono::{Duration, DurationRound, Timelike};
+
+
+
+
 
 use egui_winit_platform::Platform;
 use egui_winit_platform::PlatformDescriptor;
-use nalgebra::Isometry3;
-use rapier3d::{
-    dynamics::RigidBodyBuilder,
-    geometry::{ColliderBuilder, TriMesh},
-};
-use specs::{Builder, Join, RunNow, World, WorldExt};
+
+
+use specs::{WorldExt};
 
 use winit::{event::*, window::Window};
 
@@ -117,7 +102,7 @@ impl State {
             scale_factor: window.scale_factor(),
             ..Default::default()
         });
-        let mut demo_app = egui_demo_lib::WrapApp::default();
+        let _demo_app = egui_demo_lib::WrapApp::default();
 
         Self {
             depth_texture: Texture::create_depth_texture(&device, &sc_desc, "depth_texture"),
@@ -132,8 +117,8 @@ impl State {
 
     pub fn input(&mut self, event: &WindowEvent) -> bool {
         match event {
-            WindowEvent::CursorMoved { position, .. } => true,
-            WindowEvent::KeyboardInput { input, .. } => {
+            WindowEvent::CursorMoved { position: _, .. } => true,
+            WindowEvent::KeyboardInput { input: _, .. } => {
                 // if let Some(keycode) = input.virtual_keycode {
                 //     if keycode == VirtualKeyCode::Space {
                 //         for handles in self.world.read_component::<PhysicsHandle>().join() {

@@ -1,5 +1,5 @@
 use bytemuck::{Pod, Zeroable};
-use glm::identity;
+
 use specs::{Component, Entity, VecStorage};
 
 //TODO: move to components

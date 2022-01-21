@@ -1,6 +1,6 @@
 use __core::ops::Range;
 use bytemuck::*;
-use glm::{look_at_rh, ortho_rh};
+
 use wgpu::BindGroup;
 
 use crate::{
@@ -8,7 +8,7 @@ use crate::{
     resources::camera::Camera,
 };
 
-use specs::{Component, HashMapStorage};
+
 
 #[derive(Default)]
 pub struct DirectionalLight {

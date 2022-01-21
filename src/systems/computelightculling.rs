@@ -12,7 +12,7 @@ use crate::{
         state::State,
     },
     resources::{
-        bindingresourcecontainer::BindingResourceContainer, commandencoder::HorizonCommandEncoder,
+        commandencoder::HorizonCommandEncoder,
     },
 };
 

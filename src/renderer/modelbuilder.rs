@@ -38,10 +38,7 @@ impl ModelBuilder {
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
                     visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler {
-                        comparison: false,
-                        filtering: true,
-                    },
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                     count: None,
                 },
                 wgpu::BindGroupLayoutEntry {
@@ -57,10 +54,7 @@ impl ModelBuilder {
                 wgpu::BindGroupLayoutEntry {
                     binding: 3,
                     visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler {
-                        comparison: false,
-                        filtering: true,
-                    },
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                     count: None,
                 },
             ],
@@ -164,8 +158,8 @@ impl ModelBuilder {
                 model.mesh.positions.len() % 3 == 0,
                 "position layout is wrong"
             );
-            let mut min_extents = glm::vec3(f32::MAX, f32::MAX, f32::MAX);
-            let mut max_extents = glm::vec3(f32::MIN, f32::MIN, f32::MIN);
+            let _min_extents = glm::vec3(f32::MAX, f32::MAX, f32::MAX);
+            let _max_extents = glm::vec3(f32::MIN, f32::MIN, f32::MIN);
             for i in 0..model.mesh.positions.len() / 3 {
                 let texture_coords: [f32; 2] = if model.mesh.texcoords.is_empty() {
                     [0.0, 0.0]

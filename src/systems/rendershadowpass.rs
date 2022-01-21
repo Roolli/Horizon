@@ -1,12 +1,12 @@
 use specs::{Entities, Join, ReadExpect, ReadStorage, System, WriteExpect};
 
 use crate::{
-    components::transform::{Transform, TransformRaw},
+    components::transform::{Transform},
     renderer::{
         bindgroupcontainer::BindGroupContainer,
         bindgroups::shadow::ShadowBindGroup,
-        model::{DrawModel, HorizonModel},
-        pipelines::{shadowpipeline::ShadowPipeline, RenderPipelineBuilder},
+        model::{HorizonModel},
+        pipelines::{shadowpipeline::ShadowPipeline},
         state::State,
     },
     resources::{
@@ -96,6 +96,7 @@ impl<'a> System<'a> for RenderShadowPass {
 
             for mesh in &model.meshes {
                 pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
+                // log::info!("{:?}", mesh.index_buffer);
                 pass.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
                 pass.draw_indexed(0..mesh.element_count, 0, 0..instance_buffer.len() as u32);
             }

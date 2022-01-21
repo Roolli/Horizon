@@ -1,8 +1,8 @@
 use crate::components::modelcollider::ModelCollider;
 use crate::components::physicshandle::PhysicsHandle;
 use crate::components::scriptingcallback::ScriptingCallback;
-use crate::components::transform::{self, Transform};
-use crate::filesystem::modelimporter::Importer;
+use crate::components::transform::{Transform};
+
 use crate::renderer::modelbuilder::ModelBuilder;
 use crate::renderer::primitives::lights::pointlight::PointLight;
 use crate::renderer::state::State;
@@ -19,15 +19,15 @@ use rapier3d::geometry::ColliderBuilder;
 #[cfg(not(target_arch = "wasm32"))]
 use rusty_v8 as v8;
 use specs::prelude::*;
-use specs::world::Generation;
+
 use std::borrow::BorrowMut;
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::io::Write;
-use std::{convert::TryFrom, io::stdout};
+
+
+
+
 #[cfg(not(target_arch = "wasm32"))]
 use v8::{Function, Global};
-use wasm_bindgen_futures::{future_to_promise, spawn_local};
+use wasm_bindgen_futures::{future_to_promise};
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;

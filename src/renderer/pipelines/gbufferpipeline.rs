@@ -1,5 +1,3 @@
-use wgpu::ShaderModuleDescriptor;
-
 use crate::renderer::{
     pipelines::RenderPipelineBuilder,
     primitives::{
@@ -55,7 +53,9 @@ impl<'a> HorizonPipeline<'a> for GBufferPipeline {
             cull_mode: Some(wgpu::Face::Back),
             strip_index_format: None,
             polygon_mode: wgpu::PolygonMode::Fill,
-            clamp_depth: device.features().contains(wgpu::Features::DEPTH_CLAMPING),
+            unclipped_depth: device
+                .features()
+                .contains(wgpu::Features::DEPTH_CLIP_CONTROL),
             ..Default::default()
         };
 

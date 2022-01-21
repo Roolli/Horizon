@@ -6,7 +6,7 @@ use crate::{
     renderer::{
         bindgroupcontainer::BindGroupContainer,
         bindgroups::uniforms::UniformBindGroup,
-        model::{DrawModel, HorizonModel},
+        model::{HorizonModel},
         pipelines::gbufferpipeline::GBufferPipeline,
         state::State,
     },

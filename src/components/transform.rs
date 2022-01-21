@@ -10,8 +10,7 @@ pub struct Transform {
     pub scale: glm::Vec3,
     pub model: Option<Entity>,
 }
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
+
 
 impl Transform {
     pub fn new(

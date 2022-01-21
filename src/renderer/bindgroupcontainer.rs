@@ -1,7 +1,7 @@
 use specs::*;
-use std::collections::HashMap;
 
-use wgpu::{BindGroup, BindGroupLayout, Buffer};
+
+use wgpu::{BindGroup, BindGroupLayout};
 
 /// Holds all relevant data that is associated with the given bind group.
 #[derive(Component)]

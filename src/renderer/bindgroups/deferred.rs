@@ -36,10 +36,7 @@ impl<'a> HorizonBindGroup<'a> for DeferredBindGroup {
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     binding: 0,
                     count: None,
-                    ty: wgpu::BindingType::Sampler {
-                        comparison: false,
-                        filtering: false,
-                    },
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
                 },
                 wgpu::BindGroupLayoutEntry {
                     visibility: wgpu::ShaderStages::FRAGMENT,

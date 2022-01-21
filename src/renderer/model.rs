@@ -1,7 +1,7 @@
 use std::ops::Range;
 
-use super::primitives::{instance::Instance, material::Material, texture};
-use super::primitives::{mesh::Mesh, vertex::ModelVertex};
+use super::primitives::{material::Material};
+use super::primitives::{mesh::Mesh};
 use specs::{Component, VecStorage};
 #[derive(Component)]
 #[storage(VecStorage)]

@@ -4,7 +4,7 @@ pub mod lightcullingpipeline;
 pub mod lightpipeline;
 pub mod shadowpipeline;
 pub mod texturepipeline;
-use specs::*;
+
 use wgpu::ColorTargetState;
 pub trait HorizonPipeline<'a> {
     type RequiredLayouts;
@@ -36,6 +36,7 @@ impl RenderPipelineBuilder {
         depth_stencil_state: Option<wgpu::DepthStencilState>,
     ) -> wgpu::RenderPipeline {
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            multiview: None,
             label,
             layout: Some(pipeline_layout),
             vertex,

@@ -1,4 +1,4 @@
-use std::{borrow::Borrow, cell::RefCell, collections::HashMap, rc::Rc, sync::Once};
+use std::{sync::Once};
 
 #[cfg(not(target_arch = "wasm32"))]
 use rusty_v8 as v8;
@@ -8,7 +8,7 @@ use v8::{
     UniqueRef,
 };
 
-use super::scriptingfunctions::ScriptingFunctions;
+
 
 static PLATFORM_INIT: Once = Once::new();
 #[cfg(not(target_arch = "wasm32"))]

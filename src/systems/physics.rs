@@ -1,18 +1,15 @@
 use std::{
     borrow::BorrowMut,
-    cell::{Cell, RefCell},
-    ops::Deref,
-    time::Instant,
 };
 
 use glm::Vec3;
 use rapier3d::{
     crossbeam::{
         self,
-        channel::{Receiver, Sender},
+        channel::{Receiver},
     },
     dynamics::{
-        BodyStatus, IntegrationParameters, JointSet, RigidBody, RigidBodyHandle, RigidBodySet,
+        IntegrationParameters, JointSet, RigidBody, RigidBodyHandle, RigidBodySet,
     },
     geometry::{
         BroadPhase, Collider, ColliderHandle, ColliderSet, ContactEvent, IntersectionEvent,
@@ -20,10 +17,10 @@ use rapier3d::{
     },
     pipeline::{ChannelEventCollector, PhysicsPipeline},
 };
-use specs::{Join, Read, ReadExpect, ReadStorage, System, WriteExpect, WriteStorage};
+use specs::{Join, ReadStorage, System, WriteExpect, WriteStorage};
 
 use crate::components::{
-    physicshandle::{self, PhysicsHandle},
+    physicshandle::{PhysicsHandle},
     transform::Transform,
 };
 

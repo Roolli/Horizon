@@ -18,7 +18,7 @@ pub struct ModelBuilder {
 impl ModelBuilder {
     pub fn new(device: &wgpu::Device, importer: Importer) -> Self {
         Self {
-            diffuse_texture_bind_group_layout: Self::get_diffuse_texture_bind_group_layout(&device),
+            diffuse_texture_bind_group_layout: Self::get_diffuse_texture_bind_group_layout(device),
             importer,
         }
     }
@@ -76,8 +76,8 @@ impl ModelBuilder {
                 continue;
             }
             let diffuse_texture = texture::Texture::load(
-                &device,
-                &queue,
+                device,
+                queue,
                 self.importer
                     .import_file(diffuse_path.as_str())
                     .await
@@ -88,8 +88,8 @@ impl ModelBuilder {
             .unwrap();
             let normal_texture = if !(mat.normal_texture.is_empty()) {
                 texture::Texture::load(
-                    &device,
-                    &queue,
+                    device,
+                    queue,
                     self.importer
                         .import_file(mat.normal_texture.as_str())
                         .await
@@ -100,8 +100,8 @@ impl ModelBuilder {
                 .unwrap()
             } else {
                 texture::Texture::create_default_texture_with_color(
-                    &device,
-                    &queue,
+                    device,
+                    queue,
                     [0, 0, 255],
                     Some("default_normal_texture"),
                     true,
@@ -109,7 +109,7 @@ impl ModelBuilder {
             };
 
             let bind_group = Self::create_bind_group(
-                &device,
+                device,
                 &self.diffuse_texture_bind_group_layout,
                 &diffuse_texture,
                 &normal_texture,
@@ -124,21 +124,21 @@ impl ModelBuilder {
         // Create texture to represent missing texture.
         if mats.is_empty() {
             let diffuse_texture = texture::Texture::create_default_texture_with_color(
-                &device,
-                &queue,
+                device,
+                queue,
                 [255, 0, 0],
                 Some("DEFAULT_DIFFUSE_TEXTURE"),
                 false,
             );
             let normal_texture = texture::Texture::create_default_texture_with_color(
-                &device,
-                &queue,
+                device,
+                queue,
                 [0, 0, 255],
                 Some("DEFAULT_NORMAL_TEXTURE"),
                 true,
             );
             let bind_group = Self::create_bind_group(
-                &device,
+                device,
                 &self.diffuse_texture_bind_group_layout,
                 &diffuse_texture,
                 &normal_texture,

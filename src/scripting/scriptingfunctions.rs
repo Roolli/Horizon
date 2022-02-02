@@ -1,7 +1,7 @@
 use crate::components::modelcollider::ModelCollider;
 use crate::components::physicshandle::PhysicsHandle;
 use crate::components::scriptingcallback::ScriptingCallback;
-use crate::components::transform::{Transform};
+use crate::components::transform::Transform;
 
 use crate::renderer::modelbuilder::ModelBuilder;
 use crate::renderer::primitives::lights::pointlight::PointLight;
@@ -23,12 +23,9 @@ use specs::prelude::*;
 
 use std::borrow::BorrowMut;
 
-
-
-
 #[cfg(not(target_arch = "wasm32"))]
 use v8::{Function, Global};
-use wasm_bindgen_futures::{future_to_promise};
+use wasm_bindgen_futures::future_to_promise;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -147,7 +144,8 @@ impl ScriptingFunctions {
     }
     #[wasm_bindgen(js_name = "loadModel")]
     pub fn load_model(object_name: JsValue) -> js_sys::Promise {
-        if *EVENT_LOOP_STARTED.get().unwrap() {
+        log::info!("runs up to this!");
+        if EVENT_LOOP_STARTED.get().is_some() {
             return js_sys::Promise::reject(&JsValue::from(
                 "can not load models after the event loop has been set up!",
             ));

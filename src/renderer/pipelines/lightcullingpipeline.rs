@@ -21,8 +21,13 @@ impl<'a> HorizonComputePipeline<'a> for LightCullingPipeline {
             label: Some("Light Culling Pipeline Layout"),
             push_constant_ranges: &[],
         });
-        let module =
-            device.create_shader_module(&wgpu::include_wgsl!("../../shaders/lightculling.wgsl"));
+        let module_descriptor = wgpu::ShaderModuleDescriptor {
+            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(include_str!(
+                "../../shaders/lightculling.wgsl"
+            ))),
+            label: Some("shadow shader"),
+        };
+        let module = device.create_shader_module(&module_descriptor);
 
         device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             entry_point: "main",

@@ -6,8 +6,6 @@ use super::HorizonPipeline;
 
 use crate::renderer::primitives::texture::Texture;
 
-
-
 pub struct LightPipeline(pub wgpu::RenderPipeline);
 
 impl<'a> HorizonPipeline<'a> for LightPipeline {
@@ -24,7 +22,14 @@ impl<'a> HorizonPipeline<'a> for LightPipeline {
             bind_group_layouts: &[uniform_bind_group, light_bind_group],
             push_constant_ranges: &[],
         });
-        let module = device.create_shader_module(&wgpu::include_wgsl!("../../shaders/light.wgsl"));
+
+        let module_descriptor = wgpu::ShaderModuleDescriptor {
+            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(include_str!(
+                "../../shaders/light.wgsl"
+            ))),
+            label: Some("shadow shader"),
+        };
+        let module = device.create_shader_module(&module_descriptor);
         let vertex_state = wgpu::VertexState {
             buffers: &[ModelVertex::desc()],
             entry_point: "vs_main",

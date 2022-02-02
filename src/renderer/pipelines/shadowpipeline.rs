@@ -17,14 +17,20 @@ impl<'a> HorizonPipeline<'a> for ShadowPipeline {
     ) -> wgpu::RenderPipeline {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("shadow"),
-            bind_group_layouts: &[&bind_group_layouts],
+            bind_group_layouts: &[bind_group_layouts],
             push_constant_ranges: &[],
         });
 
         // [2021-04-02T16:10:08Z ERROR wgpu_core::validation] Unexpected varying type: Array { base: [1], size: Constant([5]), stride: None }
         // let vs_module =
         //     device.create_shader_module(&wgpu::include_spirv!("../../shaders/shadow.vert.spv"));
-        let module = device.create_shader_module(&wgpu::include_wgsl!("../../shaders/shadow.wgsl"));
+        let module_descriptor = wgpu::ShaderModuleDescriptor {
+            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(include_str!(
+                "../../shaders/shadow.wgsl"
+            ))),
+            label: Some("shadow shader"),
+        };
+        let module = device.create_shader_module(&module_descriptor);
         let depth_stencil_state = wgpu::DepthStencilState {
             format: wgpu::TextureFormat::Depth32Float,
             bias: wgpu::DepthBiasState {
@@ -54,7 +60,7 @@ impl<'a> HorizonPipeline<'a> for ShadowPipeline {
             None,
             primitve_state,
             vertex_state,
-            &device,
+            device,
             &pipeline_layout,
             Some("Shadow pipeline"),
             Some(depth_stencil_state),

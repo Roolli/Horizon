@@ -10,70 +10,73 @@ struct SpotLight {
 };
 
 struct PointLight {
-    position:vec4<f32>;
-    color:vec4<f32>;
-    attenuation:vec4<f32>; // x constant, y linear, z quadratic 
+    position: vec4<f32>;
+    color: vec4<f32>;
+    attenuation: vec4<f32>; // x constant, y linear, z quadratic 
 };
 
-[[block]]
 struct TileInfo {
      tile_size: i32;
-     tile_count_x:i32;
-     tile_count_y:i32;
+     tile_count_x: i32;
+     tile_count_y: i32;
      num_tiles: u32;
      num_tile_light_slot: u32;
 };
 
 // Not possible as of 22/10/2021 use uniforms instead
-// [[override(0)]]
+// @override(0)
 // let TILE_SIZE :i32;
-[[block]]struct TileLightData {
-    light_count:atomic<u32>;
-    light_ids:array<u32>;
+struct TileLightData {
+    light_count: atomic<u32>;
+    light_ids: array<u32>;
 };
 
-[[block]]struct PointLightContainer
-{
+struct PointLightContainer {
     elements: array<PointLight>;
 };
 
-[[block]]struct SpotLightContainer {
+struct SpotLightContainer {
     elements: array<SpotLight>;
 };
 
-[[block]]
+
 struct Globals {
     u_view_position: vec4<f32>;
     u_view_proj: mat4x4<f32>;
     lights_num: vec4<u32>;
 };
 
-[[block]]
+
 struct CanvasSize {
-     canvasConstants :vec2<f32>;
+     canvasConstants: vec2<f32>;
 };
 
-[[group(0),binding(1)]]
+@group(0)
+@binding(1)
 var<storage,read>pointLights: PointLightContainer;
 
-[[group(0),binding(2)]]
+@group(0)
+@binding(2)
 var<storage,read> spotLights: SpotLightContainer;
 
 
 
-[[group(1),binding(0)]]
+@group(1)
+@binding(0)
 var<uniform> globals: Globals;
 
 
-[[group(2),binding(0)]]
+@group(2)
+@binding(0)
 var<uniform> tileInfo:TileInfo;
-[[group(2),binding(1)]]
+@group(2)
+@binding(1)
 var<uniform> canvasSize: CanvasSize;
 
 
- [[stage(compute),workgroup_size(64,1,1)]]
- fn main([[builtin(global_invocation_id)]] Global_Invocation_Id: vec3<u32>)
- {
+ @stage(compute)
+ @workgroup_size(64,1,1)
+fn main(@builtin(global_invocation_id) Global_Invocation_Id: vec3<u32>) {
      let index = Global_Invocation_Id.x;
      if(index >= globals.lights_num.x)
      {

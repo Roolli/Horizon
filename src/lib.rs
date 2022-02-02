@@ -1,6 +1,5 @@
 use core::panic;
 
-
 use crate::{
     renderer::bindgroups::gbuffer::GBuffer,
     resources::{
@@ -9,11 +8,7 @@ use crate::{
     },
 };
 
-
 //use wasm_bindgen::prelude::*;
-
-
-
 
 use renderer::{
     bindgroups::{
@@ -26,22 +21,15 @@ use renderer::{
         lightcullingpipeline::LightCullingPipeline, lightpipeline::LightPipeline,
         shadowpipeline::ShadowPipeline, HorizonComputePipeline, HorizonPipeline,
     },
-    primitives::{
-        lights::{
-            directionallight::{DirectionalLight},
-        },
-        uniforms::Globals,
-    },
+    primitives::{lights::directionallight::DirectionalLight, uniforms::Globals},
     utils::ecscontainer::ECSContainer,
 };
 use resources::{
-    bindingresourcecontainer::BindingResourceContainer, camera::Camera,
-    windowevents::ResizeEvent,
+    bindingresourcecontainer::BindingResourceContainer, camera::Camera, windowevents::ResizeEvent,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use scripting::scriptingengine::V8ScriptingEngine;
 use specs::{Builder, Join, World, WorldExt};
-
 
 mod filesystem;
 mod renderer;
@@ -70,6 +58,7 @@ use wasm_bindgen::prelude::*;
 
 static mut ECS_INSTANCE: OnceCell<ECSContainer> = OnceCell::new();
 static EVENT_LOOP_STARTED: OnceCell<bool> = OnceCell::new();
+
 #[wasm_bindgen]
 extern "C" {
     #[wasm_bindgen(catch,js_namespace=Function,js_name="prototype.call.call")]
@@ -79,6 +68,7 @@ extern "C" {
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 pub fn setup() {
     let event_loop = EventLoop::new();
+
     let window = WindowBuilder::new()
         .with_title("horizon")
         .build(&event_loop)
@@ -160,6 +150,7 @@ pub fn setup() {
 }
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "initECS"))]
 pub fn init_ecs() {
+    std::panic::set_hook(Box::new(console_error_panic_hook::hook));
     unsafe {
         if ECS_INSTANCE.set(ECSContainer::new()).is_err() {
             panic!();

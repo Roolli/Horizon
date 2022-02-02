@@ -28,8 +28,13 @@ impl<'a> HorizonPipeline<'a> for ForwardPipeline {
                 push_constant_ranges: &[],
             });
 
-        let module =
-            device.create_shader_module(&wgpu::include_wgsl!("../../shaders/forward.wgsl"));
+        let module_descriptor = wgpu::ShaderModuleDescriptor {
+            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(include_str!(
+                "../../shaders/forward.wgsl"
+            ))),
+            label: Some("shadow shader"),
+        };
+        let module = device.create_shader_module(&module_descriptor);
 
         let vbo_layout = wgpu::vertex_attr_array![0=>Float32x2];
 

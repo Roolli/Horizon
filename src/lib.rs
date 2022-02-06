@@ -1,4 +1,7 @@
 use core::panic;
+use std::collections::HashMap;
+use std::sync::Mutex;
+use lazy_static::lazy_static;
 
 use crate::{
     renderer::bindgroups::gbuffer::GBuffer,
@@ -29,7 +32,7 @@ use resources::{
 };
 #[cfg(not(target_arch = "wasm32"))]
 use scripting::scriptingengine::V8ScriptingEngine;
-use specs::{Builder, Join, World, WorldExt};
+use specs::{Builder, Entity, EntityBuilder, Join, World, WorldExt};
 
 mod filesystem;
 mod renderer;
@@ -53,21 +56,35 @@ use winit::{
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 use once_cell::sync::OnceCell;
+use ref_thread_local::RefThreadLocal;
+
+use tobj::{Model};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
+
 static mut ECS_INSTANCE: OnceCell<ECSContainer> = OnceCell::new();
 static EVENT_LOOP_STARTED: OnceCell<bool> = OnceCell::new();
+
 
 #[wasm_bindgen]
 extern "C" {
     #[wasm_bindgen(catch,js_namespace=Function,js_name="prototype.call.call")]
     fn call_catch(this: &JsValue) -> Result<(), JsValue>;
 }
+#[derive(Debug)]
+enum CustomEvent {
+    RequestModelLoad((Vec<Model>,Vec<(Vec<u8>,Vec<u8>,String)>),futures::channel::oneshot::Sender<Entity>),
+}
+ref_thread_local::ref_thread_local!{
+        pub static managed EVENT_LOOP_PROXY: Option<winit::event_loop::EventLoopProxy<CustomEvent>> = None;
+    }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 pub fn setup() {
-    let event_loop = EventLoop::new();
+    let event_loop = EventLoop::<CustomEvent>::with_user_event();
+    let proxy = event_loop.create_proxy();
+    *EVENT_LOOP_PROXY.borrow_mut() = Some(proxy);
 
     let window = WindowBuilder::new()
         .with_title("horizon")
@@ -76,7 +93,6 @@ pub fn setup() {
 
     #[cfg(target_arch = "wasm32")]
     {
-        console_log::init().expect("failed to initialize logger");
         use web_sys::Window;
         use winit::platform::web::WindowExtWebSys;
         let win: Window = web_sys::window().unwrap();
@@ -120,7 +136,7 @@ pub fn setup() {
             });
             if let Err(error) = call_catch(&run_closure) {
                 let is_winit_error = error.dyn_ref::<js_sys::Error>().map_or(false, |e| {
-                    e.message().includes("using exceptions for control flow", 0)
+                    e.message().includes("Using exceptions for control flow", 0)
                 });
                 if !is_winit_error {
                     web_sys::console::error_1(&error);
@@ -151,18 +167,20 @@ pub fn setup() {
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "initECS"))]
 pub fn init_ecs() {
     std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+    console_log::init().expect("failed to initialize logger");
+    log::info!("Hook setup!");
     unsafe {
+        //TODO: replace with ref_thread_local!
         if ECS_INSTANCE.set(ECSContainer::new()).is_err() {
             panic!();
         }
     }
 }
 
-fn run(event_loop: EventLoop<()>, window: winit::window::Window) {
+fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
     log::info!("running event loop");
     EVENT_LOOP_STARTED.set(true).unwrap();
     event_loop.run(move |event, _, control_flow| {
-        // take ownership of ecs
         match event {
             Event::WindowEvent {
                 window_id,
@@ -241,6 +259,30 @@ fn run(event_loop: EventLoop<()>, window: winit::window::Window) {
             }
             Event::MainEventsCleared => {
                 window.request_redraw();
+            },
+            Event::UserEvent(event)=>{
+                //TODO: add a system which handles this event
+               let CustomEvent::RequestModelLoad(data,sender) = event;
+
+
+                let container = ECSContainer::global_mut();
+                let state = container.world.read_resource::<State>();
+                let obj_model = container
+                    .world
+                    .read_resource::<ModelBuilder>()
+                    .create(&state.device, &state.queue,data,"test.obj");
+                   // TODO: change to return result to handle missing assets
+                let collision_builder =
+                    rapier3d::geometry::ColliderBuilder::convex_hull(obj_model.meshes[0].points.as_slice()).unwrap();
+                let model_entity = container
+                    .world
+                    .create_entity_unchecked()
+                    .with(obj_model)
+                    .with(crate::components::modelcollider::ModelCollider(collision_builder))
+                    .build();
+                log::info!("success!!");
+                log::info!("sent back {:?}",model_entity);
+                sender.send(model_entity).unwrap();
             }
             _ => {}
         }

@@ -1,18 +1,20 @@
+use std::collections::HashMap;
 use crate::renderer::primitives::vertex::ModelVertex;
 use mesh::Mesh;
 use nalgebra::Point3;
+use tobj::{Material, Model};
 use wgpu::util::DeviceExt;
 
 use crate::filesystem::modelimporter::Importer;
+use crate::scripting::util::glmconversion::Vec3;
 
 use super::{
     model::HorizonModel,
-    primitives::{material::Material, mesh, texture},
+    primitives::{mesh, texture},
 };
-
 pub struct ModelBuilder {
     pub diffuse_texture_bind_group_layout: wgpu::BindGroupLayout,
-    importer: Importer,
+     importer: Importer,
 }
 
 impl ModelBuilder {
@@ -61,103 +63,68 @@ impl ModelBuilder {
             label: Some("diffuse texture bind group layout"),
         })
     }
-    pub async fn create(
+    pub fn create(
         &self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        path: &str,
+        model_data:(Vec<Model>,Vec<(Vec<u8>,Vec<u8>,String)>),
+        name: &str,
     ) -> HorizonModel {
-        let (obj_models, obj_materials) = self.importer.import_obj_model(path).await.unwrap();
-
-        let mut mats = Vec::new();
-        for mat in obj_materials {
-            let diffuse_path = mat.diffuse_texture;
-            if diffuse_path.is_empty() {
-                continue;
+        let (obj_models,obj_materials) = model_data;
+                // mats
+            let mut mats = Vec::new();
+            for material_textures in obj_materials
+            {
+                let diffuse_texture=    if !material_textures.0.is_empty()
+                {
+                    crate::renderer::primitives::texture::Texture::load(
+                        device,
+                        queue,
+                        material_textures.0.as_slice(),
+                        Some(format!("diffuse-{}",material_textures.2).as_str()),
+                        false,
+                    ).unwrap()
+                }
+                else {
+                    texture::Texture::create_default_texture_with_color(
+                        device,
+                        queue,
+                        [255, 0, 0],
+                        Some("DEFAULT_DIFFUSE_TEXTURE"),
+                        false,
+                    )
+                };
+                let normal_texture = if !material_textures.1.is_empty()
+                {
+                    texture::Texture::load(device,queue,material_textures.1.as_slice(),Some(format!("normal-{}",material_textures.2).as_str()),true).unwrap()
+                }
+                else {
+                    texture::Texture::create_default_texture_with_color(
+                        device,
+                        queue,
+                        [0, 0, 255],
+                        Some("DEFAULT_NORMAL_TEXTURE"),
+                        true
+                    )
+                };
+                let bind_group = Self::create_bind_group(
+                    device,
+                    &self.diffuse_texture_bind_group_layout,
+                    &diffuse_texture,
+                    &normal_texture,
+                );
+                mats.push(crate::renderer::primitives::material::Material {
+                    diffuse_texture,
+                    name: material_textures.2,
+                    bind_group,
+                    normal_texture,
+                });
             }
-            let diffuse_texture = texture::Texture::load(
-                device,
-                queue,
-                self.importer
-                    .import_file(diffuse_path.as_str())
-                    .await
-                    .as_slice(),
-                Some(diffuse_path.as_str()),
-                false,
-            )
-            .unwrap();
-            let normal_texture = if !(mat.normal_texture.is_empty()) {
-                texture::Texture::load(
-                    device,
-                    queue,
-                    self.importer
-                        .import_file(mat.normal_texture.as_str())
-                        .await
-                        .as_slice(),
-                    Some("normal_texture"),
-                    false,
-                )
-                .unwrap()
-            } else {
-                texture::Texture::create_default_texture_with_color(
-                    device,
-                    queue,
-                    [0, 0, 255],
-                    Some("default_normal_texture"),
-                    true,
-                )
-            };
-
-            let bind_group = Self::create_bind_group(
-                device,
-                &self.diffuse_texture_bind_group_layout,
-                &diffuse_texture,
-                &normal_texture,
-            );
-            mats.push(Material {
-                diffuse_texture,
-                name: mat.name,
-                bind_group,
-                normal_texture,
-            });
-        }
-        // Create texture to represent missing texture.
-        if mats.is_empty() {
-            let diffuse_texture = texture::Texture::create_default_texture_with_color(
-                device,
-                queue,
-                [255, 0, 0],
-                Some("DEFAULT_DIFFUSE_TEXTURE"),
-                false,
-            );
-            let normal_texture = texture::Texture::create_default_texture_with_color(
-                device,
-                queue,
-                [0, 0, 255],
-                Some("DEFAULT_NORMAL_TEXTURE"),
-                true,
-            );
-            let bind_group = Self::create_bind_group(
-                device,
-                &self.diffuse_texture_bind_group_layout,
-                &diffuse_texture,
-                &normal_texture,
-            );
-            mats.push(Material {
-                diffuse_texture,
-                name: String::from("DEFAULT_MATERIAL"),
-                bind_group,
-                normal_texture,
-            });
-        }
 
         let mut meshes = Vec::new();
         for model in obj_models {
-            let mut verticies = Vec::new();
-            assert!(
-                model.mesh.positions.len() % 3 == 0,
-                "position layout is wrong"
-            );
+            let mut vertices = Vec::new();
+            assert_eq!(model.mesh.positions.len() % 3, 0, "position layout is wrong");
             let _min_extents = glm::vec3(f32::MAX, f32::MAX, f32::MAX);
             let _max_extents = glm::vec3(f32::MIN, f32::MIN, f32::MIN);
             for i in 0..model.mesh.positions.len() / 3 {
@@ -182,7 +149,7 @@ impl ModelBuilder {
                 ];
                 //Self::update_bounding_box_extents(&mut min_extents, &mut max_extents, position);
 
-                verticies.push(ModelVertex {
+                vertices.push(ModelVertex {
                     position,
                     tex_coords: texture_coords,
                     normals,
@@ -192,9 +159,9 @@ impl ModelBuilder {
             }
             let indices = &model.mesh.indices;
             for chunk in indices.chunks(3) {
-                let v0 = verticies[chunk[0] as usize];
-                let v1 = verticies[chunk[1] as usize];
-                let v2 = verticies[chunk[2] as usize];
+                let v0 = vertices[chunk[0] as usize];
+                let v1 = vertices[chunk[1] as usize];
+                let v2 = vertices[chunk[2] as usize];
 
                 let pos0: glm::Vec3 = v0.position.into();
                 let pos1: glm::Vec3 = v1.position.into();
@@ -205,11 +172,12 @@ impl ModelBuilder {
                 let uv2: glm::Vec2 = v2.tex_coords.into();
 
                 // Triangle edges
-                let delta_pos1 = pos1 - pos0;
-                let delta_pos2 = pos2 - pos0;
+                let delta_pos1 = pos1 - pos0.clone();
+                let delta_pos2 = pos2 - pos0.clone();
 
-                let delta_uv1 = uv1 - uv0;
-                let delta_uv2 = uv2 - uv0;
+                // uv0 and pos0 use of moved value???
+                let delta_uv1 = uv1 - uv0.clone();
+                let delta_uv2 = uv2 - uv0.clone();
                 // Maths stuff:
                 //     delta_pos1 = delta_uv1.x * T + delta_u.y * B
                 //     delta_pos2 = delta_uv2.x * T + delta_uv2.y * B
@@ -217,27 +185,27 @@ impl ModelBuilder {
                 let r = 1.0 / (delta_uv1.x * delta_uv2.y - delta_uv1.y * delta_uv2.x);
                 let tangent = (delta_pos1 * delta_uv2.y - delta_pos2 * delta_uv1.y) * r;
                 let bitangent = (delta_pos2 * delta_uv1.x - delta_pos1 * delta_uv2.x) * r;
-                verticies[chunk[0] as usize].tangent = tangent.into();
-                verticies[chunk[1] as usize].tangent = tangent.into();
-                verticies[chunk[2] as usize].tangent = tangent.into();
+                vertices[chunk[0] as usize].tangent = tangent.into();
+                vertices[chunk[1] as usize].tangent = tangent.into();
+                vertices[chunk[2] as usize].tangent = tangent.into();
 
-                verticies[chunk[0] as usize].bitangent = bitangent.into();
-                verticies[chunk[1] as usize].bitangent = bitangent.into();
-                verticies[chunk[2] as usize].bitangent = bitangent.into();
+                vertices[chunk[0] as usize].bitangent = bitangent.into();
+                vertices[chunk[1] as usize].bitangent = bitangent.into();
+                vertices[chunk[2] as usize].bitangent = bitangent.into();
             }
 
             let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some(&format!("{} Vertex buffer", path)),
-                contents: bytemuck::cast_slice(&verticies),
+                label: Some(&format!("{} Vertex buffer", name)),
+                contents: bytemuck::cast_slice(&vertices),
                 usage: wgpu::BufferUsages::VERTEX,
             });
             let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 usage: wgpu::BufferUsages::INDEX,
-                label: Some(&format!("{} Index buffer", path)),
+                label: Some(&format!("{} Index buffer", name)),
                 contents: bytemuck::cast_slice(&model.mesh.indices),
             });
             meshes.push(Mesh {
-                points: verticies
+                points: vertices
                     .iter()
                     .map(|v| Point3::new(v.position[0], v.position[1], v.position[2]))
                     .collect::<Vec<_>>(),

@@ -43,6 +43,8 @@ egui_winit_platform = "0.13.0"
 egui_demo_lib= "0.16"
 rand = "0.8"
 once_cell = "1.8.0"
+lazy_static = "1.4.0"
+ref_thread_local = "0.1.1"
 
 [target.'cfg(windows)'.dependencies]
 winit = {version="0.26.0"}

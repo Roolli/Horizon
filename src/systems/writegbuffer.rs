@@ -151,9 +151,11 @@ impl<'a> System<'a> for WriteGBuffer {
                 render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
                 render_pass
                     .set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-                render_pass.draw_indexed(0..mesh.element_count, 0, begin_instance_index..instance_buffer.len() as u32);
+                render_pass.draw_indexed(0..mesh.element_count, 0, begin_instance_index..begin_instance_index + instance_buffer.len() as u32);
             }
+            log::info!("instance index: {}",begin_instance_index);
             begin_instance_index += instance_buffer.len() as u32;
+
         }
         drop(render_pass);
         encoder.finish(&state.device, &state.queue);

@@ -159,6 +159,7 @@ impl ModelBuilder {
             }
             let indices = &model.mesh.indices;
             for chunk in indices.chunks(3) {
+
                 let v0 = vertices[chunk[0] as usize];
                 let v1 = vertices[chunk[1] as usize];
                 let v2 = vertices[chunk[2] as usize];
@@ -172,12 +173,11 @@ impl ModelBuilder {
                 let uv2: glm::Vec2 = v2.tex_coords.into();
 
                 // Triangle edges
-                let delta_pos1 = pos1 - pos0.clone();
-                let delta_pos2 = pos2 - pos0.clone();
+                let delta_pos1 = pos1 - pos0;
+                let delta_pos2 = pos2 - pos0;
 
-                // uv0 and pos0 use of moved value???
-                let delta_uv1 = uv1 - uv0.clone();
-                let delta_uv2 = uv2 - uv0.clone();
+                let delta_uv1 = uv1 - uv0;
+                let delta_uv2 = uv2 - uv0;
                 // Maths stuff:
                 //     delta_pos1 = delta_uv1.x * T + delta_u.y * B
                 //     delta_pos2 = delta_uv2.x * T + delta_uv2.y * B

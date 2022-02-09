@@ -17,7 +17,7 @@ use rapier3d::{
     },
     pipeline::{ChannelEventCollector, PhysicsPipeline},
 };
-use specs::{Join, ReadStorage, System, WriteExpect, WriteStorage};
+use specs::{Entities, Join, ReadStorage, System, WriteExpect, WriteStorage};
 
 use crate::components::{
     physicshandle::{PhysicsHandle},
@@ -99,14 +99,17 @@ impl<'a> System<'a> for Physics {
         WriteExpect<'a, PhysicsWorld>,
         ReadStorage<'a, PhysicsHandle>,
         WriteStorage<'a, Transform>,
+        Entities<'a>
     );
 
     fn run(&mut self, data: Self::SystemData) {
-        let (mut world, handles, mut transforms) = data;
+        let (mut world, handles, mut transforms,entities) = data;
         // perform simulation
         world.step();
-        for (handle, transform) in (&handles, &mut transforms).join() {
+        for (handle, transform,ent) in (&handles, &mut transforms,&entities).join() {
+
             let body = world.body_set.get(handle.rigid_body_handle).unwrap();
+
             transform.position = body.position().translation.vector;
             transform.rotation = body.position().rotation.coords.into();
         }

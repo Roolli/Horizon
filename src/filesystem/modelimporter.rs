@@ -1,9 +1,11 @@
 use std::{collections::HashMap, io::BufRead};
+use std::io::BufReader;
 
 use super::fileloader;
 use fileloader::FileLoader;
 
 use futures::future::join_all;
+use js_sys::Atomics::load;
 use tobj::LoadResult;
 pub struct Importer {
     file_loader: Box<dyn FileLoader>,
@@ -14,23 +16,20 @@ impl Importer {
     }
     pub async fn import_obj_model(&self, obj_file_path: &str) -> LoadResult {
         let obj_file = self.file_loader.load_file(obj_file_path).await;
-        let mut mtl_files_futures = Vec::new();
-
-        // fork join
-        for file_path in Self::get_mtl_file_paths(&obj_file).unwrap() {
-            mtl_files_futures.push(async move {
-                let path = file_path.clone();
+        tobj::load_obj_buf_async(&mut obj_file.as_slice(),&tobj::LoadOptions{
+            triangulate:true,
+            ignore_points:false,
+            ignore_lines:false,
+            single_index:true,
+        },
+        move |path| {
+            async move{
                 let contents = self.file_loader.load_file(path.as_str()).await;
-                (path, contents)
-            });
+                 let buff = tobj::load_mtl_buf(&mut contents.as_slice());
+                buff
+            }
         }
-        let res: HashMap<_, _> = join_all(mtl_files_futures).await.into_iter().collect();
-
-        tobj::load_obj_buf(&mut obj_file.as_slice(), true, |p| {
-            let file_name = p.to_str().unwrap();
-
-            tobj::load_mtl_buf(&mut res.get(file_name).unwrap().as_slice())
-        })
+        ).await
     }
     fn get_mtl_file_paths(obj_buffer: &[u8]) -> Result<Vec<String>, anyhow::Error> {
         let mut mtl_paths = Vec::new();

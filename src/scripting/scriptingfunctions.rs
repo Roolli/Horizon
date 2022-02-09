@@ -56,6 +56,7 @@ impl ScriptingFunctions {
     #[wasm_bindgen(js_name = "createEntity")]
     pub fn create_entity(entity_info: &wasm_bindgen::JsValue) -> wasm_bindgen::JsValue {
         let entity_info: EntityInfo = entity_info.into_serde().unwrap();
+        log::info!("{:?}",entity_info);
         let ecs = ECSContainer::global_mut();
         let mut builder: EntityBuilder = ecs.world.create_entity_unchecked();
 
@@ -148,21 +149,14 @@ impl ScriptingFunctions {
     }
     #[wasm_bindgen(js_name = "loadModel")]
     pub async fn load_model(object_name: JsValue) -> Result<JsValue,JsValue>{
-        log::info!("runs up to this!");
 
-        // if event loop is already running, reject
-        if EVENT_LOOP_STARTED.get().is_some() {
-            return Err(JsValue::from(
-                "can not load models after the event loop has been set up!",
-            ));
-        }
         if let Some(obj) = object_name.as_string() {
+            log::info!(target: "model_load","loading model {}",obj);
             let importer = Importer::default();
             let file_contents =  importer.import_obj_model(obj.as_str()).await.unwrap();
 
             let mut mats = Vec::new();
-            for mat in file_contents.1 {
-
+            for mat in file_contents.1.unwrap() {
 
                 let diffuse_texture_raw = if !mat.diffuse_texture.is_empty()
                 {

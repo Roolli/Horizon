@@ -33,7 +33,7 @@ futures = "0.3.12"
 bytemuck=  { version = "1.5.0", features = ["derive"]}
 specs={version="0.16.1", features=["specs-derive"], default-features=false }
 anyhow = "1.0.38"
-tobj = "2.0.3"
+tobj = {version= "3.2.0",features=["async"]}
 log = "0.4"
 async-trait = "0.1.42"
 egui = "0.16"

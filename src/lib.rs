@@ -261,7 +261,7 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                 window.request_redraw();
             },
             Event::UserEvent(event)=>{
-                //TODO: add a system which handles this event
+                //TODO: add a system which handles this event and use a resource to pass the data to it!
                let CustomEvent::RequestModelLoad(data,sender) = event;
 
 
@@ -522,7 +522,7 @@ async fn create_debug_scene() {
     let state = ecs.world.write_resource::<State>();
     // CAMERA
     let cam = Camera {
-        eye: glm::vec3(-10.0, 15.0, 10.0),
+        eye: glm::vec3(-20.0, 15.0, 20.0),
         target: glm::vec3(0.0, 0.0, 0.0),
         up: glm::vec3(0.0, 1.0, 0.0), // Unit Y vector
         aspect_ratio: state.sc_descriptor.width as f32 / state.sc_descriptor.height as f32,

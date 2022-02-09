@@ -1,5 +1,5 @@
 use specs::{Entities, Join, ReadExpect, ReadStorage, System, WriteExpect};
-use wgpu::LoadOp;
+use wgpu::{BufferAddress, LoadOp};
 
 use crate::{
     components::transform::{Transform, TransformRaw},
@@ -107,8 +107,9 @@ impl<'a> System<'a> for WriteGBuffer {
                 },
             ],
         });
+        let mut begin_instance_index:u32 = 0;
         for (model, model_ent) in (&models, &*entities).join() {
-            let mut instance_buffer = Vec::new();
+            let mut instance_buffer:Vec<TransformRaw> = Vec::new();
             for transform in transforms.join() {
                 if let Some(model) = transform.model {
                     if model_ent == model {
@@ -116,14 +117,16 @@ impl<'a> System<'a> for WriteGBuffer {
                     }
                 }
             }
+
             state.queue.write_buffer(
                 binding_resource_container
                     .buffers
                     .get("instance_buffer")
                     .unwrap(),
-                0,
+                (std::mem::size_of::<TransformRaw>()  *begin_instance_index as usize) as BufferAddress,
                 bytemuck::cast_slice(&instance_buffer),
-            );
+            );;
+
             let normal_matricies = instance_buffer
                 .iter()
                 .map(TransformRaw::get_normal_matrix)
@@ -133,7 +136,7 @@ impl<'a> System<'a> for WriteGBuffer {
                     .buffers
                     .get("normal_buffer")
                     .unwrap(),
-                0,
+                (std::mem::size_of::<TransformRaw>()  *begin_instance_index as usize) as BufferAddress,
                 bytemuck::cast_slice(&normal_matricies),
             );
             let (_, uniform_bind_group_container) = (&uniform_bind_group, &bind_group_container)
@@ -148,8 +151,9 @@ impl<'a> System<'a> for WriteGBuffer {
                 render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
                 render_pass
                     .set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-                render_pass.draw_indexed(0..mesh.element_count, 0, 0..instance_buffer.len() as u32);
+                render_pass.draw_indexed(0..mesh.element_count, 0, begin_instance_index..instance_buffer.len() as u32);
             }
+            begin_instance_index += instance_buffer.len() as u32;
         }
         drop(render_pass);
         encoder.finish(&state.device, &state.queue);

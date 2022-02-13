@@ -21,13 +21,13 @@ use rusty_v8 as v8;
 use specs::prelude::*;
 
 use std::borrow::BorrowMut;
-use std::collections::HashMap;
+
 use rapier3d::na::{Point3, UnitQuaternion, Vector3};
 use rapier3d::prelude::Isometry;
 
 #[cfg(not(target_arch = "wasm32"))]
 use v8::{Function, Global};
-use wasm_bindgen_futures::future_to_promise;
+
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -74,7 +74,7 @@ impl ScriptingFunctions {
                     let rot =  component.rotation.unwrap();
                     let transform_val = Transform::new(
                         component.position.unwrap().into(),
-                        UnitQuaternion::from_euler_angles(rot.x(),rot.y(),rot.z()),
+                        UnitQuaternion::from_euler_angles(rot.x,rot.y,rot.z),
                         component.scale.unwrap().into(),
                         model_id,
                     );

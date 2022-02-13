@@ -1,4 +1,4 @@
-
+use rapier3d::na::{Quaternion, Vector3, Vector4};
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -15,9 +15,9 @@ impl Vec3 {
         Self { x, y, z }
     }
 }
-impl From<Vec3> for glm::Vec3 {
+impl From<Vec3> for Vector3<f32> {
     fn from(val: Vec3) -> Self {
-        glm::Vec3::new(val.x, val.y, val.z)
+        Vector3::new(val.x, val.y, val.z)
     }
 }
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -54,13 +54,13 @@ impl Vec4 {
         self.w
     }
 }
-impl From<Vec4> for glm::Vec4 {
+impl From<Vec4> for Vector4<f32> {
     fn from(val: Vec4) -> Self {
-        glm::vec4(val.x, val.y, val.z, val.w)
+        Vector4::new(val.x, val.y, val.z, val.w)
     }
 }
-impl From<Vec4> for glm::Quat {
+impl From<Vec4> for Quaternion<f32> {
     fn from(val: Vec4) -> Self {
-        glm::quat_angle_axis(val.w, &glm::vec3(val.x, val.y, val.z))
+        rapier3d::prelude::nalgebra::Quaternion::from_vector(val.into())
     }
 }

@@ -10,7 +10,6 @@ use crate::{
         windowevents::{KeyboardEvent, MouseInputEvent, MouseMoveEvent},
     },
 };
-
 //use wasm_bindgen::prelude::*;
 
 use renderer::{
@@ -56,6 +55,7 @@ use winit::{
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 use once_cell::sync::OnceCell;
+use rapier3d::na::{Point3, Vector3};
 use ref_thread_local::RefThreadLocal;
 
 use tobj::{Model};
@@ -280,8 +280,6 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                     .with(obj_model)
                     .with(crate::components::modelcollider::ModelCollider(collision_builder))
                     .build();
-                log::info!("success!!");
-                log::info!("sent back {:?}",model_entity);
                 sender.send(model_entity).unwrap();
             }
             _ => {}
@@ -510,7 +508,7 @@ async fn create_debug_scene() {
     let ecs = ECSContainer::global_mut();
     const NUM_INSTANCES_PER_ROW: u32 = 0;
     ecs.world.insert(DirectionalLight::new(
-        glm::vec3(1.0, -1.0, 0.0),
+        Point3::new(1.0, -1.0, 0.0),
         wgpu::Color {
             r: 0.1,
             g: 0.1,
@@ -522,9 +520,9 @@ async fn create_debug_scene() {
     let state = ecs.world.write_resource::<State>();
     // CAMERA
     let cam = Camera {
-        eye: glm::vec3(-20.0, 15.0, 20.0),
-        target: glm::vec3(0.0, 0.0, 0.0),
-        up: glm::vec3(0.0, 1.0, 0.0), // Unit Y vector
+        eye: Point3::new(-20.0, 15.0, 20.0),
+        target: Point3::new(0.0, 0.0, 0.0),
+        up: Vector3::y(), // Unit Y vector
         aspect_ratio: state.sc_descriptor.width as f32 / state.sc_descriptor.height as f32,
         fov_y: 90.0,
         z_near: 0.1,

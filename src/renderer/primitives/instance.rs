@@ -1,4 +1,5 @@
 use bytemuck::{Pod, Zeroable};
+use rapier3d::na::{Matrix4, Quaternion, Translation3, UnitQuaternion, Vector3, Vector4};
 
 use specs::{Component, Entity, VecStorage};
 
@@ -6,9 +7,9 @@ use specs::{Component, Entity, VecStorage};
 #[derive(Component)]
 #[storage(VecStorage)]
 pub struct Instance {
-    pub position: glm::Vec3,
-    pub rotation: glm::Quat,
-    pub scale: glm::Vec3,
+    pub position: Vector3<f32>,
+    pub rotation: UnitQuaternion<f32>,
+    pub scale: Vector3<f32>,
     /// The model of the instance
     pub model: Entity,
 }
@@ -50,7 +51,7 @@ impl InstanceRaw {
 }
 
 impl Instance {
-    pub fn new(pos: glm::Vec3, rot: glm::Quat, scale: glm::Vec3, entity: Entity) -> Self {
+    pub fn new(pos: Vector3<f32>, rot: UnitQuaternion<f32>, scale: Vector3<f32>, entity: Entity) -> Self {
         Self {
             position: pos,
             rotation: rot,
@@ -60,9 +61,7 @@ impl Instance {
     }
     pub fn to_raw(&self) -> InstanceRaw {
         InstanceRaw {
-            model: (glm::translate(&glm::Mat4::identity(), &self.position)
-                * glm::quat_to_mat4(&self.rotation)
-                * glm::scale(&glm::Mat4::identity(), &self.scale))
+            model:(Matrix4::new_translation(&self.position) * self.rotation.to_rotation_matrix().to_homogeneous()).append_nonuniform_scaling(&self.scale)
             .into(),
         }
     }

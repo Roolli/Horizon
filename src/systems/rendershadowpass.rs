@@ -1,4 +1,5 @@
 use specs::{Entities, Join, ReadExpect, ReadStorage, System, WriteExpect};
+use wgpu::BufferAddress;
 
 use crate::{
     components::transform::{Transform},
@@ -13,6 +14,8 @@ use crate::{
         bindingresourcecontainer::BindingResourceContainer, commandencoder::HorizonCommandEncoder,
     },
 };
+use crate::components::transform::TransformRaw;
+
 pub struct RenderShadowPass;
 impl<'a> System<'a> for RenderShadowPass {
     type SystemData = (
@@ -76,6 +79,7 @@ impl<'a> System<'a> for RenderShadowPass {
             .next()
             .unwrap();
         pass.set_bind_group(0, &sh_pass_bind_group.bind_group, &[]);
+        let mut begin_instance_index :u32 = 0;
         for (model, model_ent) in (&models, &*entities).join() {
             let mut instance_buffer = Vec::new();
             for transform in transforms.join() {
@@ -90,16 +94,16 @@ impl<'a> System<'a> for RenderShadowPass {
                     .buffers
                     .get("instance_buffer")
                     .unwrap(),
-                0,
+                (std::mem::size_of::<TransformRaw>() * begin_instance_index as usize) as BufferAddress,
                 bytemuck::cast_slice(&instance_buffer),
             );
 
             for mesh in &model.meshes {
                 pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
-                // log::info!("{:?}", mesh.index_buffer);
                 pass.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-                pass.draw_indexed(0..mesh.element_count, 0, 0..instance_buffer.len() as u32);
+                pass.draw_indexed(0..mesh.element_count, 0, begin_instance_index..begin_instance_index + instance_buffer.len() as u32);
             }
+            begin_instance_index += instance_buffer.len() as u32;
         }
         drop(pass);
     }

@@ -1,9 +1,10 @@
 use std::collections::HashMap;
+use rapier3d::na::{Vector2, Vector3};
 use crate::renderer::primitives::vertex::ModelVertex;
 use mesh::Mesh;
-use nalgebra::Point3;
 use tobj::{Material, Model};
 use wgpu::util::DeviceExt;
+use rapier3d::prelude::*;
 
 use crate::filesystem::modelimporter::Importer;
 use crate::scripting::util::glmconversion::Vec3;
@@ -125,8 +126,8 @@ impl ModelBuilder {
         for model in obj_models {
             let mut vertices = Vec::new();
             assert_eq!(model.mesh.positions.len() % 3, 0, "position layout is wrong");
-            let _min_extents = glm::vec3(f32::MAX, f32::MAX, f32::MAX);
-            let _max_extents = glm::vec3(f32::MIN, f32::MIN, f32::MIN);
+            let _min_extents = Vector3::new(f32::MAX, f32::MAX, f32::MAX);
+            let _max_extents = Vector3::new(f32::MIN, f32::MIN, f32::MIN);
             for i in 0..model.mesh.positions.len() / 3 {
                 let texture_coords: [f32; 2] = if model.mesh.texcoords.is_empty() {
                     [0.0, 0.0]
@@ -164,13 +165,13 @@ impl ModelBuilder {
                 let v1 = vertices[chunk[1] as usize];
                 let v2 = vertices[chunk[2] as usize];
 
-                let pos0: glm::Vec3 = v0.position.into();
-                let pos1: glm::Vec3 = v1.position.into();
-                let pos2: glm::Vec3 = v2.position.into();
+                let pos0: Vector3<f32> = v0.position.into();
+                let pos1: Vector3<f32> = v1.position.into();
+                let pos2: Vector3<f32> = v2.position.into();
 
-                let uv0: glm::Vec2 = v0.tex_coords.into();
-                let uv1: glm::Vec2 = v1.tex_coords.into();
-                let uv2: glm::Vec2 = v2.tex_coords.into();
+                let uv0: Vector2<f32> = v0.tex_coords.into();
+                let uv1: Vector2<f32> = v1.tex_coords.into();
+                let uv2: Vector2<f32> = v2.tex_coords.into();
 
                 // Triangle edges
                 let delta_pos1 = pos1 - pos0;
@@ -207,7 +208,7 @@ impl ModelBuilder {
             meshes.push(Mesh {
                 points: vertices
                     .iter()
-                    .map(|v| Point3::new(v.position[0], v.position[1], v.position[2]))
+                    .map(|v| rapier3d::na::Point3::new(v.position[0], v.position[1], v.position[2]))
                     .collect::<Vec<_>>(),
                 name: model.name,
                 vertex_buffer,
@@ -253,8 +254,8 @@ impl ModelBuilder {
     }
 
     fn update_bounding_box_extents(
-        min_extent: &mut glm::Vec3,
-        max_extent: &mut glm::Vec3,
+        min_extent: &mut Vector3<f32>,
+        max_extent: &mut Vector3<f32>,
         coords: [f32; 3],
     ) {
         min_extent.x = f32::min(min_extent.x, coords[0]);

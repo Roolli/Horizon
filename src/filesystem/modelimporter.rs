@@ -31,20 +31,6 @@ impl Importer {
         }
         ).await
     }
-    fn get_mtl_file_paths(obj_buffer: &[u8]) -> Result<Vec<String>, anyhow::Error> {
-        let mut mtl_paths = Vec::new();
-        for line in obj_buffer.lines() {
-            let (_line, mut words) = match line {
-                Ok(ref line) => (&line[..], line[..].split_whitespace()),
-                _ => return Err(anyhow::anyhow!("failure during file parsing")),
-            };
-            match words.next() {
-                Some("mtllib") => mtl_paths.push(words.next().unwrap().to_owned()),
-                _ => continue,
-            }
-        }
-        Ok(mtl_paths)
-    }
 
     pub async fn import_file(&self, file_path: &str) -> Vec<u8> {
         self.file_loader.load_file(file_path).await

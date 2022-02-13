@@ -1,9 +1,10 @@
 use bytemuck::*;
+use rapier3d::na::{Point3, Vector3};
 use specs::*;
 #[derive(Component)]
 #[storage(VecStorage)]
 pub struct PointLight {
-    position: glm::Vec3,
+    position: Point3<f32>,
     color: wgpu::Color,
     constant: f32,
     linear: f32,
@@ -19,7 +20,7 @@ pub struct PointLightRaw {
 
 impl PointLight {
     pub fn new(
-        position: glm::Vec3,
+        position: Point3<f32>,
         color: wgpu::Color,
         constant: f32,
         linear: f32,

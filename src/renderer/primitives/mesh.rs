@@ -1,6 +1,6 @@
 use std::usize;
 
-use nalgebra::Point3;
+use rapier3d::prelude::nalgebra::*;
 
 pub struct Mesh {
     pub name: String,

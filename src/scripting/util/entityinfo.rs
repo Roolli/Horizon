@@ -2,6 +2,7 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::scripting::util::glmconversion::*;
+use crate::scripting::util::RigidBodyType;
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -19,7 +20,7 @@ pub struct Component {
     pub model: Option<u32>,
     pub attenuation: Option<Vec3>,
     pub color: Option<Vec4>,
-    pub body_type: Option<String>,
+    pub body_type: Option<RigidBodyType>,
     pub mass: Option<f64>,
     pub lock_rotation: Option<LockRotation>,
 }

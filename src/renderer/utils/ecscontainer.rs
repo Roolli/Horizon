@@ -1,7 +1,4 @@
-
-
-
-
+use rapier3d::na::Vector3;
 use specs::{DispatcherBuilder, World, WorldExt};
 
 use crate::components::assetidentifier::AssetIdentifier;
@@ -95,7 +92,7 @@ impl ECSContainer {
         world.insert(KeyboardEvent::default());
         world.insert(MouseMoveEvent::default());
         world.insert(MouseInputEvent::default());
-        world.insert(PhysicsWorld::new(glm::Vec3::y() * -9.81));
+        world.insert(PhysicsWorld::new(Vector3::y() * -9.81));
         world.insert(BindingResourceContainer::default());
 
         world.insert(HorizonCommandEncoder::new(encoder));

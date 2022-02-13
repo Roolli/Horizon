@@ -1,5 +1,6 @@
 use __core::ops::Range;
 use bytemuck::*;
+use rapier3d::na::{Matrix4, Point3, Vector3, Vector4};
 
 use wgpu::BindGroup;
 
@@ -10,22 +11,21 @@ use crate::{
 
 
 
-#[derive(Default)]
 pub struct DirectionalLight {
-    pub direction: glm::Vec3,
+    pub direction: Point3<f32>,
     color: wgpu::Color,
 }
 
 impl DirectionalLight {
-    pub fn new(direction: glm::Vec3, color: wgpu::Color) -> Self {
+    pub fn new(direction: Point3<f32>, color: wgpu::Color) -> Self {
         Self { direction, color }
     }
 
     pub fn to_raw(&self, cam: &Camera) -> DirectionalLightRaw {
-        let view = glm::look_at_rh(&glm::vec3(0.0, 0.0, 0.0), &self.direction, &glm::Vec3::y());
+        let view = Matrix4::look_at_rh(&Point3::origin(),&self.direction,&Vector3::y());
         let proj = Self::get_frustum_bounding_box(&self, cam, cam.z_near, cam.z_far, &view);
         let view_proj =
-            glm::Mat4::identity() * glm::Mat4::from(State::OPENGL_TO_WGPU_MATRIX) * proj * view;
+           Matrix4::from(State::OPENGL_TO_WGPU_MATRIX) * proj * view;
         DirectionalLightRaw {
             direction: [self.direction.x, self.direction.y, self.direction.z, 1.0],
             color: [
@@ -42,9 +42,9 @@ impl DirectionalLight {
         cam: &Camera,
         znear: f32,
         zfar: f32,
-        light_space: &glm::Mat4,
-    ) -> glm::Mat4 {
-        let cam_view = glm::look_at_rh(&cam.eye, &cam.target, &cam.up);
+        light_space: &Matrix4<f32>,
+    ) -> Matrix4<f32> {
+        let cam_view = Matrix4::look_at_rh(&cam.eye, &cam.target, &cam.up);
         let cam_inverse = cam_view.try_inverse().unwrap();
 
         let tan_half_horizontal_fov = f32::tan(f32::to_radians(cam.fov_y / 2.0));
@@ -57,18 +57,18 @@ impl DirectionalLight {
 
         let frustum_corners = [
             // near face
-            glm::Vec4::new(x_near, y_near, znear, 1.0),
-            glm::Vec4::new(-x_near, y_near, znear, 1.0),
-            glm::Vec4::new(x_near, -y_near, znear, 1.0),
-            glm::Vec4::new(-x_near, -y_near, znear, 1.0),
+            Vector4::new(x_near, y_near, znear, 1.0),
+            Vector4::new(-x_near, y_near, znear, 1.0),
+            Vector4::new(x_near, -y_near, znear, 1.0),
+            Vector4::new(-x_near, -y_near, znear, 1.0),
             // far face
-            glm::Vec4::new(x_far, y_far, zfar, 1.0),
-            glm::Vec4::new(-x_far, y_far, zfar, 1.0),
-            glm::Vec4::new(x_far, -y_far, zfar, 1.0),
-            glm::Vec4::new(-x_far, -y_far, zfar, 1.0),
+            Vector4::new(x_far, y_far, zfar, 1.0),
+            Vector4::new(-x_far, y_far, zfar, 1.0),
+            Vector4::new(x_far, -y_far, zfar, 1.0),
+            Vector4::new(-x_far, -y_far, zfar, 1.0),
         ];
 
-        let mut frustum_corners_l: Vec<glm::Vec4> = Vec::new();
+        let mut frustum_corners_l: Vec<Vector4<f32>> = Vec::new();
 
         let mut min_x = f32::MAX;
         let mut min_y = f32::MAX;
@@ -89,7 +89,7 @@ impl DirectionalLight {
             max_z = f32::max(max_z, frustum_corners_l[i].z);
         }
 
-        glm::ortho_rh(min_x, max_x, min_y, max_y, min_z, max_z)
+        Matrix4::new_orthographic(min_x, max_x, min_y, max_y, min_z, max_z)
     }
 }
 
@@ -100,7 +100,7 @@ pub struct DirectionalLightRaw {
     pub direction: [f32; 4],
     pub color: [f32; 4],
 }
-
+// TODO: add proper debug lights
 pub trait DrawLight<'a, 'b>
 where
     'b: 'a,

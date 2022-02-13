@@ -14,15 +14,16 @@ use super::scriptevent::ScriptEvent;
 #[cfg(not(target_arch = "wasm32"))]
 use super::scriptingengine::V8ScriptingEngine;
 use super::util::entityinfo::EntityInfo;
-use nalgebra::Isometry3;
-use rapier3d::dynamics::RigidBodyBuilder;
-use rapier3d::geometry::ColliderBuilder;
+use rapier3d::dynamics::{RigidBodyBuilder, RigidBodyHandle};
+use rapier3d::geometry::{ColliderBuilder, ColliderHandle};
 #[cfg(not(target_arch = "wasm32"))]
 use rusty_v8 as v8;
 use specs::prelude::*;
 
 use std::borrow::BorrowMut;
 use std::collections::HashMap;
+use rapier3d::na::{Point3, UnitQuaternion, Vector3};
+use rapier3d::prelude::Isometry;
 
 #[cfg(not(target_arch = "wasm32"))]
 use v8::{Function, Global};
@@ -31,6 +32,7 @@ use wasm_bindgen_futures::future_to_promise;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 use crate::filesystem::modelimporter::Importer;
+use crate::scripting::util::RigidBodyType;
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 
@@ -56,7 +58,7 @@ impl ScriptingFunctions {
     #[wasm_bindgen(js_name = "createEntity")]
     pub fn create_entity(entity_info: &wasm_bindgen::JsValue) -> wasm_bindgen::JsValue {
         let entity_info: EntityInfo = entity_info.into_serde().unwrap();
-        log::info!("{:?}",entity_info);
+
         let ecs = ECSContainer::global_mut();
         let mut builder: EntityBuilder = ecs.world.create_entity_unchecked();
 
@@ -69,9 +71,10 @@ impl ScriptingFunctions {
                         let entities = ecs.world.entities();
                         model_id = Some(entities.entity(model));
                     }
+                    let rot =  component.rotation.unwrap();
                     let transform_val = Transform::new(
                         component.position.unwrap().into(),
-                        component.rotation.unwrap().into(),
+                        UnitQuaternion::from_euler_angles(rot.x(),rot.y(),rot.z()),
                         component.scale.unwrap().into(),
                         model_id,
                     );
@@ -79,57 +82,77 @@ impl ScriptingFunctions {
                     builder = builder.with(transform_val);
                 }
                 "physics" => {
-                    // Only add phyics to valid already created objects
+                    // Only add physics to valid already created objects
                     if let Some(model) = model_id {
                         let mut world = ecs.world.write_resource::<PhysicsWorld>();
 
-                        let collider = ecs.world.read_component::<ModelCollider>();
-                        let ents = ecs.world.entities();
-                        for (collider_builder, entity) in (&collider, &ents).join() {
-                            if entity == model {
-                                let pos = if let Some(val) = transform {
-                                    val.position
-                                } else {
-                                    glm::vec3(0.0, 0.0, 0.0)
-                                };
+                        let mut  rigid_body_handle:Option<RigidBodyHandle> = None;
+                        let mut  collider_handle:Option<ColliderHandle> = None;
+                        let pos = if let Some(val) = transform {
+                            val.position
+                        } else {
+                            Vector3::new(0.0, 0.0, 0.0)
+                        };
+                        match component.body_type {
+                            Some(RigidBodyType::Dynamic) =>{
 
-                                let rigid_body =
-                                    if let Some(body_type) = component.body_type.clone() {
-                                        if body_type == "DynamicRigidBody" {
-                                            RigidBodyBuilder::new_dynamic()
-                                        } else {
-                                            RigidBodyBuilder::new_static()
-                                        }
-                                    } else {
-                                        RigidBodyBuilder::new_static()
+                                let collider = ecs.world.read_component::<ModelCollider>();
+                                let ents = ecs.world.entities();
+                                for (collider_builder, entity) in (&collider, &ents).join() {
+                                    if entity == model {
+                                        let collider = collider_builder.0.build();
+                                        let rigid_body =
+                                             RigidBodyBuilder::new_dynamic()
+                                            .position(Isometry::new( Vector3::new(pos.x,pos.y,pos.z), Vector3::new(0.0, 0.0, 0.0)))
+                                             .additional_mass(component.mass.unwrap() as f32)
+                                            .build();
+                                        let body_handle = world.add_rigid_body(rigid_body);
+
+                                        collider_handle = Some(world.add_collider(collider, body_handle));
+                                        rigid_body_handle = Some(body_handle);
+
                                     }
-                                    .position(Isometry3::new(pos, glm::vec3(0.0, 0.0, 0.0)))
-                                    .mass(component.mass.unwrap() as f32)
+                                }
+                            },
+                            Some(RigidBodyType::Static)=>{
+                                let rigid_body = RigidBodyBuilder::new_static().position(Isometry::new(pos, Vector3::new(0.0, 0.0, 0.0)))
+                                    .additional_mass(component.mass.unwrap() as f32)
                                     .build();
-                                let rigid_body_handle = world.add_rigid_body(rigid_body);
+                                let body_handle = world.add_rigid_body(rigid_body);
+                                let scale:Vector3<f32> = if let Some(scale_vals) = component.scale {
+                                    scale_vals.into()
+                                }
+                                else {
+                                   Vector3::new(1.0,1.1,1.0)
+                                };
+                                let collider = ColliderBuilder::cuboid(scale.x,scale.y,scale.z).build();
+                                collider_handle = Some(world.add_collider(collider,body_handle));
+                                rigid_body_handle = Some(body_handle);
+                            },
+                            _ => {
+                                panic!();
+                            },
+                        }
 
-                                let collider = collider_builder.0.build();
-                                let collider_handle =
-                                    world.add_collider(collider, rigid_body_handle);
-
+                            if let (Some(body_handle), Some(collision_handle)) = (rigid_body_handle,collider_handle)
+                            {
                                 builder = builder.with(PhysicsHandle {
-                                    collider_handle,
-                                    rigid_body_handle,
+                                    collider_handle: collision_handle,
+                                    rigid_body_handle:body_handle,
                                 })
                             }
-                        }
                     }
                 }
                 "pointLight" => {
                     let pos = if let Some(val) = transform {
                         val.position
                     } else {
-                        glm::vec3(0.0, 0.0, 0.0)
+                       Vector3::new(0.0, 0.0, 0.0)
                     };
                     let attenuation_values = component.attenuation.unwrap();
                     let color = component.color.unwrap();
                     builder = builder.with(PointLight::new(
-                        pos,
+                        Point3::from(pos),
                         wgpu::Color {
                             r: color.x() as f64,
                             g: color.y() as f64,

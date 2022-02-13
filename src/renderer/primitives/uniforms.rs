@@ -1,4 +1,5 @@
 use bytemuck::{Pod, Zeroable};
+use rapier3d::na::Matrix4;
 
 use crate::resources::camera::Camera;
 
@@ -12,7 +13,7 @@ pub struct Globals {
 impl Globals {
     pub fn new(point_light_count: u32, spot_light_count: u32) -> Self {
         Self {
-            view_proj: glm::Mat4::identity().into(),
+            view_proj: Matrix4::identity().into(),
             view_position: [0.0, 0.0, 0.0, 0.0],
             num_lights: [point_light_count, spot_light_count, 0, 0],
         }

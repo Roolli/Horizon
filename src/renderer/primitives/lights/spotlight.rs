@@ -1,9 +1,11 @@
+use rapier3d::math::Point;
+use rapier3d::na::{Matrix4, Point3};
 use specs::*;
 #[derive(Component)]
 #[storage(VecStorage)]
 pub struct SpotLight {
-    position: glm::Vec3,
-    direction: glm::Mat4,
+    position: Point3<f32>,
+    direction: Matrix4<f32>,
     color: wgpu::Color,
     constant: f32,
     linear: f32,
@@ -25,8 +27,8 @@ pub struct SpotLightRaw {
 //TODO: convert to builder pattern
 impl SpotLight {
     pub fn new(
-        position: glm::Vec3,
-        direction: glm::Mat4,
+        position: Point3<f32>,
+        direction: Matrix4<f32>,
         color: wgpu::Color,
         constant: f32,
         linear: f32,

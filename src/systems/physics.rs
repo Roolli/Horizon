@@ -2,7 +2,6 @@ use std::{
     borrow::BorrowMut,
 };
 
-use glm::Vec3;
 use rapier3d::{
     crossbeam::{
         self,
@@ -17,6 +16,8 @@ use rapier3d::{
     },
     pipeline::{ChannelEventCollector, PhysicsPipeline},
 };
+use rapier3d::na::{UnitQuaternion, vector, Vector3};
+use rapier3d::prelude::{CCDSolver, IslandManager};
 use specs::{Entities, Join, ReadStorage, System, WriteExpect, WriteStorage};
 
 use crate::components::{
@@ -33,13 +34,15 @@ pub struct PhysicsWorld {
     collider_set: ColliderSet,
     joints: JointSet,
     event_handler: ChannelEventCollector,
-    gravity: Vec3,
+    island_manager: IslandManager,
+    gravity: Vector3<f32>,
     contact_event_receiver: Receiver<ContactEvent>,
+    ccd_solver: CCDSolver,
     intersection_event_receiver: Receiver<IntersectionEvent>,
 }
 
 impl PhysicsWorld {
-    pub fn new(gravity_vector: Vec3) -> Self {
+    pub fn new(gravity_vector: Vector3<f32>) -> Self {
         let (contact_send, contact_receive) = crossbeam::channel::unbounded();
         let (intersection_send, intersection_receive) = crossbeam::channel::unbounded();
         let event_handler = ChannelEventCollector::new(intersection_send, contact_send);
@@ -50,9 +53,11 @@ impl PhysicsWorld {
             narrow_phase: NarrowPhase::new(),
             collider_set: ColliderSet::new(),
             event_handler,
+            island_manager: IslandManager::new(),
             contact_event_receiver: contact_receive,
             intersection_event_receiver: intersection_receive,
             gravity: gravity_vector,
+            ccd_solver: CCDSolver::new(),
             integration_parameters: IntegrationParameters {
                 ..Default::default()
             },
@@ -75,19 +80,20 @@ impl PhysicsWorld {
         parent_handle: RigidBodyHandle,
     ) -> ColliderHandle {
         self.collider_set
-            .insert(collider_descriptor, parent_handle, &mut self.body_set)
+            .insert_with_parent(collider_descriptor, parent_handle, &mut self.body_set)
     }
     pub fn step(&mut self) {
         self.pipeline.step(
             &self.gravity,
             &self.integration_parameters,
+            &mut self.island_manager,
             &mut self.broad_phase,
             &mut self.narrow_phase,
             &mut self.body_set,
             &mut self.collider_set,
             &mut self.joints,
-            None,
-            None,
+            &mut self.ccd_solver,
+            &(),
             &self.event_handler,
         );
     }
@@ -111,7 +117,7 @@ impl<'a> System<'a> for Physics {
             let body = world.body_set.get(handle.rigid_body_handle).unwrap();
 
             transform.position = body.position().translation.vector;
-            transform.rotation = body.position().rotation.coords.into();
+            transform.rotation = UnitQuaternion::from_rotation_matrix(&body.position().rotation.to_rotation_matrix());
         }
     }
 }

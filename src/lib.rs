@@ -62,11 +62,6 @@ use tobj::{Model};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
-
-static mut ECS_INSTANCE: OnceCell<ECSContainer> = OnceCell::new();
-static EVENT_LOOP_STARTED: OnceCell<bool> = OnceCell::new();
-
-
 #[wasm_bindgen]
 extern "C" {
     #[wasm_bindgen(catch,js_namespace=Function,js_name="prototype.call.call")]
@@ -78,6 +73,7 @@ enum CustomEvent {
 }
 ref_thread_local::ref_thread_local!{
         pub static managed EVENT_LOOP_PROXY: Option<winit::event_loop::EventLoopProxy<CustomEvent>> = None;
+        pub static managed ECS_CONTAINER: ECSContainer = ECSContainer::new();
     }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
@@ -98,10 +94,12 @@ pub fn setup() {
         let win: Window = web_sys::window().unwrap();
 
         let screen_x = win.inner_width().unwrap().as_f64().unwrap();
-
         let screen_y = win.inner_height().unwrap().as_f64().unwrap();
+
         log::info!("x: {}", screen_x);
         log::info!("y: {}", screen_y);
+        std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+        console_log::init().expect("failed to initialize logger");
         let doc = win.document().unwrap();
 
         let body = doc.body().unwrap();
@@ -119,12 +117,11 @@ pub fn setup() {
             .unwrap()
             .remove_attribute("style")
             .unwrap();
-        std::panic::set_hook(Box::new(console_error_panic_hook::hook));
 
         wasm_bindgen_futures::spawn_local(async move {
             use wasm_bindgen::JsCast;
             let state = State::new(&window).await;
-            let ecs = ECSContainer::global_mut();
+            let mut ecs = ECSContainer::global_mut();
             ecs.setup(state);
             setup_pipelines(&mut ecs.world);
             create_debug_scene().await;
@@ -164,22 +161,8 @@ pub fn setup() {
         run(event_loop, window);
     }
 }
-#[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "initECS"))]
-pub fn init_ecs() {
-    std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-    console_log::init().expect("failed to initialize logger");
-    log::info!("Hook setup!");
-    unsafe {
-        //TODO: replace with ref_thread_local!
-        if ECS_INSTANCE.set(ECSContainer::new()).is_err() {
-            panic!();
-        }
-    }
-}
 
 fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
-    log::info!("running event loop");
-    EVENT_LOOP_STARTED.set(true).unwrap();
     event_loop.run(move |event, _, control_flow| {
         match event {
             Event::WindowEvent {
@@ -188,7 +171,8 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
             } if window_id == window.id() => {
                 match event {
                     WindowEvent::MouseInput { button, state, .. } => {
-                        let mut mouse_event = ECSContainer::global_mut()
+                        let container =  ECSContainer::global_mut();
+                        let mut mouse_event = container
                             .world
                             .write_resource::<MouseInputEvent>();
                         mouse_event.info = (*button, *state);
@@ -204,21 +188,24 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                         {
                             *control_flow = ControlFlow::Exit
                         }
-                        let mut keyboard_event = ECSContainer::global_mut()
+                        let container = ECSContainer::global_mut();
+                        let mut keyboard_event = container
                             .world
                             .write_resource::<KeyboardEvent>();
                         keyboard_event.info = *input;
                         keyboard_event.handled = false;
                     }
                     WindowEvent::Resized(physical_size) => {
-                        let mut resize_event = ECSContainer::global_mut()
+                        let container =  ECSContainer::global_mut();
+                        let mut resize_event =container
                             .world
                             .write_resource::<ResizeEvent>();
                         resize_event.new_size = *physical_size;
                         resize_event.handled = false;
                     }
                     WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                        let mut resize_event = ECSContainer::global_mut()
+                        let container = ECSContainer::global_mut();
+                        let mut resize_event = container
                             .world
                             .write_resource::<ResizeEvent>();
                         resize_event.new_size = **new_inner_size;
@@ -231,7 +218,8 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
             }
             Event::DeviceEvent { event, .. } => {
                 if let DeviceEvent::MouseMotion { delta } = event {
-                    let mut mouse_position_event = ECSContainer::global_mut()
+                    let mut container = ECSContainer::global_mut();
+                    let mut mouse_position_event =container
                         .world
                         .write_resource::<MouseMoveEvent>();
                     mouse_position_event.info = delta;
@@ -239,8 +227,8 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                 }
             }
             Event::RedrawRequested(_) => {
-                let container = ECSContainer::global_mut();
-                container.dispatcher.dispatch(&container.world);
+                let mut container = ECSContainer::global_mut();
+                    container.dispatch();
                 //TODO: handle events related to wgpu errors
                 let render_result = container.world.read_resource::<RenderResult>();
                 match render_result.result {
@@ -505,7 +493,7 @@ async fn create_debug_scene() {
         }
     }
 
-    let ecs = ECSContainer::global_mut();
+    let mut  ecs = ECSContainer::global_mut();
     const NUM_INSTANCES_PER_ROW: u32 = 0;
     ecs.world.insert(DirectionalLight::new(
         Point3::new(1.0, -1.0, 0.0),

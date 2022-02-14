@@ -8,7 +8,7 @@ use crate::renderer::primitives::lights::pointlight::PointLight;
 use crate::renderer::state::State;
 use crate::renderer::utils::ecscontainer::ECSContainer;
 use crate::systems::physics::PhysicsWorld;
-use crate::{CustomEvent, EVENT_LOOP_PROXY, EVENT_LOOP_STARTED};
+use crate::{CustomEvent, EVENT_LOOP_PROXY};
 
 use super::scriptevent::ScriptEvent;
 #[cfg(not(target_arch = "wasm32"))]
@@ -47,7 +47,7 @@ pub struct ScriptingFunctions;
 impl ScriptingFunctions {
     #[wasm_bindgen(js_name = "registerCallback")]
     pub fn register_callback(event_type: ScriptEvent, callback: js_sys::Function) {
-        let ecs = ECSContainer::global_mut();
+        let mut ecs = ECSContainer::global_mut();
         let builder = ecs.world.create_entity();
         builder
             .with(ScriptingCallback::new(callback))

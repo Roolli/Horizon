@@ -1,38 +1,33 @@
+use std::borrow::{Borrow, BorrowMut};
 use rapier3d::na::Vector3;
+use ref_thread_local::{Ref, RefMut, RefThreadLocal};
 use specs::{DispatcherBuilder, World, WorldExt};
 
 use crate::components::assetidentifier::AssetIdentifier;
 use crate::components::modelcollider::ModelCollider;
 use crate::scripting::scriptevent::ScriptEvent;
-use crate::{
-    components::scriptingcallback::ScriptingCallback,
-    filesystem::modelimporter::Importer,
-    renderer::{
-        bindgroupcontainer::BindGroupContainer,
-        bindgroups::{
-            deferred::DeferredBindGroup, lighting::LightBindGroup, shadow::ShadowBindGroup,
-            tiling::TilingBindGroup, uniforms::UniformBindGroup,
-        },
-        modelbuilder::ModelBuilder,
-        state::State,
+use crate::{components::scriptingcallback::ScriptingCallback, ECS_CONTAINER, filesystem::modelimporter::Importer, renderer::{
+    bindgroupcontainer::BindGroupContainer,
+    bindgroups::{
+        deferred::DeferredBindGroup, lighting::LightBindGroup, shadow::ShadowBindGroup,
+        tiling::TilingBindGroup, uniforms::UniformBindGroup,
     },
-    resources::{
-        bindingresourcecontainer::BindingResourceContainer,
-        commandencoder::HorizonCommandEncoder,
-        eguirenderpass::EguiRenderPass,
-        windowevents::{KeyboardEvent, MouseInputEvent, MouseMoveEvent, ResizeEvent},
-    },
-    systems::{
-        computelightculling::ComputeLightCulling,
-        physics::{Physics, PhysicsWorld},
-        renderforwardpass::RenderForwardPass,
-        rendershadowpass::RenderShadowPass,
-        resize::Resize,
-        updatebuffers::UpdateBuffers,
-        writegbuffer::WriteGBuffer,
-    },
-    ECS_INSTANCE,
-};
+    modelbuilder::ModelBuilder,
+    state::State,
+}, resources::{
+    bindingresourcecontainer::BindingResourceContainer,
+    commandencoder::HorizonCommandEncoder,
+    eguirenderpass::EguiRenderPass,
+    windowevents::{KeyboardEvent, MouseInputEvent, MouseMoveEvent, ResizeEvent},
+}, systems::{
+    computelightculling::ComputeLightCulling,
+    physics::{Physics, PhysicsWorld},
+    renderforwardpass::RenderForwardPass,
+    rendershadowpass::RenderShadowPass,
+    resize::Resize,
+    updatebuffers::UpdateBuffers,
+    writegbuffer::WriteGBuffer,
+}};
 
 pub struct ECSContainer {
     pub world: specs::World,
@@ -45,6 +40,10 @@ pub struct ECSContainer {
 // }
 
 impl ECSContainer {
+    pub fn dispatch(&mut self)
+    {
+        self.dispatcher.dispatch(&self.world);
+    }
     pub fn new() -> Self {
         let mut world = World::new();
 
@@ -110,10 +109,10 @@ impl ECSContainer {
         world.register::<ScriptEvent>();
         world.register::<AssetIdentifier>();
     }
-    pub fn global() -> &'static ECSContainer {
-        unsafe { ECS_INSTANCE.get().expect("ECS was not initialized") }
+    pub fn global<'a>() -> Ref<'a,ECSContainer>  {
+         ref_thread_local::RefThreadLocal::borrow(&ECS_CONTAINER)
     }
-    pub fn global_mut() -> &'static mut ECSContainer {
-        unsafe { ECS_INSTANCE.get_mut().unwrap() }
+    pub fn global_mut<'a>() -> RefMut<'a,ECSContainer> {
+        ref_thread_local::RefThreadLocal::borrow_mut(&ECS_CONTAINER)
     }
 }

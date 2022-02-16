@@ -1,4 +1,5 @@
 use std::borrow::{Borrow, BorrowMut};
+use js_sys::JSON::stringify;
 use rapier3d::na::Vector3;
 use ref_thread_local::{Ref, RefMut, RefThreadLocal};
 use specs::{DispatcherBuilder, World, WorldExt};
@@ -20,24 +21,22 @@ use crate::{components::scriptingcallback::ScriptingCallback, ECS_CONTAINER, fil
     eguirenderpass::EguiRenderPass,
     windowevents::{KeyboardEvent, MouseInputEvent, MouseMoveEvent, ResizeEvent},
 }, systems::{
-    computelightculling::ComputeLightCulling,
     physics::{Physics, PhysicsWorld},
-    renderforwardpass::RenderForwardPass,
-    rendershadowpass::RenderShadowPass,
-    resize::Resize,
-    updatebuffers::UpdateBuffers,
-    writegbuffer::WriteGBuffer,
 }};
+use crate::systems::events::handlewindowevents::HandleWindowEvents;
+use crate::systems::events::resize::Resize;
+use crate::systems::rendering::computelightculling::ComputeLightCulling;
+use crate::systems::rendering::renderforwardpass::RenderForwardPass;
+use crate::systems::rendering::rendershadowpass::RenderShadowPass;
+use crate::systems::rendering::updatebuffers::UpdateBuffers;
+use crate::systems::rendering::updatecamera::UpdateCamera;
+use crate::systems::rendering::writegbuffer::WriteGBuffer;
+use crate::systems::util::calculatedeltatime::UpdateDeltaTime;
 
 pub struct ECSContainer {
     pub world: specs::World,
     pub dispatcher: specs::Dispatcher<'static, 'static>,
 }
-// impl Debug for ECSContainer {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         f.debug_struct("ECSContainer").finish()
-//     }
-// }
 
 impl ECSContainer {
     pub fn dispatch(&mut self)
@@ -50,6 +49,9 @@ impl ECSContainer {
         // TODO: setup dispatcher
 
         let mut dispatcher = DispatcherBuilder::new()
+            .with(UpdateDeltaTime,stringify!(UpdateDeltaTime),&[])
+            .with(UpdateCamera,stringify!(UpdateCamera),&[])
+            .with(HandleWindowEvents,stringify!(HandleWindowEvents),&[])
             .with(Physics, stringify!(Physics), &[])
             .with_thread_local(Resize)
             .with_thread_local(UpdateBuffers)

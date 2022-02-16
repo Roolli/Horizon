@@ -6,7 +6,7 @@ use crate::components::transform::Transform;
 use crate::renderer::modelbuilder::ModelBuilder;
 use crate::renderer::primitives::lights::pointlight::PointLight;
 use crate::renderer::state::State;
-use crate::renderer::utils::ecscontainer::ECSContainer;
+use crate::ecscontainer::ECSContainer;
 use crate::systems::physics::PhysicsWorld;
 use crate::{CustomEvent, EVENT_LOOP_PROXY};
 
@@ -197,8 +197,6 @@ impl ScriptingFunctions {
                 else {
                     Vec::new()
                 };
-
-                //TODO: create DTO
                 mats.push((diffuse_texture_raw,normal_texture_raw,mat.name));
             }
 

@@ -2,6 +2,8 @@ use bytemuck::{Pod, Zeroable};
 use rapier3d::na::Matrix4;
 
 use crate::resources::camera::Camera;
+use crate::resources::projection::Projection;
+use crate::State;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
@@ -18,9 +20,12 @@ impl Globals {
             num_lights: [point_light_count, spot_light_count, 0, 0],
         }
     }
-    pub fn update_view_proj_matrix(&mut self, cam: &Camera) {
-        self.view_position = cam.eye.to_homogeneous().into();
-        self.view_proj = cam.build_view_projection_matrix().into();
+    pub fn update_view_proj_matrix(&mut self, cam: &Camera,proj:&Projection) {
+        let mut reversed_z_matrix = Matrix4::identity();
+        *reversed_z_matrix.get_mut(10).unwrap() = -1.0;
+        *reversed_z_matrix.get_mut(14).unwrap() = 1.0;
+        self.view_position = cam.position.to_homogeneous().into();
+        self.view_proj =   ( reversed_z_matrix * proj.calc_proj_matrix()* cam.get_view_matrix()).into();
     }
     pub fn set_point_light_count(&mut self, new_count: u32) {
         self.num_lights[0] = new_count;

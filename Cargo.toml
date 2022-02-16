@@ -55,8 +55,6 @@ env_logger = "0.8.2"
 chrono = "0.4.19"
 rusty_v8 = "0.21.0"
 
-
-
 [build-dependencies]
 anyhow = "1.0"
 fs_extra = "1.2.0"

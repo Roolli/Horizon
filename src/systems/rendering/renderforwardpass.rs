@@ -29,7 +29,6 @@ impl<'a> System<'a> for RenderForwardPass {
         ReadStorage<'a, UniformBindGroup>,
         ReadStorage<'a, BindGroupContainer>,
         ReadExpect<'a, ForwardPipeline>,
-        Write<'a, DeltaTime>,
         Write<'a, RenderResult>,
         ReadStorage<'a, DeferredBindGroup>,
     );
@@ -44,7 +43,6 @@ impl<'a> System<'a> for RenderForwardPass {
             uniform_bind_group,
             bind_group_containers,
             forward_pipeline,
-            mut frame_time,
             mut render_result,
             deferred_bind_group,
         ): Self::SystemData,
@@ -156,20 +154,6 @@ impl<'a> System<'a> for RenderForwardPass {
         render_pass.draw(0..6, 0..1);
         drop(render_pass);
         encoder.finish(&state.device, &state.queue);
-
-        let now = chrono::offset::Utc::now();
-        frame_time.total_frame_time = std::ops::Add::add(
-            frame_time.total_frame_time,
-            Duration::nanoseconds((now - frame_time.previous_frame_time).timestamp_nanos()),
-        );
-        if frame_time.total_frame_time < Duration::seconds(1) {
-            frame_time.frame_count += 1;
-        } else {
-            log::info!("FPS: {}", frame_time.frame_count);
-            frame_time.frame_count = 0;
-            frame_time.total_frame_time = Duration::seconds(0);
-        }
-        frame_time.previous_frame_time = Duration::nanoseconds(now.timestamp_nanos());
         frame.present();
     }
 }

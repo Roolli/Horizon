@@ -1,18 +1,15 @@
 
 use specs::{Join, ReadExpect, ReadStorage, System, WriteExpect};
 
-use crate::{
-    renderer::{
-        primitives::{
-            lights::{
-                directionallight::DirectionalLight, pointlight::PointLight, spotlight::SpotLight,
-            },
-            uniforms::{Globals},
+use crate::{Projection, renderer::{
+    primitives::{
+        lights::{
+            directionallight::DirectionalLight, pointlight::PointLight, spotlight::SpotLight,
         },
-        state::State,
+        uniforms::{Globals},
     },
-    resources::{bindingresourcecontainer::BindingResourceContainer, camera::Camera},
-};
+    state::State,
+}, resources::{bindingresourcecontainer::BindingResourceContainer, camera::Camera}};
 
 pub struct UpdateBuffers;
 
@@ -23,15 +20,16 @@ impl<'a> System<'a> for UpdateBuffers {
         ReadExpect<'a, DirectionalLight>,
         WriteExpect<'a, Globals>,
         ReadExpect<'a, Camera>,
+        ReadExpect<'a,Projection>,
         ReadStorage<'a, PointLight>,
         ReadStorage<'a, SpotLight>,
     );
 
     fn run(
         &mut self,
-        (binding_resource_container, state, dir_light, mut globals, cam,point_lights,spot_lights): Self::SystemData,
+        (binding_resource_container, state, dir_light, mut globals, cam,proj,point_lights,spot_lights): Self::SystemData,
     ) {
-        globals.update_view_proj_matrix(&cam);
+        globals.update_view_proj_matrix(&cam,&proj);
         state.queue.write_buffer(
             binding_resource_container
                 .buffers
@@ -46,7 +44,7 @@ impl<'a> System<'a> for UpdateBuffers {
                 .get("directional_light_buffer")
                 .unwrap(),
             0,
-            bytemuck::bytes_of(&dir_light.to_raw(&cam)),
+            bytemuck::bytes_of(&dir_light.to_raw(&cam,&proj)),
         );
         //TODO: optimize to minimize copying
         let point_light_raw = point_lights

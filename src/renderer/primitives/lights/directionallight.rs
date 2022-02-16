@@ -4,10 +4,7 @@ use rapier3d::na::{Matrix4, Point3, Vector3, Vector4};
 
 use wgpu::BindGroup;
 
-use crate::{
-    renderer::{model::HorizonModel, primitives::mesh::Mesh, state::State},
-    resources::camera::Camera,
-};
+use crate::{Projection, renderer::{model::HorizonModel, primitives::mesh::Mesh, state::State}, resources::camera::Camera};
 
 
 
@@ -21,9 +18,9 @@ impl DirectionalLight {
         Self { direction, color }
     }
 
-    pub fn to_raw(&self, cam: &Camera) -> DirectionalLightRaw {
+    pub fn to_raw(&self, cam: &Camera,proj:&Projection) -> DirectionalLightRaw {
         let view = Matrix4::look_at_rh(&Point3::origin(),&self.direction,&Vector3::y());
-        let proj = Self::get_frustum_bounding_box(&self, cam, cam.z_near, cam.z_far, &view);
+        let proj = Self::get_frustum_bounding_box(self, cam, proj,  &view);
         let view_proj =
            Matrix4::from(State::OPENGL_TO_WGPU_MATRIX) * proj * view;
         DirectionalLightRaw {
@@ -40,32 +37,32 @@ impl DirectionalLight {
     fn get_frustum_bounding_box(
         &self,
         cam: &Camera,
-        znear: f32,
-        zfar: f32,
+        proj:&Projection,
         light_space: &Matrix4<f32>,
     ) -> Matrix4<f32> {
-        let cam_view = Matrix4::look_at_rh(&cam.eye, &cam.target, &cam.up);
+        let cam_view = cam.get_view_matrix();
+
         let cam_inverse = cam_view.try_inverse().unwrap();
 
-        let tan_half_horizontal_fov = f32::tan(f32::to_radians(cam.fov_y / 2.0));
-        let tan_half_vertical_fov = f32::tan(f32::to_radians((cam.fov_y * cam.aspect_ratio) / 2.0));
-        let x_near = znear * tan_half_horizontal_fov;
-        let x_far = zfar * tan_half_horizontal_fov;
+        let tan_half_horizontal_fov = f32::tan(f32::to_radians(proj.fov_y / 2.0));
+        let tan_half_vertical_fov = f32::tan(f32::to_radians((proj.fov_y * proj.aspect_ratio) / 2.0));
+        let x_near = proj.z_near * tan_half_horizontal_fov;
+        let x_far = proj.z_far * tan_half_horizontal_fov;
 
-        let y_near = znear * tan_half_vertical_fov;
-        let y_far = zfar * tan_half_vertical_fov;
+        let y_near = proj.z_near * tan_half_vertical_fov;
+        let y_far = proj.z_far * tan_half_vertical_fov;
 
         let frustum_corners = [
             // near face
-            Vector4::new(x_near, y_near, znear, 1.0),
-            Vector4::new(-x_near, y_near, znear, 1.0),
-            Vector4::new(x_near, -y_near, znear, 1.0),
-            Vector4::new(-x_near, -y_near, znear, 1.0),
+            Vector4::new(x_near, y_near, proj.z_near, 1.0),
+            Vector4::new(-x_near, y_near, proj.z_near, 1.0),
+            Vector4::new(x_near, -y_near, proj.z_near, 1.0),
+            Vector4::new(-x_near, -y_near, proj.z_near, 1.0),
             // far face
-            Vector4::new(x_far, y_far, zfar, 1.0),
-            Vector4::new(-x_far, y_far, zfar, 1.0),
-            Vector4::new(x_far, -y_far, zfar, 1.0),
-            Vector4::new(-x_far, -y_far, zfar, 1.0),
+            Vector4::new(x_far, y_far, proj.z_far, 1.0),
+            Vector4::new(-x_far, y_far, proj.z_far, 1.0),
+            Vector4::new(x_far, -y_far, proj.z_far, 1.0),
+            Vector4::new(-x_far, -y_far, proj.z_far, 1.0),
         ];
 
         let mut frustum_corners_l: Vec<Vector4<f32>> = Vec::new();

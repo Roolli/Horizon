@@ -19,10 +19,6 @@ impl<'a> System<'a> for UpdateCamera
         let right = Vector3::new(-yaw_sin,0.0,yaw_cos).normalize();
 
         camera.position += forward * (cam_controller.move_forward - cam_controller.move_backward) *cam_controller.speed * dt;
-        if cam_controller.move_forward > 0.0 || cam_controller.move_backward > 0.0
-        {
-            log::info!("cam pos after transform: {:?}",camera.position);
-        }
         camera.position += right * (cam_controller.move_right - cam_controller.move_left) *cam_controller.speed * dt;
 
         //zoom -  not working as no event is being handled.
@@ -31,10 +27,6 @@ impl<'a> System<'a> for UpdateCamera
         camera.position += scroll * cam_controller.scroll * cam_controller.speed * cam_controller.sensitivity * dt;
 
         camera.position.y  += (cam_controller.move_up - cam_controller.move_down) *cam_controller.speed * dt;
-        if cam_controller.move_up > 0.0 || cam_controller.move_down > 0.0
-        {
-            log::info!("cam pos after up/down motion: {:?}",camera.position);
-        }
 
         camera.yaw += f32::to_radians(cam_controller.rotate_horizontal )*cam_controller.sensitivity * dt;
         camera.pitch += f32::to_radians(-cam_controller.rotate_vertical )* cam_controller.sensitivity * dt;

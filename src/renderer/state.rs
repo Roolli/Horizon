@@ -39,7 +39,7 @@ pub struct State {
     pub sc_descriptor: wgpu::SurfaceConfiguration,
     pub size: winit::dpi::PhysicalSize<u32>,
     pub depth_texture: Texture,
-    pub egui_winit_platform: Platform,
+    pub scale_factor: f64,
 }
 impl State {
     //TODO: Move this to a constants / limits struct for cleanliness
@@ -95,15 +95,7 @@ impl State {
             present_mode: wgpu::PresentMode::Mailbox,
         };
         surface.configure(&device, &sc_desc);
-
-        let platform = Platform::new(PlatformDescriptor {
-            physical_height: sc_desc.height,
-            physical_width: sc_desc.width,
-            scale_factor: window.scale_factor(),
-            ..Default::default()
-        });
-        let _demo_app = egui_demo_lib::WrapApp::default();
-
+        
         Self {
             depth_texture: Texture::create_depth_texture(&device, &sc_desc, "depth_texture"),
             device,
@@ -111,37 +103,9 @@ impl State {
             queue,
             sc_descriptor: sc_desc,
             size,
-            egui_winit_platform: platform,
+            scale_factor: window.scale_factor(),
         }
     }
 
-    pub fn input(&mut self, event: &WindowEvent) -> bool {
-        match event {
-            WindowEvent::CursorMoved { position: _, .. } => true,
-            WindowEvent::KeyboardInput { input: _, .. } => {
-                // if let Some(keycode) = input.virtual_keycode {
-                //     if keycode == VirtualKeyCode::Space {
-                //         for handles in self.world.read_component::<PhysicsHandle>().join() {
-                //             let mut physicsworld = self.world.fetch_mut::<PhysicsWorld>();
-                //             physicsworld
-                //                 .body_set
-                //                 .get_mut(handles.rigid_body_handle)
-                //                 .unwrap()
-                //                 .apply_impulse(glm::vec3(0.0, 120.0, -5.0), true);
-                //         }
-                //         return true;
-                //     }
-                // }
 
-                false
-            }
-            _ => false,
-        }
-    }
-    pub fn update(&mut self) {}
-    // pub fn render(&mut self) -> Result<(), wgpu::SwapChainError> {
-    //     Ok(())
-
-    //     // Ok(())
-    // }
 }

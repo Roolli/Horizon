@@ -6,6 +6,7 @@ pub struct DeltaTime {
    pub total_frame_time: chrono::Duration,
     /// Time between the last frame render (in ms)
     pub delta:f32,
+    pub app_start_time: i64
 }
 impl Default for DeltaTime {
     fn default() -> Self {
@@ -16,6 +17,7 @@ impl Default for DeltaTime {
             ),
             total_frame_time: Duration::seconds(0),
             delta:0.0,
+            app_start_time: chrono::offset::Utc::now().timestamp_millis()
         }
     }
 }

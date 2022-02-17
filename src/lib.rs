@@ -1,6 +1,9 @@
 use core::panic;
 use std::collections::HashMap;
 use std::sync::Mutex;
+use egui::emath::Numeric;
+use egui_wgpu_backend::RenderPass;
+use egui_winit_platform::{Platform, PlatformDescriptor};
 use lazy_static::lazy_static;
 
 use crate::{
@@ -64,6 +67,9 @@ use tobj::Model;
 use wasm_bindgen::prelude::*;
 use ecscontainer::ECSContainer;
 use crate::resources::camera::CameraController;
+use crate::resources::deltatime::DeltaTime;
+use crate::resources::eguicontainer::EguiContainer;
+use crate::resources::eguirenderpass::EguiRenderPass;
 use crate::resources::projection::Projection;
 
 #[wasm_bindgen]
@@ -126,6 +132,19 @@ pub fn setup() {
             use wasm_bindgen::JsCast;
             let state = State::new(&window).await;
             let mut ecs = ECSContainer::global_mut();
+            let platform = Platform::new(PlatformDescriptor {
+                physical_height: state.sc_descriptor.height,
+                physical_width: state.sc_descriptor.width,
+                scale_factor: window.scale_factor(),
+                ..Default::default()
+            });
+            let _demo_app = egui_demo_lib::WrapApp::default();
+            ecs.world.insert(EguiContainer{
+                render_pass: EguiRenderPass{
+                    pass: RenderPass::new(&state.device,state.sc_descriptor.format,1)
+                },
+                platform,
+            });
             ecs.setup(state);
             setup_pipelines(&mut ecs.world);
             drop(ecs);
@@ -193,6 +212,11 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
     ecs.world.insert(cam);
     drop(ecs);
     event_loop.run(move |event, _, control_flow| {
+        let container = ECSContainer::global_mut();
+        let mut egui_container = container.world.write_resource::<EguiContainer>();
+        egui_container.platform.handle_event(&event);
+        drop(egui_container);
+        drop(container);
         match event {
             Event::WindowEvent {
                 window_id,
@@ -232,12 +256,13 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                         resize_event.new_size = *physical_size;
                         resize_event.handled = false;
                     }
-                    WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                    WindowEvent::ScaleFactorChanged { new_inner_size, scale_factor } => {
                         let container = ECSContainer::global_mut();
                         let mut resize_event = container
                             .world
                             .write_resource::<ResizeEvent>();
                         resize_event.new_size = **new_inner_size;
+                        resize_event.scale_factor = *scale_factor;
                         resize_event.handled = false;
                     }
                     //Not working on the web currently
@@ -257,7 +282,12 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
             }
             Event::RedrawRequested(_) => {
                 let mut container = ECSContainer::global_mut();
-                    container.dispatch();
+                let mut state = container.world.write_resource::<EguiContainer>();
+                let delta_time = container.world.read_resource::<DeltaTime>();
+                state.platform.update_time((chrono::offset::Utc::now().timestamp_millis() - delta_time.app_start_time).to_f64() / 1000.0);
+                drop(delta_time);
+                drop(state);
+                container.dispatch();
                 let render_result = container.world.read_resource::<RenderResult>();
                 match render_result.result {
                     Some(wgpu::SurfaceError::Lost) => {

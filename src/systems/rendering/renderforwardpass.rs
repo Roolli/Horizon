@@ -153,7 +153,5 @@ impl<'a> System<'a> for RenderForwardPass {
         // // // TODO: move this to it's own system
         render_pass.draw(0..6, 0..1);
         drop(render_pass);
-        encoder.finish(&state.device, &state.queue);
-        frame.present();
     }
 }

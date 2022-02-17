@@ -26,16 +26,6 @@ impl Camera {
     {
         let f = Vector3::new(self.yaw.cos(),self.pitch.sin(),self.yaw.sin()).normalize();
         Matrix4::look_at_rh(&self.position,&(self.position +f),&Vector3::y())
-        //Isometry3::face_towards(&self.position,&(self.position + Vector3::new(0.0,0.0,-1.0)),&Vector3::y()).to_homogeneous()
-       // let mat = Matrix4::new(
-       //      s.x,u.x,-f.x,0.0,
-       //      s.y, u.y,-f.y,0.0,
-       //      s.z,u.z,-f.z,0.0,
-       //      -eye.dot(&s),-eye.dot(&u),eye.dot(&f),1.0
-       //
-       //  );
-        //Matrix4::new_translation(&eye) * Matrix4::new_rotation(0,&self.yaw,)
-       // mat
     }
 }
 #[derive(Default)]

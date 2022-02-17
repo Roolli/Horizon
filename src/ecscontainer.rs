@@ -28,6 +28,7 @@ use crate::systems::events::resize::Resize;
 use crate::systems::rendering::computelightculling::ComputeLightCulling;
 use crate::systems::rendering::renderforwardpass::RenderForwardPass;
 use crate::systems::rendering::rendershadowpass::RenderShadowPass;
+use crate::systems::rendering::renderuipass::RenderUIPass;
 use crate::systems::rendering::updatebuffers::UpdateBuffers;
 use crate::systems::rendering::updatecamera::UpdateCamera;
 use crate::systems::rendering::writegbuffer::WriteGBuffer;
@@ -59,6 +60,7 @@ impl ECSContainer {
             .with_thread_local(WriteGBuffer)
             .with_thread_local(ComputeLightCulling)
             .with_thread_local(RenderForwardPass)
+            .with_thread_local(RenderUIPass)
             .build();
         dispatcher.setup(&mut world);
         ECSContainer::register_components(&mut world);
@@ -89,6 +91,7 @@ impl ECSContainer {
         world.insert(ResizeEvent {
             new_size: size,
             handled: false,
+            scale_factor:0f64,
         });
         world.insert(KeyboardEvent::default());
         world.insert(MouseMoveEvent::default());

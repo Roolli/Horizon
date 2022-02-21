@@ -42,7 +42,6 @@ pub struct State {
     pub scale_factor: f64,
 }
 impl State {
-    //TODO: Move this to a constants / limits struct for cleanliness
     pub const OPENGL_TO_WGPU_MATRIX: [[f32; 4]; 4] = [
         [1.0, 0.0, 0.0, 0.0],
         [0.0, 1.0, 0.0, 0.0],

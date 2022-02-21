@@ -42,7 +42,6 @@ impl<'a> HorizonPipeline<'a> for ShadowPipeline {
             depth_write_enabled: true,
             stencil: wgpu::StencilState::default(),
         };
-        //TODO: create seperate vertex buffer for location only for performance reasons
         let vertex_state = wgpu::VertexState {
             buffers: &[ModelVertex::desc()],
             entry_point: "vs_main",

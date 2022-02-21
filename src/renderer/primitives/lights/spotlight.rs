@@ -24,7 +24,6 @@ pub struct SpotLightRaw {
     attenuation_values: [f32; 4],
     cutoffs: [f32; 4],
 }
-//TODO: convert to builder pattern
 impl SpotLight {
     pub fn new(
         position: Point3<f32>,

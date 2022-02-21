@@ -55,8 +55,6 @@ impl WebFileLoader {
 #[async_trait(?Send)]
 impl FileLoader for WebFileLoader {
     ///Fetches the file with the given path as raw bytes
-    // TODO: figure something out :-)
-
     async fn load_file(&self, path: &str) -> Vec<u8> {
         self.send_request(&path).await
     }

@@ -1,11 +1,11 @@
 pub mod entityinfo;
 pub mod glmconversion;
+pub mod horizonentity;
 
-use serde::{Deserialize,Serialize};
+use serde::{Deserialize, Serialize};
 
-
-#[derive(Serialize,Deserialize,Eq, PartialEq,Debug,Clone)]
-pub enum RigidBodyType{
+#[derive(Serialize, Deserialize, Eq, PartialEq, Debug, Clone)]
+pub enum RigidBodyType {
     Dynamic = 0,
     Kinematic = 1,
     Static = 2,

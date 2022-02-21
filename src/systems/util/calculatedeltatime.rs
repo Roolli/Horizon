@@ -18,6 +18,7 @@ impl<'a> System<'a> for UpdateDeltaTime {
         if delta_time.total_frame_time < Duration::seconds(1) {
             delta_time.frame_count += 1;
         } else {
+            delta_time.prev_sec_frame_count = delta_time.frame_count;
             log::info!(target:"Frame Count","FPS: {}", delta_time.frame_count);
             delta_time.frame_count = 0;
             delta_time.total_frame_time = Duration::seconds(0);

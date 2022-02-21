@@ -45,9 +45,11 @@ impl<'a> HorizonPipeline<'a> for GBufferPipeline {
 
         let depth_stencil_state = wgpu::DepthStencilState {
             bias: wgpu::DepthBiasState {
-                ..Default::default()
+                clamp: 0.0,
+                constant: -2, // bilinear filtering
+                slope_scale: -2.0,
             },
-            depth_compare: wgpu::CompareFunction::Greater,
+            depth_compare: wgpu::CompareFunction::GreaterEqual,
             format: Texture::DEPTH_FORMAT,
             depth_write_enabled: true,
             stencil: wgpu::StencilState::default(),

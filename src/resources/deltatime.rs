@@ -1,12 +1,13 @@
 use chrono::Duration;
 
 pub struct DeltaTime {
-   pub frame_count: u32,
+   pub frame_count: u16,
    pub previous_frame_time: chrono::Duration,
    pub total_frame_time: chrono::Duration,
     /// Time between the last frame render (in ms)
     pub delta:f32,
-    pub app_start_time: i64
+    pub app_start_time: i64,
+    pub prev_sec_frame_count:u16,
 }
 impl Default for DeltaTime {
     fn default() -> Self {
@@ -17,7 +18,8 @@ impl Default for DeltaTime {
             ),
             total_frame_time: Duration::seconds(0),
             delta:0.0,
-            app_start_time: chrono::offset::Utc::now().timestamp_millis()
+            app_start_time: chrono::offset::Utc::now().timestamp_millis(),
+            prev_sec_frame_count: 0,
         }
     }
 }

@@ -67,7 +67,7 @@ impl<'a> System<'a> for RenderShadowPass {
                     .get("shadow_view")
                     .unwrap(),
                 depth_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(1.0),
+                    load: wgpu::LoadOp::Clear(0.0f32),
                     store: true,
                 }),
                 stencil_ops: None,

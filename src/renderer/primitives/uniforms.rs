@@ -21,9 +21,9 @@ impl Globals {
         }
     }
     pub fn update_view_proj_matrix(&mut self, cam: &Camera,proj:&Projection) {
-        let mut reversed_z_matrix = Matrix4::identity();
-        *reversed_z_matrix.get_mut(10).unwrap() = -1.0;
-        *reversed_z_matrix.get_mut(14).unwrap() = 1.0;
+        let mut reversed_z_matrix:Matrix4<f32> = Matrix4::identity();
+        // *reversed_z_matrix.get_mut(10).unwrap() = -1.0;
+        // *reversed_z_matrix.get_mut(14).unwrap() = 1.0;
         self.view_position = cam.position.to_homogeneous().into();
         self.view_proj =   ( reversed_z_matrix * proj.calc_proj_matrix()* cam.get_view_matrix()).into();
     }
@@ -52,4 +52,11 @@ pub struct TileInfo {
     pub tile_count_y: i32,
     pub num_tiles: u32,
     pub num_tile_light_slot: u32,
+}
+
+#[repr(C)]
+#[derive(Debug,Copy, Clone,Pod,Zeroable)]
+pub struct SkyboxUniform {
+    pub projection_inverse: [[f32;4];4],
+    pub view: [[f32;4];4],
 }

@@ -115,7 +115,7 @@ impl<'a> HorizonBindGroup<'a> for UniformBindGroup {
         resource_container: &mut crate::resources::bindingresourcecontainer::BindingResourceContainer,
     ) {
         let shadow_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            label: Some("shadow"),
+            label: Some("shadow_sampler"),
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,

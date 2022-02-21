@@ -1,4 +1,4 @@
-
+use rapier3d::na::{Matrix3, Matrix4};
 use specs::{Join, ReadExpect, ReadStorage, System, WriteExpect};
 
 use crate::{Projection, renderer::{
@@ -10,6 +10,7 @@ use crate::{Projection, renderer::{
     },
     state::State,
 }, resources::{bindingresourcecontainer::BindingResourceContainer, camera::Camera}};
+use crate::renderer::primitives::uniforms::SkyboxUniform;
 
 pub struct UpdateBuffers;
 
@@ -38,6 +39,17 @@ impl<'a> System<'a> for UpdateBuffers {
             0,
             bytemuck::bytes_of(&*globals),
         );
+        // get 3x3 matrix and remove translation
+        // Matrix4::from_data(Matrix3::new(view_matrix.m11,view_matrix.m12,view_matrix.m13,view_matrix.m21,view_matrix.m22,view_matrix.m23,view_matrix.m31,view_matrix.m32,view_matrix.m33).to_homogeneous().data)).into()
+         let view_matrix = cam.get_view_matrix();
+        state.queue.write_buffer(
+            binding_resource_container.buffers.get("skybox_buffer").unwrap(),
+            0,
+            bytemuck::bytes_of(
+                &SkyboxUniform{
+                    view: (Matrix4::from(State::OPENGL_TO_WGPU_MATRIX) * view_matrix).into(),
+                    projection_inverse: proj.calc_proj_matrix().try_inverse().unwrap().into()
+                }));
         state.queue.write_buffer(
             binding_resource_container
                 .buffers

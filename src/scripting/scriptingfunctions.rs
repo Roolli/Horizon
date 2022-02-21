@@ -1,11 +1,9 @@
+use js_sys::Error;
 use crate::components::modelcollider::ModelCollider;
 use crate::components::physicshandle::PhysicsHandle;
 use crate::components::scriptingcallback::ScriptingCallback;
 use crate::components::transform::Transform;
-
-use crate::renderer::modelbuilder::ModelBuilder;
 use crate::renderer::primitives::lights::pointlight::PointLight;
-use crate::renderer::state::State;
 use crate::ecscontainer::ECSContainer;
 use crate::systems::physics::PhysicsWorld;
 use crate::{CustomEvent, EVENT_LOOP_PROXY};
@@ -20,7 +18,6 @@ use rapier3d::geometry::{ColliderBuilder, ColliderHandle};
 use rusty_v8 as v8;
 use specs::prelude::*;
 
-use std::borrow::BorrowMut;
 
 use rapier3d::na::{Point3, UnitQuaternion, Vector3};
 use rapier3d::prelude::Isometry;
@@ -212,6 +209,24 @@ impl ScriptingFunctions {
             }
         } else {
            Err(JsValue::from_str("Invalid model name!"))
+        }
+    }
+    #[wasm_bindgen(js_name="setSkyboxTexture")]
+    pub async fn set_skybox_texture(texture_path:JsValue) -> Result<JsValue,JsValue>
+    {
+        if let Some(path) = texture_path.as_string() {
+           let file_contents =  Importer::default().import_file(path.as_str()).await;
+
+            let event_loop_proxy = ref_thread_local::RefThreadLocal::borrow(&EVENT_LOOP_PROXY);
+            // MAYBE unit type is not the greatest return value...
+            let (sender,receiver) = futures::channel::oneshot::channel::<()>();
+            event_loop_proxy.as_ref().unwrap().send_event(CustomEvent::SkyboxTextureLoad(file_contents,sender)).unwrap();
+           let res =  receiver.await;
+            Ok(JsValue::TRUE)
+        }
+        else
+        {
+            Err(JsValue::from_str("Invalid argument!"))
         }
     }
 }

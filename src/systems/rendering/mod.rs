@@ -6,3 +6,4 @@ pub mod updateuniformbuffers;
 pub mod updatebuffers;
 pub mod computelightculling;
 pub mod updatecamera;
+pub mod renderskybox;

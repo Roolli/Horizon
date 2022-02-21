@@ -24,12 +24,16 @@ impl Projection {
     }
     pub fn calc_proj_matrix(&self) -> Matrix4<f32>
     {
-        Matrix4::from(State::OPENGL_TO_WGPU_MATRIX) * Matrix4::new_perspective(
-            self.aspect_ratio,
-            self.fov_y,
-            self.z_near,
-            self.z_far,
-        )
+        let f = 1.0 / f32::tan(self.fov_y  *0.5);
+        // Infinite zfar value  https://github.com/toji/gl-matrix/commit/e906eb7bb02822a81b1d197c6b5b33563c0403c0
+        let mut mat = Matrix4::zeros();
+        mat[(0,0)] = f / self.aspect_ratio;
+        mat[(1,1)] = f;
+        mat[(2,2)] = -1.0;
+        mat[(2,3)]= -self.z_near;
+        mat[(3,2)] = -1.0;
+        Matrix4::from(State::OPENGL_TO_WGPU_MATRIX) * mat
+
     }
 }
 

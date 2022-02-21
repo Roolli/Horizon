@@ -64,7 +64,6 @@ impl CameraController
             {
                 0.0
             };
-            log::info!("keyCode {:?} state: {:?}",key_code,input.state);
             match key_code {
                 VirtualKeyCode::W | VirtualKeyCode::Up => {
                     self.move_forward = state;

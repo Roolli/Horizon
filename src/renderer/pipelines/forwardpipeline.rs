@@ -3,7 +3,7 @@ use super::HorizonPipeline;
 use crate::renderer::pipelines::RenderPipelineBuilder;
 use crate::renderer::primitives::texture::Texture;
 
-use wgpu::ColorTargetState;
+use wgpu::{ColorTargetState, DepthStencilState};
 
 pub struct ForwardPipeline(pub wgpu::RenderPipeline);
 
@@ -53,7 +53,7 @@ impl<'a> HorizonPipeline<'a> for ForwardPipeline {
             entry_point: "fs_main",
         });
 
-        let _depth_stencil_state = wgpu::DepthStencilState {
+        let depth_stencil_state = wgpu::DepthStencilState {
             bias: wgpu::DepthBiasState {
                 ..Default::default()
             },
@@ -82,7 +82,7 @@ impl<'a> HorizonPipeline<'a> for ForwardPipeline {
             device,
             &render_pipeline_layout,
             Some("forward Render pipeline"),
-            None,
+            Some(depth_stencil_state),
         )
     }
 }

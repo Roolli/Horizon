@@ -62,38 +62,7 @@ impl<'a> System<'a> for RenderForwardPass {
 
         let cmd_encoder = encoder.get_encoder();
 
-        // {
-        //     let renderer = TextureRenderer::new(
-        //         &state.device,
-        //         binding_resource_container
-        //             .texture_views
-        //             .get("albedo_view")
-        //             .unwrap(),
-        //         &state.sc_descriptor,
-        //     );
-        //     let mut render_pass = cmd_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-        //         color_attachments: &[wgpu::RenderPassColorAttachment {
-        //             view: frame_view,
-        //             resolve_target: None,
-        //             ops: wgpu::Operations {
-        //                 load: wgpu::LoadOp::Clear(wgpu::Color {
-        //                     r: 0.1,
-        //                     g: 0.2,
-        //                     b: 0.3,
-        //                     a: 1.0,
-        //                 }),
-        //                 store: true,
-        //             },
-        //         }],
-        //         depth_stencil_attachment: None,
-        //         label: Some("texture renderer"),
-        //     });
 
-        //     render_pass.set_pipeline(&renderer.render_pipeline);
-        //     render_pass.set_bind_group(0, &renderer.bind_group, &[]);
-        //     render_pass.set_vertex_buffer(0, renderer.quad.slice(..));
-        //     render_pass.draw(0..TextureRenderer::QUAD_VERTEX_ARRAY.len() as u32, 0..1);
-        // }
 
         let mut render_pass = cmd_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("forward pass"),
@@ -110,17 +79,14 @@ impl<'a> System<'a> for RenderForwardPass {
                     store: true,
                 },
             }],
-            depth_stencil_attachment: None,
+            depth_stencil_attachment:  Some(wgpu::RenderPassDepthStencilAttachment {
+                view: &state.depth_texture.view,
+                depth_ops:None,
+                stencil_ops: None,
+            }),
         });
 
-        // Some(wgpu::RenderPassDepthStencilAttachment {
-        //         view: &state.depth_texture.view,
-        //         depth_ops: Some(wgpu::Operations {
-        //             load: wgpu::LoadOp::Clear(0.0),
-        //             store: false,
-        //         }),
-        //         stencil_ops: None,
-        //     }),
+
 
         render_pass.set_pipeline(&forward_pipeline.0);
 

@@ -2,7 +2,8 @@ use std::{num::NonZeroU8};
 
 use anyhow::*;
 use bytemuck::Contiguous;
-use image::{DynamicImage, GenericImageView, ImageBuffer};
+use image::{DynamicImage, GenericImageView, ImageBuffer, ImageFormat};
+use crate::SkyboxBindGroup;
 
 pub struct Texture {
     pub texture: wgpu::Texture,
@@ -20,7 +21,7 @@ impl Texture {
         is_normal: bool,
     ) -> Result<Self> {
         let img = image::load_from_memory(bytes)?;
-        Self::from_image(&device, &queue, &img, Some(label), is_normal)
+        Self::from_image(device, queue, &img, Some(label), is_normal)
     }
     pub fn from_image(
         device: &wgpu::Device,
@@ -97,7 +98,7 @@ impl Texture {
         }
 
         let img = DynamicImage::ImageRgb8(buffer);
-        Self::from_image(&device, &queue, &img, label, is_normal).unwrap()
+        Self::from_image(device,queue, &img, label, is_normal).unwrap()
     }
     pub fn create_depth_texture(
         device: &wgpu::Device,
@@ -129,7 +130,7 @@ impl Texture {
             min_filter: wgpu::FilterMode::Linear,
             mipmap_filter: wgpu::FilterMode::Nearest,
             compare: Some(wgpu::CompareFunction::Greater),
-            lod_min_clamp: 1.0,
+            lod_min_clamp: 0.1,
             lod_max_clamp: 100.0,
             label: Some("depth_texture_sampler"),
             ..Default::default()
@@ -150,5 +151,26 @@ impl Texture {
         let img = image::load_from_memory(buffer).unwrap();
 
         Self::from_image(device, queue, &img, label, is_normal)
+    }
+    pub fn load_skybox_texture(device:&wgpu::Device,queue:&wgpu::Queue,buffer:&[u8],texture: &wgpu::Texture)
+    {
+        // Use DDS formats for skybox only!
+
+        let img = ddsfile::Dds::read(buffer).unwrap();
+
+        queue.write_texture(wgpu::ImageCopyTexture{
+            texture,
+            mip_level:0,
+            origin:wgpu::Origin3d::ZERO,
+            aspect: wgpu::TextureAspect::All,
+        },img.data.as_slice(),wgpu::ImageDataLayout{
+            offset: 0_u64,
+            bytes_per_row: std::num::NonZeroU32::new(4 * SkyboxBindGroup::IMAGE_SIZE),
+            rows_per_image: std::num::NonZeroU32::new( SkyboxBindGroup::IMAGE_SIZE),
+        },wgpu::Extent3d{
+            width:SkyboxBindGroup::IMAGE_SIZE,
+            height:SkyboxBindGroup::IMAGE_SIZE,
+            depth_or_array_layers: 6,
+        });
     }
 }

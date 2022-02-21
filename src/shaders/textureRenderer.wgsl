@@ -21,3 +21,22 @@ fn vs_main(@location(0) a_coord: vec2<f32>) -> TextureRendererVertexOutputs {
 fn fs_main(input: TextureRendererVertexOutputs) -> @location(0) vec4<f32> {
     return textureSample(t_texture,t_sampler,input.out_coords);
 }
+
+
+@stage(vertex)
+fn depth_vs_main(@builtin(vertex_index) in: u32) -> @builtin(position) vec4<f32> {
+    var pos: array<vec2<f32>,6> = array<vec2<f32>,6>( vec2<f32>(-1.0, -1.0), vec2<f32>(1.0, -1.0), vec2<f32>(-1.0, 1.0),
+    vec2<f32>(-1.0, 1.0), vec2<f32>(1.0, -1.0), vec2<f32>(1.0, 1.0));
+    
+    return vec4<f32>(pos[in],0.0,1.0);
+}
+@group(0)
+@binding(0)
+var depth_texture: texture_depth_2d;
+
+
+@stage(fragment)
+fn depth_fs_main(@builtin(position) in: vec4<f32>) -> @location(0) vec4<f32> {
+    let depthValue = textureLoad(depth_texture,vec2<i32>(floor(in.xy)),0);
+    return vec4<f32>(depthValue,depthValue,depthValue,1.0);
+}

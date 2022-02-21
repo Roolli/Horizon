@@ -39,6 +39,7 @@ mod filesystem;
 mod renderer;
 mod resources;
 mod scripting;
+mod ui;
 
 use crate::renderer::state::State;
 mod components;
@@ -65,11 +66,14 @@ use ref_thread_local::RefThreadLocal;
 use tobj::Model;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::spawn_local;
 use ecscontainer::ECSContainer;
+use crate::renderer::bindgroups::skybox::SkyboxBindGroup;
+use crate::renderer::pipelines::skyboxpipeline::SkyboxPipeline;
+use crate::renderer::primitives::texture::Texture;
 use crate::resources::camera::CameraController;
 use crate::resources::deltatime::DeltaTime;
 use crate::resources::eguicontainer::EguiContainer;
-use crate::resources::eguirenderpass::EguiRenderPass;
 use crate::resources::projection::Projection;
 
 #[wasm_bindgen]
@@ -81,6 +85,7 @@ extern "C" {
 #[derive(Debug)]
 enum CustomEvent {
     RequestModelLoad((Vec<Model>,Vec<(Vec<u8>,Vec<u8>,String)>),futures::channel::oneshot::Sender<Entity>),
+    SkyboxTextureLoad(Vec<u8>,futures::channel::oneshot::Sender<()>),
 }
 ref_thread_local::ref_thread_local!{
         pub static managed EVENT_LOOP_PROXY: Option<winit::event_loop::EventLoopProxy<CustomEvent>> = None;
@@ -140,9 +145,7 @@ pub fn setup() {
             });
             let _demo_app = egui_demo_lib::WrapApp::default();
             ecs.world.insert(EguiContainer{
-                render_pass: EguiRenderPass{
-                    pass: RenderPass::new(&state.device,state.sc_descriptor.format,1)
-                },
+                render_pass:  RenderPass::new(&state.device,state.sc_descriptor.format,1),
                 platform,
             });
             ecs.setup(state);
@@ -200,7 +203,7 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
 
     let state = ecs.world.write_resource::<State>();
     let cam = Camera::new(Point3::new(0.0, 5.0, 10.0),f32::to_radians(-90.0),f32::to_radians(-20.0));
-    let proj = Projection::new(state.sc_descriptor.width,state.sc_descriptor.height,f32::to_radians(90.0),0.1,200.0);
+    let proj = Projection::new(state.sc_descriptor.width,state.sc_descriptor.height,f32::to_radians(45.0),2.0,200.0);
     let cam_controller = CameraController::new(4.0,1.0);
 
     drop(state);
@@ -308,31 +311,44 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
             },
             Event::UserEvent(event)=>{
                 //TODO: add a system which handles this event and use a resource to pass the data to it!
-               let CustomEvent::RequestModelLoad(data,sender) = event;
+                match event {
+                    CustomEvent::SkyboxTextureLoad(data,sender) => {
+                        let container = ECSContainer::global_mut();
+                        let state = container.world.read_resource::<State>();
+                        let binding_resource_container = container.world.read_resource::<BindingResourceContainer>();
+
+                        Texture::load_skybox_texture(&state.device, &state.queue, data.as_slice(), &binding_resource_container.textures.get("skybox_texture").unwrap());
+                        sender.send(()).unwrap();
+                    },
+                    CustomEvent::RequestModelLoad(data,sender) =>{
+                        let container = ECSContainer::global_mut();
+                        let state = container.world.read_resource::<State>();
+                        let obj_model = container
+                            .world
+                            .read_resource::<ModelBuilder>()
+                            .create(&state.device, &state.queue,data,"test.obj");
+                        // TODO: change to return result to handle missing assets
+                        let collision_builder =
+                            rapier3d::geometry::ColliderBuilder::convex_hull(obj_model.meshes[0].points.as_slice()).unwrap();
+                        let model_entity = container
+                            .world
+                            .create_entity_unchecked()
+                            .with(obj_model)
+                            .with(crate::components::modelcollider::ModelCollider(collision_builder))
+                            .build();
+                        sender.send(model_entity).unwrap();
+                    }
+                };
 
 
-                let container = ECSContainer::global_mut();
-                let state = container.world.read_resource::<State>();
-                let obj_model = container
-                    .world
-                    .read_resource::<ModelBuilder>()
-                    .create(&state.device, &state.queue,data,"test.obj");
-                   // TODO: change to return result to handle missing assets
-                let collision_builder =
-                    rapier3d::geometry::ColliderBuilder::convex_hull(obj_model.meshes[0].points.as_slice()).unwrap();
-                let model_entity = container
-                    .world
-                    .create_entity_unchecked()
-                    .with(obj_model)
-                    .with(crate::components::modelcollider::ModelCollider(collision_builder))
-                    .build();
-                sender.send(model_entity).unwrap();
+
+
             }
             _ => {}
         }
     });
 }
-/// Initializes a new ECS container (World) and registers the components, creates the dependency chain for the system and sets up resources.
+/// Initializes a new ECS container (World) and registers the components, creates the dependency tree for the system and sets up resources.
 
 fn setup_pipelines(world: &mut World) {
     let state = world.read_resource::<State>();
@@ -342,6 +358,7 @@ fn setup_pipelines(world: &mut World) {
     LightBindGroup::get_resources(&state.device, &mut binding_resource_container);
     DeferredBindGroup::get_resources(&state.device, &mut binding_resource_container);
     TilingBindGroup::get_resources(&state.device, &mut binding_resource_container);
+    SkyboxBindGroup::get_resources(&state.device,&mut binding_resource_container);
     GBuffer::generate_g_buffers(
         &state.device,
         &state.sc_descriptor,
@@ -444,6 +461,11 @@ fn setup_pipelines(world: &mut World) {
                 .unwrap(),
         ),
     );
+    let skybox_container = SkyboxBindGroup::create_container(
+        &state.device,(binding_resource_container.buffers.get("skybox_buffer").unwrap(),
+                       binding_resource_container.texture_views.get("skybox_texture_view").unwrap(),
+                       binding_resource_container.samplers.get("skybox_sampler").unwrap())
+    );
 
     let gbuffer_pipeline = GBufferPipeline::create_pipeline(
         &state.device,
@@ -488,6 +510,7 @@ fn setup_pipelines(world: &mut World) {
             &tiling_container.layout,
         ),
     );
+    let skybox_pipeline = SkyboxPipeline::create_pipeline(&state.device,&skybox_container.layout,&[state.sc_descriptor.format.into()]);
 
     drop(state);
     drop(binding_resource_container);
@@ -496,6 +519,7 @@ fn setup_pipelines(world: &mut World) {
     world.insert(ShadowPipeline(shadow_pipeline));
     world.insert(GBufferPipeline(gbuffer_pipeline));
     world.insert(LightCullingPipeline(lightculling_pipeline));
+    world.insert(SkyboxPipeline(skybox_pipeline));
     world
         .create_entity()
         .with(UniformBindGroup)
@@ -521,6 +545,10 @@ fn setup_pipelines(world: &mut World) {
         .create_entity()
         .with(TilingBindGroup)
         .with(tiling_container)
+        .build();
+    world.create_entity()
+        .with(SkyboxBindGroup)
+        .with(skybox_container)
         .build();
 }
 

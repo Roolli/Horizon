@@ -1,19 +1,15 @@
 use specs::{Entities, Join, ReadExpect, ReadStorage, System, WriteExpect};
 use wgpu::{BufferAddress, LoadOp};
 
-use crate::{
-    components::transform::{Transform, TransformRaw},
-    renderer::{
-        bindgroupcontainer::BindGroupContainer,
-        bindgroups::uniforms::UniformBindGroup,
-        model::{HorizonModel},
-        pipelines::gbufferpipeline::GBufferPipeline,
-        state::State,
-    },
-    resources::{
-        bindingresourcecontainer::BindingResourceContainer, commandencoder::HorizonCommandEncoder,
-    },
-};
+use crate::{components::transform::{Transform, TransformRaw}, EguiContainer, renderer::{
+    bindgroupcontainer::BindGroupContainer,
+    bindgroups::uniforms::UniformBindGroup,
+    model::{HorizonModel},
+    pipelines::gbufferpipeline::GBufferPipeline,
+    state::State,
+}, resources::{
+    bindingresourcecontainer::BindingResourceContainer, commandencoder::HorizonCommandEncoder,
+}};
 
 pub struct WriteGBuffer;
 
@@ -27,6 +23,7 @@ impl<'a> System<'a> for WriteGBuffer {
         ReadStorage<'a, Transform>,
         ReadStorage<'a, HorizonModel>,
         ReadExpect<'a, GBufferPipeline>,
+        WriteExpect<'a,EguiContainer>,
         Entities<'a>,
     );
 
@@ -41,9 +38,13 @@ impl<'a> System<'a> for WriteGBuffer {
             transforms,
             models,
             gbuffer_pipeline,
+           mut egui_container,
             entities,
         ): Self::SystemData,
     ) {
+        //TODO: move egui begin to separate system... maybe.
+        egui_container.platform.begin_frame();
+
         let cmd_encoder = encoder.get_encoder();
 
         let mut render_pass = cmd_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -125,9 +126,9 @@ impl<'a> System<'a> for WriteGBuffer {
                     .unwrap(),
                 (std::mem::size_of::<TransformRaw>()  *begin_instance_index as usize) as BufferAddress,
                 bytemuck::cast_slice(&instance_buffer),
-            );;
+            );
 
-            let normal_matricies = instance_buffer
+            let normal_matrices = instance_buffer
                 .iter()
                 .map(TransformRaw::get_normal_matrix)
                 .collect::<Vec<_>>();
@@ -137,7 +138,7 @@ impl<'a> System<'a> for WriteGBuffer {
                     .get("normal_buffer")
                     .unwrap(),
                 (std::mem::size_of::<TransformRaw>()  *begin_instance_index as usize) as BufferAddress,
-                bytemuck::cast_slice(&normal_matricies),
+                bytemuck::cast_slice(&normal_matrices),
             );
             let (_, uniform_bind_group_container) = (&uniform_bind_group, &bind_group_container)
                 .join()

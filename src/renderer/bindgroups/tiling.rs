@@ -6,6 +6,7 @@ use wgpu::BufferUsages;
 
 use crate::renderer::bindgroupcontainer::BindGroupContainer;
 use crate::renderer::primitives::uniforms::TileInfo;
+use crate::Tiling;
 
 use super::HorizonBindGroup;
 
@@ -78,7 +79,6 @@ impl<'a> HorizonBindGroup<'a> for TilingBindGroup {
             usage: BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
         resource_container
-            .buffers
-            .insert(String::from("tiling_buffer"), tiling_buffer);
+            .buffers[Tiling] =Some(tiling_buffer);
     }
 }

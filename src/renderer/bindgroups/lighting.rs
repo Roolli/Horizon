@@ -7,6 +7,8 @@ use crate::renderer::{
     state::State,
 };
 use specs::*;
+use crate::{BufferTypes};
+
 #[derive(Component, Default)]
 #[storage(NullStorage)]
 pub struct LightBindGroup;
@@ -118,15 +120,11 @@ impl<'a> HorizonBindGroup<'a> for LightBindGroup {
                 | wgpu::BufferUsages::COPY_SRC
                 | wgpu::BufferUsages::COPY_DST,
         });
-        resource_container.buffers.insert(
-            String::from("directional_light_buffer"),
-            directional_light_buffer,
-        );
+        resource_container.buffers[BufferTypes::DirectionalLight]=Some(directional_light_buffer);
         resource_container
-            .buffers
-            .insert(String::from("spot_light_buffer"), spot_light_buffer);
+            .buffers[BufferTypes::SpotLight]
+            = Some(spot_light_buffer);
         resource_container
-            .buffers
-            .insert(String::from("point_light_buffer"), point_light_buffer);
+            .buffers[BufferTypes::PointLight] =Some(point_light_buffer);
     }
 }

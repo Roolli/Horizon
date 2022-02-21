@@ -2,7 +2,7 @@
 
 use specs::{Entities, Join, ReadStorage, System, WriteExpect, WriteStorage};
 
-use crate::{Projection, renderer::{
+use crate::{CanvasSize, DeferredAlbedo, DeferredNormals, DeferredPosition, DeferredTexture, Projection, renderer::{
     bindgroupcontainer::BindGroupContainer,
     bindgroups::{deferred::DeferredBindGroup, gbuffer::GBuffer, HorizonBindGroup},
     primitives::{texture::Texture, uniforms::CanvasConstants},
@@ -49,9 +49,7 @@ impl<'a> System<'a> for Resize {
         state.surface.configure(&state.device, &state.sc_descriptor);
         state.queue.write_buffer(
             resource_container
-                .buffers
-                .get("canvas_size_buffer")
-                .unwrap(),
+                .buffers[CanvasSize].as_ref().unwrap(),
             0,
             bytemuck::bytes_of(&CanvasConstants {
                 size: [
@@ -63,17 +61,13 @@ impl<'a> System<'a> for Resize {
         *bind_group = DeferredBindGroup::create_container(
             &state.device,
             (
-                resource_container.samplers.get("texture_sampler").unwrap(),
+                resource_container.samplers[DeferredTexture].as_ref().unwrap(),
                 resource_container
-                    .texture_views
-                    .get("position_view")
-                    .unwrap(),
-                resource_container.texture_views.get("normal_view").unwrap(),
-                resource_container.texture_views.get("albedo_view").unwrap(),
+                    .texture_views[DeferredPosition].as_ref().unwrap(),
+                resource_container.texture_views[DeferredNormals].as_ref().unwrap(),
+                resource_container.texture_views[DeferredAlbedo].as_ref().unwrap(),
                 resource_container
-                    .buffers
-                    .get("canvas_size_buffer")
-                    .unwrap(),
+                    .buffers[CanvasSize].as_ref().unwrap()
             ),
         );
         log::info!("resize has occured!");

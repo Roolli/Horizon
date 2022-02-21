@@ -1,20 +1,17 @@
 use specs::{Entities, Join, ReadExpect, ReadStorage, System, WriteExpect};
 use wgpu::BufferAddress;
 
-use crate::{
-    components::transform::{Transform},
-    renderer::{
-        bindgroupcontainer::BindGroupContainer,
-        bindgroups::shadow::ShadowBindGroup,
-        model::{HorizonModel},
-        pipelines::{shadowpipeline::ShadowPipeline},
-        state::State,
-    },
-    resources::{
-        bindingresourcecontainer::BindingResourceContainer, commandencoder::HorizonCommandEncoder,
-    },
-};
+use crate::{BufferTypes, components::transform::{Transform}, Instances, renderer::{
+    bindgroupcontainer::BindGroupContainer,
+    bindgroups::shadow::ShadowBindGroup,
+    model::{HorizonModel},
+    pipelines::{shadowpipeline::ShadowPipeline},
+    state::State,
+}, resources::{
+    bindingresourcecontainer::BindingResourceContainer, commandencoder::HorizonCommandEncoder,
+}, ShadowUniform};
 use crate::components::transform::TransformRaw;
+use crate::resources::bindingresourcecontainer::TextureViewTypes;
 
 pub struct RenderShadowPass;
 impl<'a> System<'a> for RenderShadowPass {
@@ -48,13 +45,9 @@ impl<'a> System<'a> for RenderShadowPass {
         cmd_encoder.push_debug_group("shadow pass");
         // copy the light's view matrix to the shadow uniform buffer
         let dir_light_buf = binding_resource_container
-            .buffers
-            .get("directional_light_buffer")
-            .unwrap();
+            .buffers[BufferTypes::DirectionalLight].as_ref().unwrap();
         let shadow_uniform_buf = binding_resource_container
-            .buffers
-            .get("shadow_uniform_buffer")
-            .unwrap();
+            .buffers[ShadowUniform].as_ref().unwrap();
         cmd_encoder.copy_buffer_to_buffer(dir_light_buf, 0, shadow_uniform_buf, 0, 64);
 
         cmd_encoder.insert_debug_marker("render_entities");
@@ -63,9 +56,7 @@ impl<'a> System<'a> for RenderShadowPass {
             color_attachments: &[],
             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                 view: binding_resource_container
-                    .texture_views
-                    .get("shadow_view")
-                    .unwrap(),
+                    .texture_views[TextureViewTypes::Shadow].as_ref().unwrap(),
                 depth_ops: Some(wgpu::Operations {
                     load: wgpu::LoadOp::Clear(0.0f32),
                     store: true,
@@ -91,9 +82,7 @@ impl<'a> System<'a> for RenderShadowPass {
             }
             state.queue.write_buffer(
                 binding_resource_container
-                    .buffers
-                    .get("instance_buffer")
-                    .unwrap(),
+                    .buffers[Instances].as_ref().unwrap(),
                 (std::mem::size_of::<TransformRaw>() * begin_instance_index as usize) as BufferAddress,
                 bytemuck::cast_slice(&instance_buffer),
             );

@@ -2,6 +2,8 @@ use super::HorizonBindGroup;
 use crate::renderer::{bindgroups::BindGroupContainer, primitives::uniforms::ShadowUniforms};
 
 use specs::*;
+use crate::ShadowUniform;
+
 #[derive(Component, Default)]
 #[storage(NullStorage)]
 pub struct ShadowBindGroup;
@@ -73,7 +75,6 @@ impl<'a> HorizonBindGroup<'a> for ShadowBindGroup {
         });
 
         resource_container
-            .buffers
-            .insert(String::from("shadow_uniform_buffer"), uniform_buffer);
+            .buffers[ShadowUniform]=Some(uniform_buffer);
     }
 }

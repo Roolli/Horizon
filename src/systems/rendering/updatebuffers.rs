@@ -1,7 +1,7 @@
 use rapier3d::na::{Matrix3, Matrix4};
 use specs::{Join, ReadExpect, ReadStorage, System, WriteExpect};
 
-use crate::{Projection, renderer::{
+use crate::{BufferTypes, Projection, renderer::{
     primitives::{
         lights::{
             directionallight::DirectionalLight, pointlight::PointLight, spotlight::SpotLight,
@@ -9,7 +9,7 @@ use crate::{Projection, renderer::{
         uniforms::{Globals},
     },
     state::State,
-}, resources::{bindingresourcecontainer::BindingResourceContainer, camera::Camera}};
+}, resources::{bindingresourcecontainer::BindingResourceContainer, camera::Camera}, Skybox, Uniform};
 use crate::renderer::primitives::uniforms::SkyboxUniform;
 
 pub struct UpdateBuffers;
@@ -33,9 +33,7 @@ impl<'a> System<'a> for UpdateBuffers {
         globals.update_view_proj_matrix(&cam,&proj);
         state.queue.write_buffer(
             binding_resource_container
-                .buffers
-                .get("uniform_buffer")
-                .unwrap(),
+                .buffers[Uniform].as_ref().unwrap(),
             0,
             bytemuck::bytes_of(&*globals),
         );
@@ -43,7 +41,7 @@ impl<'a> System<'a> for UpdateBuffers {
         // Matrix4::from_data(Matrix3::new(view_matrix.m11,view_matrix.m12,view_matrix.m13,view_matrix.m21,view_matrix.m22,view_matrix.m23,view_matrix.m31,view_matrix.m32,view_matrix.m33).to_homogeneous().data)).into()
          let view_matrix = cam.get_view_matrix();
         state.queue.write_buffer(
-            binding_resource_container.buffers.get("skybox_buffer").unwrap(),
+            binding_resource_container.buffers[Skybox].as_ref().unwrap(),
             0,
             bytemuck::bytes_of(
                 &SkyboxUniform{
@@ -52,9 +50,7 @@ impl<'a> System<'a> for UpdateBuffers {
                 }));
         state.queue.write_buffer(
             binding_resource_container
-                .buffers
-                .get("directional_light_buffer")
-                .unwrap(),
+                .buffers[BufferTypes::DirectionalLight].as_ref().unwrap(),
             0,
             bytemuck::bytes_of(&dir_light.to_raw(&cam,&proj)),
         );
@@ -71,17 +67,13 @@ impl<'a> System<'a> for UpdateBuffers {
         globals.set_spot_light_count(spot_light_raw.len() as u32);
         state.queue.write_buffer(
             binding_resource_container
-                .buffers
-                .get("spot_light_buffer")
-                .unwrap(),
+                .buffers[BufferTypes::SpotLight].as_ref().unwrap(),
             0,
             bytemuck::cast_slice(&spot_light_raw),
         );
         state.queue.write_buffer(
             binding_resource_container
-                .buffers
-                .get("point_light_buffer")
-                .unwrap(),
+                .buffers[BufferTypes::PointLight].as_ref().unwrap(),
             0,
             bytemuck::cast_slice(&point_light_raw),
         );

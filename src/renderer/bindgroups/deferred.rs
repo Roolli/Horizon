@@ -4,6 +4,8 @@ use crate::renderer::{
 };
 use specs::*;
 use wgpu::util::DeviceExt;
+use crate::resources::bindingresourcecontainer::BufferTypes::{CanvasSize, DeferredVao};
+
 #[derive(Component, Default)]
 #[storage(NullStorage)]
 pub struct DeferredBindGroup;
@@ -129,18 +131,13 @@ impl<'a> HorizonBindGroup<'a> for DeferredBindGroup {
             size: std::mem::size_of::<CanvasConstants>() as wgpu::BufferAddress,
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
         });
-        resource_container.buffers.insert(
-            String::from(stringify!(canvas_size_buffer)),
-            canvas_size_buffer,
-        );
+        resource_container.buffers[CanvasSize] =Some(canvas_size_buffer);
 
         let deferred_vao = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             contents: bytemuck::cast_slice(&Self::ARRAY),
             usage: wgpu::BufferUsages::VERTEX,
             label: Some("deferred_vao"),
         });
-        resource_container
-            .buffers
-            .insert(String::from(stringify!(deferred_vao)), deferred_vao);
+        resource_container.buffers[DeferredVao] =Some(deferred_vao);
     }
 }

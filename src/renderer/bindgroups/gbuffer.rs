@@ -1,8 +1,8 @@
 use wgpu::{Device, TextureDescriptor};
 
-use crate::{
-    resources::bindingresourcecontainer::BindingResourceContainer,
-};
+use crate::{DeferredAlbedo, DeferredNormals, DeferredPosition, resources::bindingresourcecontainer::BindingResourceContainer};
+use crate::resources::bindingresourcecontainer::SamplerTypes;
+use crate::resources::bindingresourcecontainer::TextureTypes::{Albedo, PositionDiffuseNormals};
 
 pub struct GBuffer;
 
@@ -57,27 +57,18 @@ impl GBuffer {
         });
         let albedo_view = albedo_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        resource_container.textures.insert(
-            String::from(stringify!(pos_diffuse_normal_texture)),
-            pos_diffuse_normal_texture,
-        );
-        resource_container
-            .textures
-            .insert(String::from(stringify!(albedo_texture)), albedo_texture);
+        resource_container.textures[PositionDiffuseNormals] = Some(pos_diffuse_normal_texture);
+        resource_container.textures[Albedo] = Some(albedo_texture);
 
         resource_container
-            .texture_views
-            .insert(String::from(stringify!(albedo_view)), albedo_view);
+            .texture_views[DeferredAlbedo]=
+             Some(albedo_view);
+
+        resource_container.texture_views[DeferredNormals]= Some(normal_view);
 
         resource_container
-            .texture_views
-            .insert(String::from(stringify!(normal_view)), normal_view);
-
+            .texture_views[DeferredPosition]=Some(position_view);
         resource_container
-            .texture_views
-            .insert(String::from(stringify!(position_view)), position_view);
-        resource_container
-            .samplers
-            .insert(String::from(stringify!(texture_sampler)), texture_sampler);
+            .samplers[SamplerTypes::DeferredTexture] =Some(texture_sampler);
     }
 }

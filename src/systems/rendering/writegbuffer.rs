@@ -1,7 +1,7 @@
 use specs::{Entities, Join, ReadExpect, ReadStorage, System, WriteExpect};
 use wgpu::{BufferAddress, LoadOp};
 
-use crate::{components::transform::{Transform, TransformRaw}, EguiContainer, renderer::{
+use crate::{components::transform::{Transform, TransformRaw}, DeferredAlbedo, DeferredNormals, DeferredPosition, EguiContainer, Instances, Normals, renderer::{
     bindgroupcontainer::BindGroupContainer,
     bindgroups::uniforms::UniformBindGroup,
     model::{HorizonModel},
@@ -70,9 +70,7 @@ impl<'a> System<'a> for WriteGBuffer {
                         store: true,
                     },
                     view: binding_resource_container
-                        .texture_views
-                        .get("position_view")
-                        .unwrap(),
+                        .texture_views[DeferredPosition].as_ref().unwrap()
                 },
                 wgpu::RenderPassColorAttachment {
                     resolve_target: None,
@@ -86,9 +84,7 @@ impl<'a> System<'a> for WriteGBuffer {
                         store: true,
                     },
                     view: binding_resource_container
-                        .texture_views
-                        .get("normal_view")
-                        .unwrap(),
+                        .texture_views[DeferredNormals].as_ref().unwrap(),
                 },
                 wgpu::RenderPassColorAttachment {
                     resolve_target: None,
@@ -102,9 +98,7 @@ impl<'a> System<'a> for WriteGBuffer {
                         store: true,
                     },
                     view: binding_resource_container
-                        .texture_views
-                        .get("albedo_view")
-                        .unwrap(),
+                        .texture_views[DeferredAlbedo].as_ref().unwrap(),
                 },
             ],
         });
@@ -121,9 +115,7 @@ impl<'a> System<'a> for WriteGBuffer {
 
             state.queue.write_buffer(
                 binding_resource_container
-                    .buffers
-                    .get("instance_buffer")
-                    .unwrap(),
+                    .buffers[Instances].as_ref().unwrap(),
                 (std::mem::size_of::<TransformRaw>()  *begin_instance_index as usize) as BufferAddress,
                 bytemuck::cast_slice(&instance_buffer),
             );
@@ -134,9 +126,7 @@ impl<'a> System<'a> for WriteGBuffer {
                 .collect::<Vec<_>>();
             state.queue.write_buffer(
                 binding_resource_container
-                    .buffers
-                    .get("normal_buffer")
-                    .unwrap(),
+                    .buffers[Normals].as_ref().unwrap(),
                 (std::mem::size_of::<TransformRaw>()  *begin_instance_index as usize) as BufferAddress,
                 bytemuck::cast_slice(&normal_matrices),
             );

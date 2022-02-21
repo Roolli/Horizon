@@ -4,6 +4,9 @@ use crate::renderer::{
 };
 
 use specs::*;
+use crate::{Instances, Normals, Shadow, Uniform};
+use crate::resources::bindingresourcecontainer::{TextureTypes, TextureViewTypes};
+
 #[derive(Component, Default)]
 #[storage(NullStorage)]
 pub struct UniformBindGroup;
@@ -162,22 +165,16 @@ impl<'a> HorizonBindGroup<'a> for UniformBindGroup {
             mapped_at_creation: false,
         });
         resource_container
-            .samplers
-            .insert(String::from("shadow_sampler"), shadow_sampler);
+            .samplers[Shadow] = Some(shadow_sampler);
         resource_container
-            .textures
-            .insert(String::from("shadow_texture"), shadow_texture);
+            .textures[TextureTypes::Shadow] = Some(shadow_texture);
         resource_container
-            .texture_views
-            .insert(String::from("shadow_view"), shadow_view);
+            .texture_views[TextureViewTypes::Shadow] = Some(shadow_view);
         resource_container
-            .buffers
-            .insert(String::from("normal_buffer"), normal_matrix_buffer);
+            .buffers[Normals] = Some(normal_matrix_buffer);
         resource_container
-            .buffers
-            .insert(String::from("instance_buffer"), instance_buffer);
+            .buffers[Instances] = Some(instance_buffer);
         resource_container
-            .buffers
-            .insert(String::from("uniform_buffer"), uniform_buffer);
+            .buffers[Uniform] = Some(uniform_buffer);
     }
 }

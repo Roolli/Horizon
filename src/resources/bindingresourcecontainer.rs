@@ -1,18 +1,61 @@
 use std::collections::HashMap;
+use enum_map::{EnumMap, Enum};
+
 pub struct BindingResourceContainer {
-    pub buffers: HashMap<String, wgpu::Buffer>,
-    pub textures: HashMap<String, wgpu::Texture>,
-    pub texture_views: HashMap<String, wgpu::TextureView>,
-    pub samplers: HashMap<String, wgpu::Sampler>,
+    pub buffers: EnumMap<BufferTypes, Option<wgpu::Buffer>>,
+    pub textures: EnumMap<TextureTypes, Option< wgpu::Texture>>,
+    pub texture_views: EnumMap<TextureViewTypes, Option<wgpu::TextureView>>,
+    pub samplers: EnumMap<SamplerTypes, Option<wgpu::Sampler>>,
 }
 
 impl Default for BindingResourceContainer {
     fn default() -> Self {
         Self {
-            buffers: HashMap::new(),
-            textures: HashMap::new(),
-            texture_views: HashMap::new(),
-            samplers: HashMap::new(),
+            buffers: EnumMap::default(),
+            textures: EnumMap::default(),
+            texture_views: EnumMap::default(),
+            samplers: EnumMap::default(),
         }
     }
+}
+
+#[derive(Enum)]
+pub enum BufferTypes {
+    CanvasSize,
+    DeferredVao,
+    Uniform,
+    Normals,
+    Instances,
+    ShadowUniform,
+    DirectionalLight,
+    PointLight,
+    SpotLight,
+    Tiling,
+    Skybox,
+}
+
+#[derive(Enum)]
+pub enum SamplerTypes
+{
+    Shadow,
+    DeferredTexture,
+    Skybox,
+}
+
+#[derive(Enum)]
+pub enum TextureTypes
+{
+PositionDiffuseNormals,
+Albedo,
+Shadow,
+Skybox,
+}
+
+#[derive(Enum)]
+pub enum TextureViewTypes {
+    Shadow,
+    DeferredPosition,
+    DeferredNormals,
+    DeferredAlbedo,
+    Skybox,
 }

@@ -17,6 +17,7 @@ use chrono::Duration;
 
 
 use specs::prelude::*;
+use crate::resources::bindingresourcecontainer::BufferTypes::DeferredVao;
 
 pub struct RenderForwardPass;
 
@@ -110,11 +111,7 @@ impl<'a> System<'a> for RenderForwardPass {
 
         render_pass.set_vertex_buffer(
             0,
-            binding_resource_container
-                .buffers
-                .get("deferred_vao")
-                .unwrap()
-                .slice(..),
+            binding_resource_container.buffers[DeferredVao].as_ref().unwrap().slice(..),
         );
         // // // TODO: move this to it's own system
         render_pass.draw(0..6, 0..1);

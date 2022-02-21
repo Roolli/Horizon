@@ -42,6 +42,7 @@ mod scripting;
 mod ui;
 
 use crate::renderer::state::State;
+
 mod components;
 mod systems;
 pub mod ecscontainer;
@@ -71,6 +72,10 @@ use ecscontainer::ECSContainer;
 use crate::renderer::bindgroups::skybox::SkyboxBindGroup;
 use crate::renderer::pipelines::skyboxpipeline::SkyboxPipeline;
 use crate::renderer::primitives::texture::Texture;
+use crate::resources::bindingresourcecontainer::{BufferTypes, SamplerTypes, TextureTypes, TextureViewTypes};
+use crate::resources::bindingresourcecontainer::BufferTypes::{CanvasSize, Instances, Normals, PointLight, ShadowUniform, Skybox, SpotLight, Tiling, Uniform};
+use crate::resources::bindingresourcecontainer::SamplerTypes::{DeferredTexture, Shadow};
+use crate::resources::bindingresourcecontainer::TextureViewTypes::{DeferredAlbedo, DeferredNormals, DeferredPosition};
 use crate::resources::camera::CameraController;
 use crate::resources::deltatime::DeltaTime;
 use crate::resources::eguicontainer::EguiContainer;
@@ -78,16 +83,17 @@ use crate::resources::projection::Projection;
 
 #[wasm_bindgen]
 extern "C" {
-    #[wasm_bindgen(catch,js_namespace=Function,js_name="prototype.call.call")]
+    #[wasm_bindgen(catch, js_namespace = Function, js_name = "prototype.call.call")]
     fn call_catch(this: &JsValue) -> Result<(), JsValue>;
 }
+
 // TODO: convert sender to result<T> and return proper errors
 #[derive(Debug)]
 enum CustomEvent {
-    RequestModelLoad((Vec<Model>,Vec<(Vec<u8>,Vec<u8>,String)>),futures::channel::oneshot::Sender<Entity>),
-    SkyboxTextureLoad(Vec<u8>,futures::channel::oneshot::Sender<()>),
+    RequestModelLoad((Vec<Model>, Vec<(Vec<u8>, Vec<u8>, String)>), futures::channel::oneshot::Sender<Entity>),
+    SkyboxTextureLoad(Vec<u8>, futures::channel::oneshot::Sender<()>),
 }
-ref_thread_local::ref_thread_local!{
+ref_thread_local::ref_thread_local! {
         pub static managed EVENT_LOOP_PROXY: Option<winit::event_loop::EventLoopProxy<CustomEvent>> = None;
         pub static managed ECS_CONTAINER: ECSContainer = ECSContainer::new();
     }
@@ -104,93 +110,93 @@ pub fn setup() {
         .unwrap();
 
     #[cfg(target_arch = "wasm32")]
-    {
-        use web_sys::Window;
-        use winit::platform::web::WindowExtWebSys;
-        let win: Window = web_sys::window().unwrap();
+        {
+            use web_sys::Window;
+            use winit::platform::web::WindowExtWebSys;
+            let win: Window = web_sys::window().unwrap();
 
-        let screen_x = win.inner_width().unwrap().as_f64().unwrap();
-        let screen_y = win.inner_height().unwrap().as_f64().unwrap();
+            let screen_x = win.inner_width().unwrap().as_f64().unwrap();
+            let screen_y = win.inner_height().unwrap().as_f64().unwrap();
 
-        log::info!("x: {}", screen_x);
-        log::info!("y: {}", screen_y);
-        std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-        console_log::init().expect("failed to initialize logger");
-        let doc = win.document().unwrap();
+            log::info!("x: {}", screen_x);
+            log::info!("y: {}", screen_y);
+            std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+            console_log::init().expect("failed to initialize logger");
+            let doc = win.document().unwrap();
 
-        let body = doc.body().unwrap();
-        body.style().set_property("margin", "0px").unwrap();
+            let body = doc.body().unwrap();
+            body.style().set_property("margin", "0px").unwrap();
 
-        let canvas = window.canvas();
+            let canvas = window.canvas();
 
-        // TODO: if on web resize accordingly in the event.
-        canvas.set_height(screen_y as u32);
-        canvas.set_width(screen_x as u32);
-        body.append_child(&web_sys::Element::from(canvas)).ok();
-        doc.query_selector("canvas")
-            .unwrap()
-            .unwrap()
-            .remove_attribute("style")
-            .unwrap();
+            // TODO: if on web resize accordingly in the event.
+            canvas.set_height(screen_y as u32);
+            canvas.set_width(screen_x as u32);
+            body.append_child(&web_sys::Element::from(canvas)).ok();
+            doc.query_selector("canvas")
+                .unwrap()
+                .unwrap()
+                .remove_attribute("style")
+                .unwrap();
 
-        wasm_bindgen_futures::spawn_local(async move {
-            use wasm_bindgen::JsCast;
-            let state = State::new(&window).await;
-            let mut ecs = ECSContainer::global_mut();
-            let platform = Platform::new(PlatformDescriptor {
-                physical_height: state.sc_descriptor.height,
-                physical_width: state.sc_descriptor.width,
-                scale_factor: window.scale_factor(),
-                ..Default::default()
-            });
-            let _demo_app = egui_demo_lib::WrapApp::default();
-            ecs.world.insert(EguiContainer{
-                render_pass:  RenderPass::new(&state.device,state.sc_descriptor.format,1),
-                platform,
-            });
-            ecs.setup(state);
-            setup_pipelines(&mut ecs.world);
-            drop(ecs);
-            // https://github.com/gfx-rs/wgpu/issues/1457
-            // https://github.com/gfx-rs/wgpu/pull/1469/commits/07376d11e8b33639df3e002f2631dff27c289802
-
-            let run_closure = Closure::once_into_js(move || {
-                run(event_loop, window);
-            });
-            if let Err(error) = call_catch(&run_closure) {
-                let is_winit_error = error.dyn_ref::<js_sys::Error>().map_or(false, |e| {
-                    e.message().includes("Using exceptions for control flow", 0)
+            wasm_bindgen_futures::spawn_local(async move {
+                use wasm_bindgen::JsCast;
+                let state = State::new(&window).await;
+                let mut ecs = ECSContainer::global_mut();
+                let platform = Platform::new(PlatformDescriptor {
+                    physical_height: state.sc_descriptor.height,
+                    physical_width: state.sc_descriptor.width,
+                    scale_factor: window.scale_factor(),
+                    ..Default::default()
                 });
-                if !is_winit_error {
-                    web_sys::console::error_1(&error);
+                let _demo_app = egui_demo_lib::WrapApp::default();
+                ecs.world.insert(EguiContainer {
+                    render_pass: RenderPass::new(&state.device, state.sc_descriptor.format, 1),
+                    platform,
+                });
+                ecs.setup(state);
+                setup_pipelines(&mut ecs.world);
+                drop(ecs);
+                // https://github.com/gfx-rs/wgpu/issues/1457
+                // https://github.com/gfx-rs/wgpu/pull/1469/commits/07376d11e8b33639df3e002f2631dff27c289802
+
+                let run_closure = Closure::once_into_js(move || {
+                    run(event_loop, window);
+                });
+                if let Err(error) = call_catch(&run_closure) {
+                    let is_winit_error = error.dyn_ref::<js_sys::Error>().map_or(false, |e| {
+                        e.message().includes("Using exceptions for control flow", 0)
+                    });
+                    if !is_winit_error {
+                        web_sys::console::error_1(&error);
+                    }
                 }
-            }
-        });
-    }
+            });
+        }
 
     #[cfg(not(target_arch = "wasm32"))]
-    {
-        env_logger::init();
+        {
+            env_logger::init();
 
-        unsafe {
-            if !ECS_INSTANCE.set(ECSContainer::new()).is_ok() {
-                panic!();
+            unsafe {
+                if !ECS_INSTANCE.set(ECSContainer::new()).is_ok() {
+                    panic!();
+                }
+
+                let state = block_on(State::new(&window));
             }
-
-            let state = block_on(State::new(&window));
+            // ! for now block
+            let ecs = ECSContainer::global_mut();
+            ecs.setup(state);
+            setup_pipelines(&mut ecs.world);
+            block_on(create_debug_scene());
+            run(event_loop, window);
         }
-        // ! for now block
-        let ecs = ECSContainer::global_mut();
-        ecs.setup(state);
-        setup_pipelines(&mut ecs.world);
-        block_on(create_debug_scene());
-        run(event_loop, window);
-    }
 }
 
 fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
- //TODO: Might move to state
-    let mut  ecs = ECSContainer::global_mut();
+    //TODO: Might move to state
+    let mut ecs = ECSContainer::global_mut();
     ecs.world.insert(DirectionalLight::new(
         Point3::new(1.0, -1.0, 0.0),
         wgpu::Color {
@@ -202,13 +208,13 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
     ));
 
     let state = ecs.world.write_resource::<State>();
-    let cam = Camera::new(Point3::new(0.0, 5.0, 10.0),f32::to_radians(-90.0),f32::to_radians(-20.0));
-    let proj = Projection::new(state.sc_descriptor.width,state.sc_descriptor.height,f32::to_radians(45.0),2.0,200.0);
-    let cam_controller = CameraController::new(4.0,1.0);
+    let cam = Camera::new(Point3::new(0.0, 5.0, 10.0), f32::to_radians(-90.0), f32::to_radians(-20.0));
+    let proj = Projection::new(state.sc_descriptor.width, state.sc_descriptor.height, f32::to_radians(45.0), 2.0, 200.0);
+    let cam_controller = CameraController::new(4.0, 1.0);
 
     drop(state);
     let mut globals = Globals::new(0, 0);
-    globals.update_view_proj_matrix(&cam,&proj);
+    globals.update_view_proj_matrix(&cam, &proj);
     ecs.world.insert(cam_controller);
     ecs.world.insert(proj);
     ecs.world.insert(globals);
@@ -227,7 +233,7 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
             } if window_id == window.id() => {
                 match event {
                     WindowEvent::MouseInput { button, state, .. } => {
-                        let container =  ECSContainer::global_mut();
+                        let container = ECSContainer::global_mut();
                         let mut mouse_event = container
                             .world
                             .write_resource::<MouseInputEvent>();
@@ -252,8 +258,8 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                         keyboard_event.handled = false;
                     }
                     WindowEvent::Resized(physical_size) => {
-                        let container =  ECSContainer::global_mut();
-                        let mut resize_event =container
+                        let container = ECSContainer::global_mut();
+                        let mut resize_event = container
                             .world
                             .write_resource::<ResizeEvent>();
                         resize_event.new_size = *physical_size;
@@ -276,7 +282,7 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
             Event::DeviceEvent { event, .. } => {
                 if let DeviceEvent::MouseMotion { delta } = event {
                     let mut container = ECSContainer::global_mut();
-                    let mut mouse_position_event =container
+                    let mut mouse_position_event = container
                         .world
                         .write_resource::<MouseMoveEvent>();
                     mouse_position_event.info = delta;
@@ -308,25 +314,25 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
             }
             Event::MainEventsCleared => {
                 window.request_redraw();
-            },
-            Event::UserEvent(event)=>{
+            }
+            Event::UserEvent(event) => {
                 //TODO: add a system which handles this event and use a resource to pass the data to it!
                 match event {
-                    CustomEvent::SkyboxTextureLoad(data,sender) => {
+                    CustomEvent::SkyboxTextureLoad(data, sender) => {
                         let container = ECSContainer::global_mut();
                         let state = container.world.read_resource::<State>();
                         let binding_resource_container = container.world.read_resource::<BindingResourceContainer>();
 
-                        Texture::load_skybox_texture(&state.device, &state.queue, data.as_slice(), &binding_resource_container.textures.get("skybox_texture").unwrap());
+                        Texture::load_skybox_texture(&state.device, &state.queue, data.as_slice(), &binding_resource_container.textures[TextureTypes::Skybox].as_ref().unwrap());
                         sender.send(()).unwrap();
-                    },
-                    CustomEvent::RequestModelLoad(data,sender) =>{
+                    }
+                    CustomEvent::RequestModelLoad(data, sender) => {
                         let container = ECSContainer::global_mut();
                         let state = container.world.read_resource::<State>();
                         let obj_model = container
                             .world
                             .read_resource::<ModelBuilder>()
-                            .create(&state.device, &state.queue,data,"test.obj");
+                            .create(&state.device, &state.queue, data, "test.obj");
                         // TODO: change to return result to handle missing assets
                         let collision_builder =
                             rapier3d::geometry::ColliderBuilder::convex_hull(obj_model.meshes[0].points.as_slice()).unwrap();
@@ -339,15 +345,12 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                         sender.send(model_entity).unwrap();
                     }
                 };
-
-
-
-
             }
             _ => {}
         }
     });
 }
+
 /// Initializes a new ECS container (World) and registers the components, creates the dependency tree for the system and sets up resources.
 
 fn setup_pipelines(world: &mut World) {
@@ -358,7 +361,7 @@ fn setup_pipelines(world: &mut World) {
     LightBindGroup::get_resources(&state.device, &mut binding_resource_container);
     DeferredBindGroup::get_resources(&state.device, &mut binding_resource_container);
     TilingBindGroup::get_resources(&state.device, &mut binding_resource_container);
-    SkyboxBindGroup::get_resources(&state.device,&mut binding_resource_container);
+    SkyboxBindGroup::get_resources(&state.device, &mut binding_resource_container);
     GBuffer::generate_g_buffers(
         &state.device,
         &state.sc_descriptor,
@@ -369,25 +372,15 @@ fn setup_pipelines(world: &mut World) {
         &state.device,
         (
             binding_resource_container
-                .samplers
-                .get("shadow_sampler")
-                .unwrap(),
+                .samplers[Shadow].as_ref().unwrap(),
             binding_resource_container
-                .texture_views
-                .get("shadow_view")
-                .unwrap(),
+                .texture_views[TextureViewTypes::Shadow].as_ref().unwrap(),
             binding_resource_container
-                .buffers
-                .get("uniform_buffer")
-                .unwrap(),
+                .buffers[Uniform].as_ref().unwrap(),
             binding_resource_container
-                .buffers
-                .get("normal_buffer")
-                .unwrap(),
+                .buffers[Normals].as_ref().unwrap(),
             binding_resource_container
-                .buffers
-                .get("instance_buffer")
-                .unwrap(),
+                .buffers[Instances].as_ref().unwrap(),
         ),
     );
 
@@ -395,13 +388,9 @@ fn setup_pipelines(world: &mut World) {
         &state.device,
         (
             binding_resource_container
-                .buffers
-                .get("shadow_uniform_buffer")
-                .unwrap(),
+                .buffers[ShadowUniform].as_ref().unwrap(),
             binding_resource_container
-                .buffers
-                .get("instance_buffer")
-                .unwrap(),
+                .buffers[Instances].as_ref().unwrap(),
         ),
     );
 
@@ -409,30 +398,20 @@ fn setup_pipelines(world: &mut World) {
         &state.device,
         (
             binding_resource_container
-                .buffers
-                .get("directional_light_buffer")
-                .unwrap(),
+                .buffers[BufferTypes::DirectionalLight].as_ref().unwrap(),
             binding_resource_container
-                .buffers
-                .get("point_light_buffer")
-                .unwrap(),
+                .buffers[PointLight].as_ref().unwrap(),
             binding_resource_container
-                .buffers
-                .get("spot_light_buffer")
-                .unwrap(),
+                .buffers[SpotLight].as_ref().unwrap(),
         ),
     );
     let tiling_container = TilingBindGroup::create_container(
         &state.device,
         (
             binding_resource_container
-                .buffers
-                .get("tiling_buffer")
-                .unwrap(),
+                .buffers[Tiling].as_ref().unwrap(),
             binding_resource_container
-                .buffers
-                .get("canvas_size_buffer")
-                .unwrap(),
+                .buffers[CanvasSize].as_ref().unwrap()
         ),
     );
 
@@ -440,31 +419,21 @@ fn setup_pipelines(world: &mut World) {
         &state.device,
         (
             binding_resource_container
-                .samplers
-                .get("texture_sampler")
-                .unwrap(),
+                .samplers[DeferredTexture].as_ref().unwrap(),
             binding_resource_container
-                .texture_views
-                .get("position_view")
-                .unwrap(),
+                .texture_views[DeferredPosition].as_ref().unwrap(),
             binding_resource_container
-                .texture_views
-                .get("normal_view")
-                .unwrap(),
+                .texture_views[DeferredNormals].as_ref().unwrap(),
             binding_resource_container
-                .texture_views
-                .get("albedo_view")
-                .unwrap(),
+                .texture_views[DeferredAlbedo].as_ref().unwrap(),
             binding_resource_container
-                .buffers
-                .get("canvas_size_buffer")
-                .unwrap(),
+                .buffers[CanvasSize].as_ref().unwrap(),
         ),
     );
     let skybox_container = SkyboxBindGroup::create_container(
-        &state.device,(binding_resource_container.buffers.get("skybox_buffer").unwrap(),
-                       binding_resource_container.texture_views.get("skybox_texture_view").unwrap(),
-                       binding_resource_container.samplers.get("skybox_sampler").unwrap())
+        &state.device, (binding_resource_container.buffers[Skybox].as_ref().unwrap(),
+                        binding_resource_container.texture_views[TextureViewTypes::Skybox].as_ref().unwrap(),
+                        binding_resource_container.samplers[SamplerTypes::Skybox].as_ref().unwrap()),
     );
 
     let gbuffer_pipeline = GBufferPipeline::create_pipeline(
@@ -510,7 +479,7 @@ fn setup_pipelines(world: &mut World) {
             &tiling_container.layout,
         ),
     );
-    let skybox_pipeline = SkyboxPipeline::create_pipeline(&state.device,&skybox_container.layout,&[state.sc_descriptor.format.into()]);
+    let skybox_pipeline = SkyboxPipeline::create_pipeline(&state.device, &skybox_container.layout, &[state.sc_descriptor.format.into()]);
 
     drop(state);
     drop(binding_resource_container);
@@ -554,30 +523,28 @@ fn setup_pipelines(world: &mut World) {
 
 async fn create_debug_scene() {
     #[cfg(not(target_arch = "wasm32"))]
-    {
-        let mut js = V8ScriptingEngine::new();
-        // TODO: load all the scripts and execute them before the first frame is rendered. maybe do modules and whatnot.
-        js.execute(
-            "test.js",
-            String::from_utf8(Importer::default().import_file("./test.js").await)
-                .unwrap()
-                .as_str(),
-        );
-
         {
-            let global_context = js.global_context();
-            let isolate = &mut js.isolate;
+            let mut js = V8ScriptingEngine::new();
+            // TODO: load all the scripts and execute them before the first frame is rendered. maybe do modules and whatnot.
+            js.execute(
+                "test.js",
+                String::from_utf8(Importer::default().import_file("./test.js").await)
+                    .unwrap()
+                    .as_str(),
+            );
 
-            let state_rc = V8ScriptingEngine::state(isolate);
-            let js_state = state_rc.borrow();
-            let handle_scope = &mut rusty_v8::HandleScope::with_context(isolate, global_context);
-            for (_k, v) in js_state.callbacks.iter() {
-                let func = v.get(handle_scope);
-                let recv = rusty_v8::Integer::new(handle_scope, 1).into();
-                func.call(handle_scope, recv, &[]);
+            {
+                let global_context = js.global_context();
+                let isolate = &mut js.isolate;
+
+                let state_rc = V8ScriptingEngine::state(isolate);
+                let js_state = state_rc.borrow();
+                let handle_scope = &mut rusty_v8::HandleScope::with_context(isolate, global_context);
+                for (_k, v) in js_state.callbacks.iter() {
+                    let func = v.get(handle_scope);
+                    let recv = rusty_v8::Integer::new(handle_scope, 1).into();
+                    func.call(handle_scope, recv, &[]);
+                }
             }
         }
-    }
-
-
 }

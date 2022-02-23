@@ -26,7 +26,7 @@ fn sky_vs(@builtin(vertex_index) vertex_index: u32) -> SkyVertexOutput {
 
     var out: SkyVertexOutput;
     out.uv = inverted_model_view * unprojected.xyz;
-    out.position = pos.xyww;
+    out.position = vec4<f32>(pos.x,pos.y,0.0,pos.w);
     return out;
 }
 

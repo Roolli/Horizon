@@ -2,7 +2,9 @@ use std::{num::NonZeroU8};
 
 use anyhow::*;
 use bytemuck::Contiguous;
+use ddsfile::{DataFormat, DxgiFormat, FourCC};
 use image::{DynamicImage, GenericImageView, ImageBuffer, ImageFormat};
+use wgpu::util::DeviceExt;
 use crate::SkyboxBindGroup;
 
 pub struct Texture {
@@ -152,25 +154,30 @@ impl Texture {
 
         Self::from_image(device, queue, &img, label, is_normal)
     }
-    pub fn load_skybox_texture(device:&wgpu::Device,queue:&wgpu::Queue,buffer:&[u8],texture: &wgpu::Texture)
+    pub fn load_skybox_texture(device:&wgpu::Device,queue:&wgpu::Queue,buffer:&[u8]) -> (wgpu::Texture,wgpu::TextureView)
     {
         // Use DDS formats for skybox only!
 
         let img = ddsfile::Dds::read(buffer).unwrap();
-
-        queue.write_texture(wgpu::ImageCopyTexture{
-            texture,
-            mip_level:0,
-            origin:wgpu::Origin3d::ZERO,
-            aspect: wgpu::TextureAspect::All,
-        },img.data.as_slice(),wgpu::ImageDataLayout{
-            offset: 0_u64,
-            bytes_per_row: std::num::NonZeroU32::new(4 * SkyboxBindGroup::IMAGE_SIZE),
-            rows_per_image: std::num::NonZeroU32::new( SkyboxBindGroup::IMAGE_SIZE),
-        },wgpu::Extent3d{
-            width:SkyboxBindGroup::IMAGE_SIZE,
-            height:SkyboxBindGroup::IMAGE_SIZE,
-            depth_or_array_layers: 6,
+        let texture = device.create_texture_with_data(queue,&wgpu::TextureDescriptor{
+            label: Some("skybox_texture"),
+            format: wgpu::TextureFormat::Bgra8UnormSrgb,
+            mip_level_count:img.get_num_mipmap_levels(),
+            dimension:wgpu::TextureDimension::D2,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING,
+            sample_count:1,
+            size:wgpu::Extent3d{
+                width: img.get_width(),
+                height: img.get_height(),
+                depth_or_array_layers:6,
+            }
+        },&img.data);
+        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor{
+            label:Some("skybox_texture_view"),
+            dimension:Some(wgpu::TextureViewDimension::Cube),
+            ..Default::default()
         });
+        (texture,texture_view)
+
     }
 }

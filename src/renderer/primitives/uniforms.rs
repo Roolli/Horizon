@@ -22,8 +22,8 @@ impl Globals {
     }
     pub fn update_view_proj_matrix(&mut self, cam: &Camera,proj:&Projection) {
         let mut reversed_z_matrix:Matrix4<f32> = Matrix4::identity();
-        // *reversed_z_matrix.get_mut(10).unwrap() = -1.0;
-        // *reversed_z_matrix.get_mut(14).unwrap() = 1.0;
+        *reversed_z_matrix.get_mut(10).unwrap() = -1.0;
+        *reversed_z_matrix.get_mut(14).unwrap() = 1.0;
         self.view_position = cam.position.to_homogeneous().into();
         self.view_proj =   ( reversed_z_matrix * proj.calc_proj_matrix()* cam.get_view_matrix()).into();
     }

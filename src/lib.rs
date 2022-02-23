@@ -69,6 +69,7 @@ use tobj::Model;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 use ecscontainer::ECSContainer;
+use crate::renderer::bindgroupcontainer::BindGroupContainer;
 use crate::renderer::bindgroups::skybox::SkyboxBindGroup;
 use crate::renderer::pipelines::skyboxpipeline::SkyboxPipeline;
 use crate::renderer::primitives::texture::Texture;
@@ -210,7 +211,7 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
     let state = ecs.world.write_resource::<State>();
     let cam = Camera::new(Point3::new(0.0, 5.0, 10.0), f32::to_radians(-90.0), f32::to_radians(-20.0));
     let proj = Projection::new(state.sc_descriptor.width, state.sc_descriptor.height, f32::to_radians(45.0), 2.0, 200.0);
-    let cam_controller = CameraController::new(4.0, 1.0);
+    let cam_controller = CameraController::new(10.0, 2.0);
 
     drop(state);
     let mut globals = Globals::new(0, 0);
@@ -263,6 +264,7 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                             .world
                             .write_resource::<ResizeEvent>();
                         resize_event.new_size = *physical_size;
+                        resize_event.scale_factor = Some(window.scale_factor());
                         resize_event.handled = false;
                     }
                     WindowEvent::ScaleFactorChanged { new_inner_size, scale_factor } => {
@@ -271,7 +273,7 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                             .world
                             .write_resource::<ResizeEvent>();
                         resize_event.new_size = **new_inner_size;
-                        resize_event.scale_factor = *scale_factor;
+                        resize_event.scale_factor = Some(*scale_factor);
                         resize_event.handled = false;
                     }
                     //Not working on the web currently
@@ -321,9 +323,17 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                     CustomEvent::SkyboxTextureLoad(data, sender) => {
                         let container = ECSContainer::global_mut();
                         let state = container.world.read_resource::<State>();
-                        let binding_resource_container = container.world.read_resource::<BindingResourceContainer>();
-
-                        Texture::load_skybox_texture(&state.device, &state.queue, data.as_slice(), &binding_resource_container.textures[TextureTypes::Skybox].as_ref().unwrap());
+                        let mut binding_resource_container = container.world.write_resource::<BindingResourceContainer>();
+                        let mut bind_group_container = container.world.write_storage::<BindGroupContainer>();
+                       let (texture,texture_view) =  Texture::load_skybox_texture(&state.device, &state.queue, data.as_slice());
+                        binding_resource_container.textures[TextureTypes::Skybox] = Some(texture);
+                        binding_resource_container.texture_views[TextureViewTypes::Skybox] = Some(texture_view);
+                        let skybox_bind_group = container.world.read_storage::<SkyboxBindGroup>();
+                        let (_,  skybox_bind_group_container) = (&skybox_bind_group, &mut bind_group_container)
+                            .join()
+                            .next()
+                            .unwrap();
+                        *skybox_bind_group_container = SkyboxBindGroup::create_container(&state.device,(binding_resource_container.buffers[BufferTypes::Skybox].as_ref().unwrap(),binding_resource_container.texture_views[TextureViewTypes::Skybox].as_ref().unwrap(),binding_resource_container.samplers[SamplerTypes::Skybox].as_ref().unwrap()));
                         sender.send(()).unwrap();
                     }
                     CustomEvent::RequestModelLoad(data, sender) => {

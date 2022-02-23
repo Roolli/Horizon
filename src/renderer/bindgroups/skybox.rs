@@ -11,7 +11,7 @@ use crate::resources::bindingresourcecontainer::{SamplerTypes, TextureTypes, Tex
 pub struct SkyboxBindGroup;
 
 impl SkyboxBindGroup {
-    pub const IMAGE_SIZE: u32 = 128;
+    pub const IMAGE_SIZE: u32 = 1024;
 }
 
 impl<'a> HorizonBindGroup<'a> for SkyboxBindGroup {
@@ -96,7 +96,8 @@ impl<'a> HorizonBindGroup<'a> for SkyboxBindGroup {
             ..size
         };
         let max_mips = layers.max_mips();
-        // add texture at a later time / allow scripting to modify it.
+        log::info!("max mips: {}",max_mips);
+        //TODO: create default grey texture
         let skybox_texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Skybox_Texture"),
             size,

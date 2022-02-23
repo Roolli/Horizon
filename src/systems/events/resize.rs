@@ -38,6 +38,10 @@ impl<'a> System<'a> for Resize {
         state.sc_descriptor.height = resize_event.new_size.height;
         state.sc_descriptor.width = resize_event.new_size.width;
         proj.resize(resize_event.new_size.width,resize_event.new_size.height);
+        if let Some(new_scale) =resize_event.scale_factor
+        {
+            state.scale_factor = new_scale;
+        }
         state.depth_texture =
             Texture::create_depth_texture(&state.device, &state.sc_descriptor, "depth_texture");
         GBuffer::generate_g_buffers(&state.device, &state.sc_descriptor, &mut resource_container);
@@ -71,6 +75,7 @@ impl<'a> System<'a> for Resize {
             ),
         );
         log::info!("resize has occured!");
+
         resize_event.handled = true;
     }
 }

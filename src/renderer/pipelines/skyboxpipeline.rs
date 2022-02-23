@@ -32,7 +32,7 @@ impl<'a> HorizonPipeline<'a> for SkyboxPipeline{
             entry_point:"sky_fs"
         };
         let primitive_state = wgpu::PrimitiveState{
-          front_face: wgpu::FrontFace::Cw,
+          front_face: wgpu::FrontFace::Ccw,
             ..wgpu::PrimitiveState::default()
         };
         let depth_stencil = wgpu::DepthStencilState{

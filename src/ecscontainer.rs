@@ -92,7 +92,7 @@ impl ECSContainer {
         world.insert(ResizeEvent {
             new_size: size,
             handled: false,
-            scale_factor:0f64,
+            scale_factor:None,
         });
         world.insert( DebugStats{
             fps:0,

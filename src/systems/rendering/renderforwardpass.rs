@@ -80,11 +80,7 @@ impl<'a> System<'a> for RenderForwardPass {
                     store: true,
                 },
             }],
-            depth_stencil_attachment:  Some(wgpu::RenderPassDepthStencilAttachment {
-                view: &state.depth_texture.view,
-                depth_ops:None,
-                stencil_ops: None,
-            }),
+            depth_stencil_attachment: None,
         });
 
 

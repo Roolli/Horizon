@@ -1,6 +1,6 @@
 pub struct ResizeEvent {
     pub new_size: winit::dpi::PhysicalSize<u32>,
-    pub scale_factor: f64,
+    pub scale_factor: Option<f64>,
     pub handled: bool,
 }
 

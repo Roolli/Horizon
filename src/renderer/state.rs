@@ -74,7 +74,7 @@ impl State {
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
-                    features: wgpu::Features::empty(),
+                    features: wgpu::Features::TEXTURE_COMPRESSION_BC,
                     limits: wgpu::Limits::default(),
                     label: Some("Device descriptor"),
                 },

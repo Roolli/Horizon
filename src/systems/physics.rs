@@ -97,6 +97,10 @@ impl PhysicsWorld {
             &self.event_handler,
         );
     }
+    pub fn delete_rigid_body(&mut self,rigid_body_handle: RigidBodyHandle)
+    {
+        self.body_set.remove(rigid_body_handle,&mut self.island_manager,&mut self.collider_set,&mut self.joints);
+    }
 }
 
 pub struct Physics;

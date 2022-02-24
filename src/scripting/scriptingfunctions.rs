@@ -4,7 +4,7 @@ use crate::components::physicshandle::PhysicsHandle;
 use crate::components::scriptingcallback::ScriptingCallback;
 use crate::components::transform::Transform;
 use crate::renderer::primitives::lights::pointlight::PointLight;
-use crate::ecscontainer::ECSContainer;
+use crate::ecscontainer::{ECSContainer, ECSError};
 use crate::systems::physics::PhysicsWorld;
 use crate::{CustomEvent, EVENT_LOOP_PROXY};
 
@@ -21,6 +21,7 @@ use specs::prelude::*;
 
 use rapier3d::na::{Point3, UnitQuaternion, Vector3};
 use rapier3d::prelude::Isometry;
+use specs::world::Index;
 
 #[cfg(not(target_arch = "wasm32"))]
 use v8::{Function, Global};
@@ -28,33 +29,21 @@ use v8::{Function, Global};
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
+use crate::components::assetidentifier::AssetIdentifier;
+use crate::components::componenttypes::ComponentTypes;
 use crate::filesystem::modelimporter::Importer;
+use crate::scripting::util::componentconversions::{PointLightComponent, TransformComponent};
+
 use crate::scripting::util::RigidBodyType;
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
-
+/// The internal struct where both runtimes call functions to execute internal mechanisms.
 pub struct ScriptingFunctions;
 
-//TODO:  add custom struct to send back to js
-
-// ! https://github.com/rustwasm/wasm-bindgen/issues/858 might need JsValue instead of function
-
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen]
 impl ScriptingFunctions {
-    #[wasm_bindgen(js_name = "registerCallback")]
-    pub fn register_callback(event_type: ScriptEvent, callback: js_sys::Function) {
-        let mut ecs = ECSContainer::global_mut();
-        let builder = ecs.world.create_entity();
-        builder
-            .with(ScriptingCallback::new(callback))
-            .with(event_type)
-            .build();
-    }
-    // Might need to change to an object instead of an array
-    #[wasm_bindgen(js_name = "createEntity")]
-    pub fn create_entity(entity_info: &wasm_bindgen::JsValue) -> wasm_bindgen::JsValue {
-        let entity_info: EntityInfo = entity_info.into_serde().unwrap();
+
+    // TODO: make transform mandatory!
+    pub fn create_entity(entity_info:EntityInfo) -> Entity {
 
         let ecs = ECSContainer::global_mut();
         let mut builder: EntityBuilder = ecs.world.create_entity_unchecked();
@@ -159,111 +148,168 @@ impl ScriptingFunctions {
                         attenuation_values.x,
                         attenuation_values.y,
                         attenuation_values.z,
+                        None, //TODO: add attachment
                     ));
                 }
                 _ => {}
             }
         }
 
-        JsValue::from_f64(builder.build().id().into())
+        builder.build()
     }
-    #[wasm_bindgen(js_name = "loadModel")]
-    pub async fn load_model(object_name: JsValue) -> Result<JsValue,JsValue>{
+    ///Deletes the component with the specified type for the given entity.
+    pub fn delete_component(component_type:ComponentTypes,entity_id:Index) {
+        let container = ECSContainer::global();
+         let ent = container.world.entities().entity(entity_id);
+        match component_type {
+            ComponentTypes::Transform=> {
+                let mut transforms = container.world.write_component::<Transform>();
+                transforms.remove(ent);
+            },
+            ComponentTypes::PhysicsHandle=>{
+                let mut physics_storage = container.world.write_component::<PhysicsHandle>();
+                let mut physics_world = container.world.write_resource::<PhysicsWorld>();
+                let physics_handle = physics_storage.get_mut(ent).unwrap();
+                physics_world.delete_rigid_body(physics_handle.rigid_body_handle);
+                physics_storage.remove(ent);
+            },
+            ComponentTypes::PointLight=>{
+                let mut point_light_store =  container.world.write_component::<PointLight>();
+                point_light_store.remove(ent);
+            },
+            ComponentTypes::AssetIdentifier=>{
+                // Not being used currently, might not be the best idea anyways to just remove identifiers,
+            },
+        }
 
-        if let Some(obj) = object_name.as_string() {
-            log::info!(target: "model_load","loading model {}",obj);
-            let importer = Importer::default();
-            let file_contents =  importer.import_obj_model(obj.as_str()).await.unwrap();
-
-            let mut mats = Vec::new();
-            for mat in file_contents.1.unwrap() {
-
-                let diffuse_texture_raw = if !mat.diffuse_texture.is_empty()
+    }
+    /// Gets the component's data based on it's type for the given entity.
+    // TODO: return some boxed stuff instead of JsValue with trait or something
+    pub fn get_component(component_type: ComponentTypes,entity_id:Index) -> JsValue
+    {
+        let container =  ECSContainer::global();
+        match component_type {
+            ComponentTypes::Transform=>{
+                if let Some(transform)  = container.world.read_component::<Transform>().get( container.world.entities().entity(entity_id))
                 {
-                    importer
-                        .import_file(mat.diffuse_texture.as_str())
-                        .await
-                }
-                else { Vec::new() };
-                let normal_texture_raw = if !mat.normal_texture.is_empty()
-                {
-                    importer
-                        .import_file(mat.normal_texture.as_str())
-                        .await
+                    JsValue::from_serde(&TransformComponent::from(*transform)).unwrap()
                 }
                 else {
-                    Vec::new()
-                };
-                mats.push((diffuse_texture_raw,normal_texture_raw,mat.name));
-            }
+                    JsValue::NULL
+                }
+            },
+            ComponentTypes::PhysicsHandle=>{
 
-                let val =ref_thread_local::RefThreadLocal::borrow(&EVENT_LOOP_PROXY);
-            let (sender,receiver) = futures::channel::oneshot::channel::<Entity>();
-            val.as_ref().unwrap().send_event(CustomEvent::RequestModelLoad((file_contents.0,mats),sender)).unwrap();
+                if let Some(physics_handle)  = container.world.read_component::<PhysicsHandle>().get( container.world.entities().entity(entity_id))
+                {
+                    JsValue::from_serde(physics_handle).unwrap()
+                }
+                else {
+                    JsValue::NULL
+                }
+            },
+            ComponentTypes::AssetIdentifier=>{
+                if let Some(identifier) = container.world.read_component::<AssetIdentifier>().get( container.world.entities().entity(entity_id))
+                {
+                    JsValue::from_serde(&identifier).unwrap()
+                }
+                else {
+                    JsValue::NULL
+                }
+            },
+            ComponentTypes::PointLight=>{
 
-           if let Ok(entity_id) = receiver.await{
-               Ok(JsValue::from_f64(entity_id.id().into()))
-           }
-            else {
-                Err(JsValue::from_str("failed to load model!"))
-            }
-        } else {
-           Err(JsValue::from_str("Invalid model name!"))
+            if let Some(point_light) = container.world.read_component::<PointLight>().get( container.world.entities().entity(entity_id))
+                {
+                   JsValue::from_serde(&PointLightComponent::from(*point_light)).unwrap()
+                 }
+                else {
+                    JsValue::NULL
+                    }
+            },
         }
     }
-    #[wasm_bindgen(js_name="setSkyboxTexture")]
-    pub async fn set_skybox_texture(texture_path:JsValue) -> Result<JsValue,JsValue>
+    pub fn set_component(component_type:ComponentTypes,entity_id: Index, component_data: super::util::entityinfo::Component) -> Result<(),ECSError>
     {
-        if let Some(path) = texture_path.as_string() {
-           let file_contents =  Importer::default().import_file(path.as_str()).await;
-
-            let event_loop_proxy = ref_thread_local::RefThreadLocal::borrow(&EVENT_LOOP_PROXY);
-            // MAYBE unit type is not the greatest return value...
-            let (sender,receiver) = futures::channel::oneshot::channel::<()>();
-            event_loop_proxy.as_ref().unwrap().send_event(CustomEvent::SkyboxTextureLoad(file_contents,sender)).unwrap();
-           let res =  receiver.await;
-            Ok(JsValue::TRUE)
-        }
-        else
-        {
-            Err(JsValue::from_str("Invalid argument!"))
-        }
+        let container = ECSContainer::global_mut();
+        let entity = container.world.entities().entity(entity_id);
+        log::info!("set component parameters: {:#?} {:?} {:#?}",component_type,entity_id,component_data);
+        Ok(())
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-impl ScriptingFunctions {
-    pub fn print(
-        scope: &mut v8::HandleScope,
-        args: v8::FunctionCallbackArguments,
-        _rv: v8::ReturnValue,
-    ) {
-        let obj = args.get(0);
-        let try_catch_scope = &mut v8::TryCatch::new(scope);
-        let string = obj.to_string(try_catch_scope).unwrap();
+#[cfg_attr(target_arch="wasm32",wasm_bindgen(js_name = "registerCallback"))]
+pub fn register_callback(event_type: ScriptEvent, callback: js_sys::Function) {
+    let mut ecs = ECSContainer::global_mut();
+    let builder = ecs.world.create_entity();
+    builder
+        .with(ScriptingCallback::new(callback))
+        .with(event_type)
+        .build();
+}
 
-        log::info!("{}", string.to_rust_string_lossy(try_catch_scope));
-        stdout().flush().unwrap();
-    }
-    // TODO: Expose the world object and add methods for adding
-    // https://github.com/denoland/deno/blob/main/core/bindings.rs#L463
-    pub fn register_callback(
-        scope: &mut v8::HandleScope,
-        args: v8::FunctionCallbackArguments,
-        _rv: v8::ReturnValue,
-    ) {
-        let mut state_rc = V8ScriptingEngine::state(scope);
-        let mut state = state_rc.borrow_mut();
-        let string = args.get(0).to_rust_string_lossy(scope);
-        let function = match v8::Local::<v8::Function>::try_from(args.get(1)) {
-            Ok(callback) => callback,
-            Err(err) => {
-                return;
+#[cfg_attr(target_arch="wasm32",wasm_bindgen(js_name = "loadModel"))]
+pub async fn load_model(object_name: JsValue) -> Result<JsValue,JsValue>{
+
+    if let Some(obj) = object_name.as_string() {
+        log::info!(target: "model_load","loading model {}",obj);
+        let importer = Importer::default();
+        let file_contents =  importer.import_obj_model(obj.as_str()).await.unwrap();
+
+        let mut mats = Vec::new();
+        for mat in file_contents.1.unwrap() {
+
+            let diffuse_texture_raw = if !mat.diffuse_texture.is_empty()
+            {
+                importer
+                    .import_file(mat.diffuse_texture.as_str())
+                    .await
             }
-        };
-        log::info!("added callback:{}", string);
-        // state
-        //     .callbacks
-        //     .insert(string, v8::Global::new(scope, function));
+            else { Vec::new() };
+            let normal_texture_raw = if !mat.normal_texture.is_empty()
+            {
+                importer
+                    .import_file(mat.normal_texture.as_str())
+                    .await
+            }
+            else {
+                Vec::new()
+            };
+            mats.push((diffuse_texture_raw,normal_texture_raw,mat.name));
+        }
+
+        let val =ref_thread_local::RefThreadLocal::borrow(&EVENT_LOOP_PROXY);
+        let (sender,receiver) = futures::channel::oneshot::channel::<Entity>();
+        val.as_ref().unwrap().send_event(CustomEvent::RequestModelLoad((file_contents.0,mats),sender)).unwrap();
+
+        if let Ok(entity_id) = receiver.await{
+            Ok(JsValue::from_f64(entity_id.id().into()))
+        }
+        else {
+            Err(JsValue::from_str("failed to load model!"))
+        }
+    } else {
+        Err(JsValue::from_str("Invalid model name!"))
     }
 }
+
+#[cfg_attr(target_arch="wasm32",wasm_bindgen(js_name="setSkyboxTexture"))]
+pub async fn set_skybox_texture(texture_path:JsValue) -> Result<JsValue,JsValue>
+{
+    if let Some(path) = texture_path.as_string() {
+        let file_contents =  Importer::default().import_file(path.as_str()).await;
+
+        let event_loop_proxy = ref_thread_local::RefThreadLocal::borrow(&EVENT_LOOP_PROXY);
+        // MAYBE unit type is not the greatest return value...
+        let (sender,receiver) = futures::channel::oneshot::channel::<()>();
+        event_loop_proxy.as_ref().unwrap().send_event(CustomEvent::SkyboxTextureLoad(file_contents,sender)).unwrap();
+        let res =  receiver.await;
+        Ok(JsValue::TRUE)
+    }
+    else
+    {
+        Err(JsValue::from_str("Invalid argument!"))
+    }
+}
+
+

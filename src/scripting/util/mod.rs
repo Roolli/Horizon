@@ -1,6 +1,7 @@
 pub mod entityinfo;
 pub mod glmconversion;
 pub mod horizonentity;
+pub mod componentconversions;
 
 use serde::{Deserialize, Serialize};
 

@@ -19,7 +19,7 @@ pub struct Component {
     pub rotation: Option<Vec3>,
     pub model: Option<u32>,
     pub attenuation: Option<Vec3>,
-    pub color: Option<Vec4>,
+    pub color: Option<Vec4<f64>>,
     pub body_type: Option<RigidBodyType>,
     pub mass: Option<f64>,
     pub lock_rotation: Option<LockRotation>,

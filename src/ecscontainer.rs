@@ -22,6 +22,7 @@ use crate::{components::scriptingcallback::ScriptingCallback, ECS_CONTAINER, fil
 }, SkyboxBindGroup, systems::{
     physics::{Physics, PhysicsWorld},
 }};
+use crate::systems::events::handlelifecycleevents::HandleOnRenderCallbacks;
 use crate::systems::events::handlewindowevents::HandleWindowEvents;
 use crate::systems::events::resize::Resize;
 use crate::systems::rendering::computelightculling::ComputeLightCulling;
@@ -47,13 +48,11 @@ impl ECSContainer {
     }
     pub fn new() -> Self {
         let mut world = World::new();
-
-        // TODO: setup dispatcher
-
         let mut dispatcher = DispatcherBuilder::new()
             .with(UpdateDeltaTime,stringify!(UpdateDeltaTime),&[])
-            .with(UpdateCamera,stringify!(UpdateCamera),&[])
             .with(HandleWindowEvents,stringify!(HandleWindowEvents),&[])
+            .with(HandleOnRenderCallbacks,stringify!(HandleOnRenderCallbacks),&[])
+            .with(UpdateCamera,stringify!(UpdateCamera),&[])
             .with(Physics, stringify!(Physics), &[])
             .with_thread_local(Resize)
             .with_thread_local(UpdateBuffers)
@@ -129,4 +128,9 @@ impl ECSContainer {
     pub fn global_mut<'a>() -> RefMut<'a,ECSContainer> {
         ref_thread_local::RefThreadLocal::borrow_mut(&ECS_CONTAINER)
     }
+}
+#[derive(Debug,Clone)]
+pub enum ECSError{
+    EntityNotFound,
+    InvalidComponentData(String)
 }

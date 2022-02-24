@@ -1,14 +1,15 @@
 use bytemuck::*;
 use rapier3d::na::{Point3, Vector3};
 use specs::*;
-#[derive(Component)]
+#[derive(Component,Copy, Clone)]
 #[storage(VecStorage)]
 pub struct PointLight {
-    position: Point3<f32>,
-    color: wgpu::Color,
-    constant: f32,
-    linear: f32,
-    quadratic: f32,
+    pub position: Point3<f32>,
+    pub color: wgpu::Color,
+    pub constant: f32,
+    pub linear: f32,
+    pub quadratic: f32,
+    pub attached_to: Option<Entity>,
 }
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
@@ -25,6 +26,7 @@ impl PointLight {
         constant: f32,
         linear: f32,
         quadratic: f32,
+        attached_to: Option<Entity>
     ) -> Self {
         Self {
             position,
@@ -32,7 +34,12 @@ impl PointLight {
             constant,
             linear,
             quadratic,
+           attached_to,
         }
+    }
+    pub fn attach_to(&mut self,ent:Entity)
+    {
+        self.attached_to = Some(ent);
     }
     pub fn to_raw(&self) -> PointLightRaw {
         PointLightRaw {

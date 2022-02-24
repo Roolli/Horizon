@@ -13,7 +13,12 @@ impl ScriptingCallback {
     pub fn new(callback: js_sys::Function) -> Self {
         Self { callback }
     }
+    pub fn get_callback(&self) ->&js_sys::Function
+    {
+        &self.callback
+    }
 }
+
 
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(Component)]

@@ -1,25 +1,41 @@
 use crate::components::componenttypes::ComponentTypes;
+#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
+use serde::Serialize;
+use serde::Deserialize;
+use crate::scripting::scriptingfunctions::ScriptingFunctions;
+use crate::scripting::util::entityinfo::EntityInfo;
 
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32",wasm_bindgen)]
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct HorizonEntity {
-    entity_id: JsValue,
+    entity_id: u32,
 }
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32",wasm_bindgen)]
 impl HorizonEntity {
-    pub fn new(entity_id: JsValue) -> Self {
+    #[cfg_attr(target_arch="wasm32",wasm_bindgen(constructor))]
+    pub fn new(entity_info: &wasm_bindgen::JsValue) -> Self {
+        let entity_info: EntityInfo = entity_info.into_serde().unwrap();
+       let entity =  ScriptingFunctions::create_entity(entity_info);
+        Self {
+            entity_id: entity.id()
+        }
+    }
+
+    pub fn from_entity_id(entity_id: u32) -> Self {
         HorizonEntity { entity_id }
     }
 
-    #[wasm_bindgen(js_name = "getComponent")]
+    #[cfg_attr(target_arch="wasm32",wasm_bindgen(js_name = "getComponent"))]
     pub fn get_component(&self, component_type: ComponentTypes) -> JsValue {
-        JsValue::TRUE
-        //TODO: add scripting function fn to get data back based on entity id.
+        ScriptingFunctions::get_component(component_type,self.entity_id)
     }
-    #[wasm_bindgen(js_name = "setComponent")]
-    pub fn set_component(&self, component_type: ComponentTypes) {}
-    #[wasm_bindgen(js_name = "deleteComponent")]
-    pub fn delete_component(&self, component_type: ComponentTypes) {}
-    #[wasm_bindgen(js_name = "addComponent")]
-    pub fn add_component(&self, component_type: ComponentTypes) {}
+    #[cfg_attr(target_arch="wasm32",wasm_bindgen(js_name = "setComponent"))]
+    pub fn set_component(&self, component_type: ComponentTypes,component_data:&JsValue) {
+        ScriptingFunctions::set_component(component_type,self.entity_id,component_data.into_serde().unwrap()).unwrap();
+    }
+    #[cfg_attr(target_arch="wasm32",wasm_bindgen(js_name = "deleteComponent"))]
+    pub fn delete_component(&self, component_type: ComponentTypes) {
+        ScriptingFunctions::delete_component(component_type,self.entity_id);
+    }
 }

@@ -33,7 +33,7 @@ use resources::{
 };
 #[cfg(not(target_arch = "wasm32"))]
 use scripting::scriptingengine::V8ScriptingEngine;
-use specs::{Builder, Entity, EntityBuilder, Join, World, WorldExt};
+use specs::{Builder, Entity, EntityBuilder, Join, RunNow, World, WorldExt};
 
 mod filesystem;
 mod renderer;
@@ -81,6 +81,7 @@ use crate::resources::camera::CameraController;
 use crate::resources::deltatime::DeltaTime;
 use crate::resources::eguicontainer::EguiContainer;
 use crate::resources::projection::Projection;
+use crate::systems::events::handlelifecycleevents::HandleInitCallbacks;
 
 #[wasm_bindgen]
 extern "C" {
@@ -220,6 +221,8 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
     ecs.world.insert(proj);
     ecs.world.insert(globals);
     ecs.world.insert(cam);
+    let mut run_init = HandleInitCallbacks {};
+    run_init.run_now(&ecs.world); // Very nice code... really....
     drop(ecs);
     event_loop.run(move |event, _, control_flow| {
         let container = ECSContainer::global_mut();

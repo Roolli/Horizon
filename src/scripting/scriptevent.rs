@@ -4,7 +4,7 @@ use specs::DenseVecStorage;
 use wasm_bindgen::prelude::*;
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
-#[derive(PartialEq, Eq, Hash, Component)]
+#[derive(PartialEq, Eq, Hash, Component,Debug)]
 pub enum ScriptEvent {
     Init = 0,
     OnResourceStart = 1,

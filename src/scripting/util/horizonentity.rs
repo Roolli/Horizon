@@ -14,12 +14,10 @@ pub struct HorizonEntity {
 #[cfg_attr(target_arch="wasm32",wasm_bindgen)]
 impl HorizonEntity {
     #[cfg_attr(target_arch="wasm32",wasm_bindgen(constructor))]
-    pub fn new(entity_info: &wasm_bindgen::JsValue) -> Self {
+    pub fn new(entity_info: &wasm_bindgen::JsValue) -> Result<HorizonEntity,JsValue> {
         let entity_info: EntityInfo = entity_info.into_serde().unwrap();
-       let entity =  ScriptingFunctions::create_entity(entity_info);
-        Self {
-            entity_id: entity.id()
-        }
+ ScriptingFunctions::create_entity(entity_info).map_err(|e| {JsValue::from_str(format!("Entity create failed with error: {:?}",e).as_str())})
+
     }
 
     pub fn from_entity_id(entity_id: u32) -> Self {

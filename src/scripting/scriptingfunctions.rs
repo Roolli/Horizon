@@ -1,3 +1,4 @@
+use std::iter::Once;
 use js_sys::Error;
 use crate::components::modelcollider::ModelCollider;
 use crate::components::physicshandle::PhysicsHandle;
@@ -30,11 +31,17 @@ use v8::{Function, Global};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 use crate::components::assetidentifier::AssetIdentifier;
+use crate::components::componentparser::{ComponentParser, ComponentParserError, ParseComponent};
 use crate::components::componenttypes::ComponentTypes;
 use crate::filesystem::modelimporter::Importer;
 use crate::scripting::util::componentconversions::{PointLightComponent, TransformComponent};
+use crate::scripting::util::horizonentity::HorizonEntity;
 
 use crate::scripting::util::RigidBodyType;
+
+ref_thread_local::ref_thread_local! {
+         static managed COMPONENT_PARSER: ComponentParser = ComponentParser::default();
+    }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 /// The internal struct where both runtimes call functions to execute internal mechanisms.
@@ -43,119 +50,14 @@ pub struct ScriptingFunctions;
 impl ScriptingFunctions {
 
     // TODO: make transform mandatory!
-    pub fn create_entity(entity_info:EntityInfo) -> Entity {
-
+    pub fn create_entity(entity_info:EntityInfo) -> Result<HorizonEntity,ComponentParserError> {
         let ecs = ECSContainer::global_mut();
         let mut builder: EntityBuilder = ecs.world.create_entity_unchecked();
-
-        let mut transform: Option<Transform> = None;
-        let mut model_id: Option<Entity> = None;
+        let parser =  ref_thread_local::RefThreadLocal::borrow(&COMPONENT_PARSER);
         for component in entity_info.components {
-            match component.component_type.as_str() {
-                "transform" => {
-                    if let Some(model) = component.model {
-                        let entities = ecs.world.entities();
-                        model_id = Some(entities.entity(model));
-                    }
-                    let rot =  component.rotation.unwrap();
-                    let transform_val = Transform::new(
-                        component.position.unwrap().into(),
-                        UnitQuaternion::from_euler_angles(rot.x,rot.y,rot.z),
-                        component.scale.unwrap().into(),
-                        model_id,
-                    );
-                    transform = Some(transform_val);
-                    builder = builder.with(transform_val);
-                }
-                "physics" => {
-                    // Only add physics to valid already created objects
-                    if let Some(model) = model_id {
-                        let mut world = ecs.world.write_resource::<PhysicsWorld>();
-
-                        let mut  rigid_body_handle:Option<RigidBodyHandle> = None;
-                        let mut  collider_handle:Option<ColliderHandle> = None;
-                        let pos = if let Some(val) = transform {
-                            val.position
-                        } else {
-                            Vector3::new(0.0, 0.0, 0.0)
-                        };
-                        match component.body_type {
-                            Some(RigidBodyType::Dynamic) =>{
-
-                                let collider = ecs.world.read_component::<ModelCollider>();
-                                let ents = ecs.world.entities();
-                                for (collider_builder, entity) in (&collider, &ents).join() {
-                                    if entity == model {
-                                        let collider = collider_builder.0.build();
-                                        let rigid_body =
-                                             RigidBodyBuilder::new_dynamic()
-                                            .position(Isometry::new( Vector3::new(pos.x,pos.y,pos.z), Vector3::new(0.0, 0.0, 0.0)))
-                                             .additional_mass(component.mass.unwrap() as f32)
-                                            .build();
-                                        let body_handle = world.add_rigid_body(rigid_body);
-
-                                        collider_handle = Some(world.add_collider(collider, body_handle));
-                                        rigid_body_handle = Some(body_handle);
-
-                                    }
-                                }
-                            },
-                            Some(RigidBodyType::Static)=>{
-                                let rigid_body = RigidBodyBuilder::new_static().position(Isometry::new(pos, Vector3::new(0.0, 0.0, 0.0)))
-                                    .additional_mass(component.mass.unwrap() as f32)
-                                    .build();
-                                let body_handle = world.add_rigid_body(rigid_body);
-                                let scale:Vector3<f32> = if let Some(scale_vals) = component.scale {
-                                    scale_vals.into()
-                                }
-                                else {
-                                   Vector3::new(1.0,1.1,1.0)
-                                };
-                                let collider = ColliderBuilder::cuboid(scale.x,scale.y,scale.z).build();
-                                collider_handle = Some(world.add_collider(collider,body_handle));
-                                rigid_body_handle = Some(body_handle);
-                            },
-                            _ => {
-                                panic!();
-                            },
-                        }
-
-                            if let (Some(body_handle), Some(collision_handle)) = (rigid_body_handle,collider_handle)
-                            {
-                                builder = builder.with(PhysicsHandle {
-                                    collider_handle: collision_handle,
-                                    rigid_body_handle:body_handle,
-                                })
-                            }
-                    }
-                }
-                "pointLight" => {
-                    let pos = if let Some(val) = transform {
-                        val.position
-                    } else {
-                       Vector3::new(0.0, 0.0, 0.0)
-                    };
-                    let attenuation_values = component.attenuation.unwrap();
-                    let color = component.color.unwrap();
-                    builder = builder.with(PointLight::new(
-                        Point3::from(pos),
-                        wgpu::Color {
-                            r: color.x() as f64,
-                            g: color.y() as f64,
-                            b: color.z() as f64,
-                            a: color.w() as f64,
-                        },
-                        attenuation_values.x,
-                        attenuation_values.y,
-                        attenuation_values.z,
-                        None, //TODO: add attachment
-                    ));
-                }
-                _ => {}
-            }
-        }
-
-        builder.build()
+           builder =   parser.parse(component,builder)?;
+        } // parse here
+        Ok(HorizonEntity::from_entity_id(builder.build().id()))
     }
     ///Deletes the component with the specified type for the given entity.
     pub fn delete_component(component_type:ComponentTypes,entity_id:Index) {

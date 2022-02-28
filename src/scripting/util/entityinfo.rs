@@ -7,6 +7,7 @@ use crate::scripting::util::RigidBodyType;
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EntityInfo {
+    pub transform: Component,
     pub components: Vec<Component>,
 }
 

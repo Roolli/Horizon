@@ -24,6 +24,7 @@ pub struct Component {
     pub body_type: Option<RigidBodyType>,
     pub mass: Option<f64>,
     pub lock_rotation: Option<LockRotation>,
+    pub damping: Option<Vec<Damping>>
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -32,4 +33,10 @@ pub struct LockRotation {
     pub x: bool,
     pub y: bool,
     pub z: bool,
+}
+#[derive(Default,Debug,Clone,PartialEq,Serialize,Deserialize)]
+#[serde(rename_all="camelCase")]
+pub struct Damping{
+    pub damping_type: String,
+    pub amount: f32,
 }

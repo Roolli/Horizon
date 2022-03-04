@@ -59,7 +59,7 @@ impl<'a> System<'a> for RenderUIPass {
 
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 color_attachments: &[wgpu::RenderPassColorAttachment {
-                    view: &debug_ui.debug_texture_view.as_ref().unwrap(),
+                    view: debug_ui.debug_texture_view.as_ref().unwrap(),
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {

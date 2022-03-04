@@ -143,6 +143,44 @@ impl ScriptingFunctions {
             }
         }
     }
+    pub fn apply_force_to_entity(force: Vector3<f32>,entity_id: Index)
+    {
+        //TODO: handle non-existent physics component
+        let ecs = ECSContainer::global();
+        let handle_storage = ecs.world.read_storage::<PhysicsHandle>();
+        let physics_handle = handle_storage.get(ecs.world.entities().entity(entity_id)).unwrap();
+       let mut physics_world =  ecs.world.write_resource::<PhysicsWorld>();
+       let body =  physics_world.body_set.get_mut(physics_handle.rigid_body_handle).unwrap();
+        body.apply_force(force,true);
+    }
+    pub fn apply_torque_to_entity(torque: Vector3<f32>, entity_id: Index)
+    {
+        //TODO: handle non-existent physics component
+        let ecs = ECSContainer::global();
+        let handle_storage = ecs.world.read_storage::<PhysicsHandle>();
+        let physics_handle = handle_storage.get(ecs.world.entities().entity(entity_id)).unwrap();
+        let mut physics_world =  ecs.world.write_resource::<PhysicsWorld>();
+        let body =  physics_world.body_set.get_mut(physics_handle.rigid_body_handle).unwrap();
+        body.apply_torque(torque, true);
+    }
+    pub fn apply_impulse_to_entity(impulse:Vector3<f32>,entity_id: Index)
+    {
+        let ecs = ECSContainer::global();
+        let handle_storage = ecs.world.read_storage::<PhysicsHandle>();
+        let physics_handle = handle_storage.get(ecs.world.entities().entity(entity_id)).unwrap();
+        let mut physics_world =  ecs.world.write_resource::<PhysicsWorld>();
+        let body =  physics_world.body_set.get_mut(physics_handle.rigid_body_handle).unwrap();
+        body.apply_impulse(impulse, true);
+    }
+    pub fn apply_torque_impulse(torque: Vector3<f32>,entity_id: Index)
+    {
+        let ecs = ECSContainer::global();
+        let handle_storage = ecs.world.read_storage::<PhysicsHandle>();
+        let physics_handle = handle_storage.get(ecs.world.entities().entity(entity_id)).unwrap();
+        let mut physics_world =  ecs.world.write_resource::<PhysicsWorld>();
+        let body =  physics_world.body_set.get_mut(physics_handle.rigid_body_handle).unwrap();
+        body.apply_torque_impulse(torque, true);
+    }
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "registerCallback"))]

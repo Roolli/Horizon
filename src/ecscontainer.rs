@@ -2,7 +2,7 @@ use std::borrow::{Borrow, BorrowMut};
 use js_sys::JSON::stringify;
 use rapier3d::na::Vector3;
 use ref_thread_local::{Ref, RefMut, RefThreadLocal};
-use specs::{DispatcherBuilder, World, WorldExt};
+use specs::{DispatcherBuilder, RunNow, System, World, WorldExt};
 
 use crate::components::assetidentifier::AssetIdentifier;
 use crate::components::modelcollider::ModelCollider;
@@ -40,18 +40,12 @@ pub struct ECSContainer {
     pub world: specs::World,
     pub dispatcher: specs::Dispatcher<'static, 'static>,
 }
-
-impl ECSContainer {
-    pub fn dispatch(&mut self)
-    {
-        self.dispatcher.dispatch(&self.world);
-    }
-    pub fn new() -> Self {
+impl Default for ECSContainer{
+    fn default() -> Self {
         let mut world = World::new();
         let mut dispatcher = DispatcherBuilder::new()
             .with(UpdateDeltaTime,stringify!(UpdateDeltaTime),&[])
             .with(HandleWindowEvents,stringify!(HandleWindowEvents),&[])
-            .with(HandleOnRenderCallbacks,stringify!(HandleOnRenderCallbacks),&[])
             .with(UpdateCamera,stringify!(UpdateCamera),&[])
             .with(Physics, stringify!(Physics), &[])
             .with_thread_local(Resize)
@@ -66,6 +60,12 @@ impl ECSContainer {
         dispatcher.setup(&mut world);
         ECSContainer::register_components(&mut world);
         Self { dispatcher, world }
+    }
+}
+impl ECSContainer {
+    pub fn dispatch(&mut self)
+    {
+        self.dispatcher.dispatch(&self.world);
     }
     pub fn setup(&mut self, state: State) {
         self.world.insert(state);

@@ -23,11 +23,11 @@ pub struct ComponentParser {
     next: Box<dyn ParseComponent>,
 }
 impl ComponentParser {
-    pub fn parse<'a>(
+    pub fn parse(
         &self,
         component_data: Component,
         entity: Entity,
-        world: &'a World,
+        world: &World,
     ) -> Result<(), ComponentParserError> {
         self.next.parse(component_data, entity, world)
     }
@@ -45,11 +45,11 @@ impl Default for ComponentParser {
 }
 
 pub trait ParseComponent {
-    fn parse<'a>(
+    fn parse(
         &self,
         component_data: Component,
         entity: Entity,
-        world: &'a World,
+        world: &World,
     ) -> Result<(), ComponentParserError>;
 }
 pub struct TransformComponentParser {
@@ -122,19 +122,28 @@ impl ParseComponent for PhysicsComponentParser {
                 };
                 match component_data.body_type {
                     Some(crate::scripting::util::RigidBodyType::Dynamic) => {
+
                         let colliders = world.read_component::<ModelCollider>();
                         let collider = colliders
                             .get(world.entities().entity(model))
                             .ok_or(ComponentParserError::InvalidData("modelCollider"))?;
-
                         let collider = collider.0.build();
-                        let rigid_body = RigidBodyBuilder::new_dynamic()
+                        let mut rigid_body_builder = RigidBodyBuilder::new_dynamic()
                             .position(Isometry::new(
                                 Vector3::new(pos.x, pos.y, pos.z),
                                 Vector3::new(0.0, 0.0, 0.0),
                             ))
-                            .additional_mass(mass as f32)
-                            .build();
+                            .additional_mass(mass as f32);
+                        if let Some(damping_values) = component_data.damping {
+                            for damping in damping_values {
+                                match damping.damping_type.as_str() {
+                                    "linear" =>{ rigid_body_builder = rigid_body_builder.linear_damping(damping.amount);},
+                                    "angular"=>{rigid_body_builder= rigid_body_builder.angular_damping(damping.amount);},
+                                    _=>return Err(ComponentParserError::InvalidData("damping")),
+                                }
+                            }
+                        }
+                            let rigid_body = rigid_body_builder.build();
                         let body_handle = physics_world.add_rigid_body(rigid_body);
 
                         collider_handle = Some(physics_world.add_collider(collider, body_handle));
@@ -193,7 +202,7 @@ pub struct PointLightComponentParser {
     next: Option<Box<dyn ParseComponent>>,
 }
 impl ParseComponent for PointLightComponentParser {
-    fn parse<'a>(
+    fn parse(
         &self,
         component_data: Component,
         entity: Entity,

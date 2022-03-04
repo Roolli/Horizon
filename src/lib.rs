@@ -97,7 +97,7 @@ enum CustomEvent {
 }
 ref_thread_local::ref_thread_local! {
         pub static managed EVENT_LOOP_PROXY: Option<winit::event_loop::EventLoopProxy<CustomEvent>> = None;
-        pub static managed ECS_CONTAINER: ECSContainer = ECSContainer::new();
+        pub static managed ECS_CONTAINER: ECSContainer = ECSContainer::default();
     }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
@@ -225,7 +225,7 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
     run_init.run_now(&ecs.world); // Very nice code... really....
     drop(ecs);
     event_loop.run(move |event, _, control_flow| {
-        let container = ECSContainer::global_mut();
+        let container = ECSContainer::global();
         let mut egui_container = container.world.write_resource::<EguiContainer>();
         egui_container.platform.handle_event(&event);
         drop(egui_container);
@@ -237,7 +237,7 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
             } if window_id == window.id() => {
                 match event {
                     WindowEvent::MouseInput { button, state, .. } => {
-                        let container = ECSContainer::global_mut();
+                        let container = ECSContainer::global();
                         let mut mouse_event = container
                             .world
                             .write_resource::<MouseInputEvent>();
@@ -254,7 +254,7 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                         {
                             *control_flow = ControlFlow::Exit
                         }
-                        let container = ECSContainer::global_mut();
+                        let container = ECSContainer::global();
                         let mut keyboard_event = container
                             .world
                             .write_resource::<KeyboardEvent>();
@@ -262,7 +262,7 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                         keyboard_event.handled = false;
                     }
                     WindowEvent::Resized(physical_size) => {
-                        let container = ECSContainer::global_mut();
+                        let container = ECSContainer::global();
                         let mut resize_event = container
                             .world
                             .write_resource::<ResizeEvent>();
@@ -271,7 +271,7 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                         resize_event.handled = false;
                     }
                     WindowEvent::ScaleFactorChanged { new_inner_size, scale_factor } => {
-                        let container = ECSContainer::global_mut();
+                        let container = ECSContainer::global();
                         let mut resize_event = container
                             .world
                             .write_resource::<ResizeEvent>();
@@ -286,7 +286,7 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
             }
             Event::DeviceEvent { event, .. } => {
                 if let DeviceEvent::MouseMotion { delta } = event {
-                    let mut container = ECSContainer::global_mut();
+                    let container = ECSContainer::global();
                     let mut mouse_position_event = container
                         .world
                         .write_resource::<MouseMoveEvent>();
@@ -295,6 +295,10 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                 }
             }
             Event::RedrawRequested(_) => {
+                let ecs = ECSContainer::global();
+                let mut render_callbacks = crate::systems::events::handlelifecycleevents::HandleOnRenderCallbacks{};
+                render_callbacks.run_now(&ecs.world);
+                drop(ecs);
                 let mut container = ECSContainer::global_mut();
                 let mut state = container.world.write_resource::<EguiContainer>();
                 let delta_time = container.world.read_resource::<DeltaTime>();
@@ -324,7 +328,7 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                 //TODO: add a system which handles this event and use a resource to pass the data to it!
                 match event {
                     CustomEvent::SkyboxTextureLoad(data, sender) => {
-                        let container = ECSContainer::global_mut();
+                        let container = ECSContainer::global();
                         let state = container.world.read_resource::<State>();
                         let mut binding_resource_container = container.world.write_resource::<BindingResourceContainer>();
                         let mut bind_group_container = container.world.write_storage::<BindGroupContainer>();
@@ -340,7 +344,7 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                         sender.send(()).unwrap();
                     }
                     CustomEvent::RequestModelLoad(data, sender) => {
-                        let container = ECSContainer::global_mut();
+                        let container = ECSContainer::global();
                         let state = container.world.read_resource::<State>();
                         let obj_model = container
                             .world

@@ -10,7 +10,7 @@ use crate::{Projection, renderer::{model::HorizonModel, primitives::mesh::Mesh, 
 
 pub struct DirectionalLight {
     pub direction: Point3<f32>,
-    color: wgpu::Color,
+    pub color: wgpu::Color,
 }
 
 impl DirectionalLight {
@@ -97,7 +97,6 @@ pub struct DirectionalLightRaw {
     pub direction: [f32; 4],
     pub color: [f32; 4],
 }
-// TODO: add proper debug lights
 pub trait DrawLight<'a, 'b>
 where
     'b: 'a,

@@ -31,33 +31,40 @@ impl HorizonEntity {
         ScriptingFunctions::get_component(component_type, self.entity_id)
     }
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "setComponent"))]
-    pub fn set_component(&self, component_data: &JsValue) {
-        ScriptingFunctions::insert_component(component_data.into_serde().unwrap(), self.entity_id)
-            .unwrap(); //TODO: return err
+    pub fn set_component(&self, component_data: &JsValue) -> Result<(),JsValue>{
+        ScriptingFunctions::insert_component(component_data.into_serde().unwrap(), self.entity_id).map_err(|e|JsValue::from_str(format!("couldn't set component due to the following error: {:?}",e).as_str()))
     }
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "deleteComponent"))]
     pub fn delete_component(&self, component_type: ComponentTypes) {
         ScriptingFunctions::delete_component(component_type, self.entity_id);
     }
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "applyForce"))]
-    pub fn apply_force(&self,vec: &JsValue){
-        //TODO: error check
-        ScriptingFunctions::apply_force_to_entity(vec.into_serde::<Vec3>().unwrap().into(),self.entity_id);
+    pub fn apply_force(&self,vec: Vec3) -> Result<(),JsValue>{
+        ScriptingFunctions::apply_force_to_entity(vec.into(),self.entity_id).map_err(|e| JsValue::from_str(format!("failure during script execution, inner error: {:?}",e).as_str()))
     }
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "applyForceTorque"))]
-    pub fn apply_force_torque(&self,vec:&JsValue)
+    pub fn apply_force_torque(&self,vec:Vec3) -> Result<(),JsValue>
     {
-        ScriptingFunctions::apply_torque_to_entity(vec.into_serde::<Vec3>().unwrap().into(),self.entity_id);
+        ScriptingFunctions::apply_torque_to_entity(vec.into(),self.entity_id).map_err(|e| JsValue::from_str(format!("failure during script execution, inner error: {:?}",e).as_str()))
     }
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "applyImpulse"))]
-    pub fn apply_impulse(&self,vec:&JsValue)
+    pub fn apply_impulse(&self,vec:Vec3) -> Result<(),JsValue>
     {
-        ScriptingFunctions::apply_impulse_to_entity(vec.into_serde::<Vec3>().unwrap().into(),self.entity_id);
+        ScriptingFunctions::apply_impulse_to_entity(vec.into(),self.entity_id).map_err(|e| JsValue::from_str(format!("failure during script execution, inner error: {:?}",e).as_str()))
     }
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "applyImpulseTorque"))]
-    pub fn apply_impulse_torque(&self,vec: &JsValue)
+    pub fn apply_impulse_torque(&self,vec: Vec3) -> Result<(),JsValue>
     {
-        ScriptingFunctions::apply_torque_impulse(vec.into_serde::<Vec3>().unwrap().into(),self.entity_id);
+        ScriptingFunctions::apply_torque_impulse(vec.into(),self.entity_id).map_err(|e| JsValue::from_str(format!("failure during script execution, inner error: {:?}",e).as_str()))
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "setLinearVelocity"))]
+    pub fn set_linear_velocity(&self,vec:Vec3) -> Result<(),JsValue>
+    {
+        ScriptingFunctions::set_linear_velocity(vec.into(),self.entity_id).map_err(|e| JsValue::from_str(format!("failure during script execution, inner error: {:?}",e).as_str()))
+    }
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "setAngularVelocity"))]
+    pub fn set_angular_velocity(&self,vec:Vec3) -> Result<(),JsValue>
+    {
+        ScriptingFunctions::set_angular_velocity(vec.into(),self.entity_id).map_err(|e| JsValue::from_str(format!("failure during script execution, inner error: {:?}",e).as_str()))
+    }
 }

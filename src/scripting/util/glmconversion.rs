@@ -2,16 +2,21 @@ use rapier3d::na::{Point3, Quaternion, UnitQuaternion, Vector3, Vector4};
 use serde::Deserialize;
 use serde::Serialize;
 use wgpu::Color;
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(target_arch = "wasm32",wasm_bindgen)]
 pub struct Vec3 {
     pub x: f32,
     pub y: f32,
     pub z: f32,
 }
 
+#[cfg_attr(target_arch = "wasm32",wasm_bindgen)]
 impl Vec3 {
+    #[cfg_attr(target_arch = "wasm32",wasm_bindgen(constructor))]
     pub fn new(x: f32, y: f32, z: f32) -> Self {
         Self { x, y, z }
     }

@@ -1,5 +1,5 @@
 use crate::components::modelcollider::ModelCollider;
-use crate::components::physicshandle::PhysicsHandle;
+use crate::components::physicshandle::{PhysicsHandle, PhysicsValues};
 use crate::components::scriptingcallback::ScriptingCallback;
 use crate::components::transform::Transform;
 use crate::ecscontainer::{ECSContainer, ECSError};
@@ -20,7 +20,7 @@ use rusty_v8 as v8;
 use specs::prelude::*;
 
 use rapier3d::na::{Point3, UnitQuaternion, Vector3};
-use rapier3d::prelude::Isometry;
+use rapier3d::prelude::{Isometry, RigidBody};
 use specs::world::Index;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -34,8 +34,8 @@ use crate::scripting::util::componentconversions::{PointLightComponent, Transfor
 use crate::scripting::util::horizonentity::HorizonEntity;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
+use crate::scripting::ScriptingError;
 
-use crate::scripting::util::RigidBodyType;
 
 ref_thread_local::ref_thread_local! {
      static managed COMPONENT_PARSER: ComponentParser = ComponentParser::default();
@@ -46,7 +46,6 @@ ref_thread_local::ref_thread_local! {
 pub struct ScriptingFunctions;
 
 impl ScriptingFunctions {
-    // TODO: make transform mandatory!
     pub fn create_entity(entity_info: EntityInfo) -> Result<HorizonEntity, ComponentParserError> {
         let ecs = ECSContainer::global();
         let entity = ecs.world.create_entity_unchecked().build();
@@ -94,7 +93,7 @@ impl ScriptingFunctions {
     }
     /// Gets the component's data based on it's type for the given entity.
     // TODO: return some boxed stuff instead of JsValue with trait or something
-    pub fn get_component(component_type: ComponentTypes, entity_id: Index) -> JsValue {
+    pub fn get_component(component_type: ComponentTypes, entity_id: Index) -> JsValue{
         let container = ECSContainer::global();
         match component_type {
             ComponentTypes::Transform => {
@@ -114,7 +113,16 @@ impl ScriptingFunctions {
                     .read_component::<PhysicsHandle>()
                     .get(container.world.entities().entity(entity_id))
                 {
-                    JsValue::from_serde(physics_handle).unwrap()
+                    // all transforms (pos, rot etc.. are not returned as they are part of the transform struct and the physics system has authority over those values for entities which have physics.
+                   let physics_world =  container.world.read_resource::<PhysicsWorld>();
+                    let rigid_body = physics_world.body_set.get(physics_handle.rigid_body_handle).unwrap();
+                    JsValue::from_serde( &PhysicsValues {
+                        angular_damping: rigid_body.angular_damping(),
+                        linear_damping: rigid_body.linear_damping(),
+                        linear_velocity: rigid_body.linvel().xyz().into(),
+                        angular_velocity: rigid_body.angvel().xyz().into(),
+                        mass: rigid_body.mass(),
+                    }).unwrap()
                 } else {
                     JsValue::NULL
                 }
@@ -143,44 +151,65 @@ impl ScriptingFunctions {
             }
         }
     }
-    pub fn apply_force_to_entity(force: Vector3<f32>,entity_id: Index)
+    pub fn apply_force_to_entity(force: Vector3<f32>,entity_id: Index) -> Result<(), ScriptingError>
     {
-        //TODO: handle non-existent physics component
         let ecs = ECSContainer::global();
         let handle_storage = ecs.world.read_storage::<PhysicsHandle>();
-        let physics_handle = handle_storage.get(ecs.world.entities().entity(entity_id)).unwrap();
+        let physics_handle = handle_storage.get(ecs.world.entities().entity(entity_id)).ok_or(ScriptingError::MissingComponent("Physics"))?;
        let mut physics_world =  ecs.world.write_resource::<PhysicsWorld>();
        let body =  physics_world.body_set.get_mut(physics_handle.rigid_body_handle).unwrap();
         body.apply_force(force,true);
+        Ok(())
     }
-    pub fn apply_torque_to_entity(torque: Vector3<f32>, entity_id: Index)
+    pub fn apply_torque_to_entity(torque: Vector3<f32>, entity_id: Index) -> Result<(), ScriptingError>
     {
-        //TODO: handle non-existent physics component
+
         let ecs = ECSContainer::global();
         let handle_storage = ecs.world.read_storage::<PhysicsHandle>();
-        let physics_handle = handle_storage.get(ecs.world.entities().entity(entity_id)).unwrap();
+        let physics_handle = handle_storage.get(ecs.world.entities().entity(entity_id)).ok_or(ScriptingError::MissingComponent("Physics"))?;
         let mut physics_world =  ecs.world.write_resource::<PhysicsWorld>();
         let body =  physics_world.body_set.get_mut(physics_handle.rigid_body_handle).unwrap();
         body.apply_torque(torque, true);
+        Ok(())
     }
-    pub fn apply_impulse_to_entity(impulse:Vector3<f32>,entity_id: Index)
+    pub fn apply_impulse_to_entity(impulse:Vector3<f32>,entity_id: Index) ->Result<(), ScriptingError>
     {
         let ecs = ECSContainer::global();
         let handle_storage = ecs.world.read_storage::<PhysicsHandle>();
-        let physics_handle = handle_storage.get(ecs.world.entities().entity(entity_id)).unwrap();
+        let physics_handle = handle_storage.get(ecs.world.entities().entity(entity_id)).ok_or(ScriptingError::MissingComponent("Physics"))?;
         let mut physics_world =  ecs.world.write_resource::<PhysicsWorld>();
         let body =  physics_world.body_set.get_mut(physics_handle.rigid_body_handle).unwrap();
         body.apply_impulse(impulse, true);
+        Ok(())
     }
-    pub fn apply_torque_impulse(torque: Vector3<f32>,entity_id: Index)
+    pub fn apply_torque_impulse(torque: Vector3<f32>,entity_id: Index) -> Result<(),ScriptingError>
     {
         let ecs = ECSContainer::global();
         let handle_storage = ecs.world.read_storage::<PhysicsHandle>();
-        let physics_handle = handle_storage.get(ecs.world.entities().entity(entity_id)).unwrap();
+        let physics_handle = handle_storage.get(ecs.world.entities().entity(entity_id)).ok_or(ScriptingError::MissingComponent("Physics"))?;
         let mut physics_world =  ecs.world.write_resource::<PhysicsWorld>();
-        let body =  physics_world.body_set.get_mut(physics_handle.rigid_body_handle).unwrap();
-        body.apply_torque_impulse(torque, true);
+          physics_world.body_set.get_mut(physics_handle.rigid_body_handle).unwrap().apply_torque_impulse(torque,true);
+        Ok(())
     }
+    pub fn set_linear_velocity(vel:Vector3<f32>,entity_id:Index) ->Result<(),ScriptingError>
+    {
+        let ecs = ECSContainer::global();
+        let handle_storage = ecs.world.read_storage::<PhysicsHandle>();
+        let physics_handle = handle_storage.get(ecs.world.entities().entity(entity_id)).ok_or(ScriptingError::MissingComponent("Physics"))?;
+        let mut physics_world =  ecs.world.write_resource::<PhysicsWorld>();
+        physics_world.body_set.get_mut(physics_handle.rigid_body_handle).unwrap().set_linvel(vel,true);
+        Ok(())
+    }
+    pub fn set_angular_velocity(vel:Vector3<f32>,entity_id:Index) -> Result<(),ScriptingError>
+    {
+        let ecs = ECSContainer::global();
+        let handle_storage = ecs.world.read_storage::<PhysicsHandle>();
+        let physics_handle = handle_storage.get(ecs.world.entities().entity(entity_id)).ok_or(ScriptingError::MissingComponent("Physics"))?;
+        let mut physics_world =  ecs.world.write_resource::<PhysicsWorld>();
+        physics_world.body_set.get_mut(physics_handle.rigid_body_handle).unwrap().set_angvel(vel,true);
+        Ok(())
+    }
+    //TODO: create function to return a rigid body mutable ref instead of copying 5 lines
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "registerCallback"))]

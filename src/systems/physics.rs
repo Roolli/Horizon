@@ -117,11 +117,9 @@ impl<'a> System<'a> for Physics {
         // perform simulation
         world.step();
         for (handle, transform,ent) in (&handles, &mut transforms,&entities).join() {
-
             let body = world.body_set.get(handle.rigid_body_handle).unwrap();
-
             transform.position = body.position().translation.vector;
-            transform.rotation = UnitQuaternion::from_rotation_matrix(&body.position().rotation.to_rotation_matrix());
+            transform.rotation = body.rotation().cast();
         }
     }
 }

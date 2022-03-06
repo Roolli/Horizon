@@ -210,7 +210,7 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
     ));
 
     let state = ecs.world.write_resource::<State>();
-    let cam = Camera::new(Point3::new(0.0, 5.0, 10.0), f32::to_radians(-90.0), f32::to_radians(-20.0));
+    let cam = Camera::new(Point3::new(-64.0, 29.9, 0.5), f32::to_radians(-2.0), f32::to_radians(-16.0));
     let proj = Projection::new(state.sc_descriptor.width, state.sc_descriptor.height, f32::to_radians(45.0), 2.0, 200.0);
     let cam_controller = CameraController::new(10.0, 2.0);
 

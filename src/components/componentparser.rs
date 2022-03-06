@@ -1,8 +1,8 @@
+
 use crate::components::componentparser::ComponentParserError::NotFound;
 use crate::components::modelcollider::ModelCollider;
 use crate::components::physicshandle::PhysicsHandle;
 use crate::components::transform::Transform;
-use crate::components::ComponentStorage;
 use crate::renderer::primitives::lights::pointlight::PointLight;
 use crate::scripting::util::entityinfo::Component;
 use crate::systems::physics::PhysicsWorld;
@@ -11,6 +11,7 @@ use rapier3d::na::{Point3, UnitQuaternion, Vector3};
 use rapier3d::prelude::*;
 use ref_thread_local::Ref;
 use specs::{Builder, Entity, EntityBuilder, Join, World, WorldExt};
+use crate::renderer::model::HorizonModel;
 
 #[derive(Debug, Clone)]
 pub enum ComponentParserError {
@@ -76,7 +77,7 @@ impl ParseComponent for TransformComponentParser {
                     .position
                     .ok_or(ComponentParserError::InvalidData("position"))?
                     .into(),
-                UnitQuaternion::from_euler_angles(rot.x, rot.y, rot.z),
+                UnitQuaternion::from_euler_angles(rot.x,rot.y,rot.z),
                 component_data
                     .scale
                     .ok_or(ComponentParserError::InvalidData("scale"))?
@@ -85,6 +86,7 @@ impl ParseComponent for TransformComponentParser {
             );
             let mut transform_storage = world.write_storage::<Transform>();
             transform_storage.insert(entity, transform_val).unwrap();
+
             Ok(())
         } else if let Some(ref next) = self.next {
             next.parse(component_data, entity, world)
@@ -111,15 +113,11 @@ impl ParseComponent for PhysicsComponentParser {
             if let Some(model) = component_data.model {
                 let mut physics_world = world.write_resource::<PhysicsWorld>();
                 let mass = component_data
-                    .mass
-                    .ok_or(ComponentParserError::InvalidData("Mass"))?;
+                    .mass.unwrap_or_default();
                 let mut rigid_body_handle: Option<RigidBodyHandle> = None;
                 let mut collider_handle: Option<ColliderHandle> = None;
-                let pos = if let Some(val) = world.read_storage::<Transform>().get(entity) {
-                    val.position
-                } else {
-                    Vector3::new(0.0, 0.0, 0.0)
-                };
+                let transform_storage = world.read_storage::<Transform>();
+                let transform =  transform_storage.get(entity).ok_or(ComponentParserError::MissingDependantComponent("Transform"))?;
                 match component_data.body_type {
                     Some(crate::scripting::util::RigidBodyType::Dynamic) => {
 
@@ -129,10 +127,7 @@ impl ParseComponent for PhysicsComponentParser {
                             .ok_or(ComponentParserError::InvalidData("modelCollider"))?;
                         let collider = collider.0.build();
                         let mut rigid_body_builder = RigidBodyBuilder::new_dynamic()
-                            .position(Isometry::new(
-                                Vector3::new(pos.x, pos.y, pos.z),
-                                Vector3::new(0.0, 0.0, 0.0),
-                            ))
+                            .position(Isometry::new(transform.position,transform.rotation.scaled_axis()))
                             .additional_mass(mass as f32);
                         if let Some(damping_values) = component_data.damping {
                             for damping in damping_values {
@@ -151,17 +146,19 @@ impl ParseComponent for PhysicsComponentParser {
                     }
                     Some(crate::scripting::util::RigidBodyType::Static) => {
                         let rigid_body = RigidBodyBuilder::new_static()
-                            .position(Isometry::new(pos, Vector3::new(0.0, 0.0, 0.0)))
+                            .position(Isometry::new(transform.position,transform.rotation.scaled_axis()))
                             .additional_mass(mass as f32)
                             .build();
                         let body_handle = physics_world.add_rigid_body(rigid_body);
-                        let scale: Vector3<f32> = if let Some(scale_vals) = component_data.scale {
-                            scale_vals.into()
-                        } else {
-                            Vector3::new(1.0, 1.1, 1.0)
-                        };
-                        let collider = ColliderBuilder::cuboid(scale.x, scale.y, scale.z).build();
-                        collider_handle = Some(physics_world.add_collider(collider, body_handle));
+
+                        // Add cuboid collider for now maybe calculate min-extents for the given object
+                        let colliders = world.read_component::<HorizonModel>();
+                        let model = colliders
+                            .get(world.entities().entity(model))
+                            .ok_or(ComponentParserError::InvalidData("modelCollider"))?;
+                        let collider_builder = ColliderBuilder::cuboid(transform.scale.x,transform.scale.y,transform.scale.z);
+
+                        collider_handle = Some(physics_world.add_collider(collider_builder.build(), body_handle));
                         rigid_body_handle = Some(body_handle);
                     }
                     _ => return Err(ComponentParserError::InvalidData("bodyType")),

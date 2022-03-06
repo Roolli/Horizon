@@ -51,7 +51,7 @@ Shadow,
 Skybox,
 }
 
-#[derive(Enum)]
+#[derive(Enum,Debug,PartialEq,Copy,Clone)]
 pub enum TextureViewTypes {
     Shadow,
     DeferredPosition,

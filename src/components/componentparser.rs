@@ -156,8 +156,7 @@ impl ParseComponent for PhysicsComponentParser {
                         let model = colliders
                             .get(world.entities().entity(model))
                             .ok_or(ComponentParserError::InvalidData("modelCollider"))?;
-                        let collider_builder = ColliderBuilder::cuboid(transform.scale.x,transform.scale.y,transform.scale.z);
-
+                        let collider_builder = ColliderBuilder::convex_hull(model.meshes[0].points.as_slice()).unwrap();
                         collider_handle = Some(physics_world.add_collider(collider_builder.build(), body_handle));
                         rigid_body_handle = Some(body_handle);
                     }

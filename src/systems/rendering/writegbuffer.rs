@@ -78,7 +78,7 @@ impl<'a> System<'a> for WriteGBuffer {
                         load: LoadOp::Clear(wgpu::Color {
                             r: 0f64,
                             g: 0f64,
-                            b: 0f64,
+                            b: 1.0,
                             a: 1.0,
                         }),
                         store: true,

@@ -14,6 +14,7 @@ pub struct DebugStats
     pub cam_yaw_pitch: (f32,f32),
     pub texture_id: Option<TextureId>,
     pub selected_texture_name: TextureViewTypes,
+    pub debug_texture_renderer: Option<(wgpu::BindGroup,wgpu::RenderPipeline)>
 }
 
 impl UiComponent for DebugStats
@@ -49,11 +50,12 @@ impl ViewComponent for DebugStats{
                     {
                         ui.image(tex_id,egui::Vec2::new(480.0,320.0));
                     }
+                    ui.end_row();
+                    for message in &self.messages {
+                        ui.label(message);
+                    }
                 });
-            ui.end_row();
-            for message in &self.messages {
-                ui.label(message);
-            }
+            self.messages.clear();
 
         });
     }

@@ -174,8 +174,8 @@ impl ModelBuilder {
                 let uv2: Vector2<f32> = v2.tex_coords.into();
 
                 // Triangle edges
-                let delta_pos1 = pos1 - pos0;
-                let delta_pos2 = pos2 - pos0;
+                let edge1 = pos1 - pos0;
+                let edge2 = pos2 - pos0;
 
                 let delta_uv1 = uv1 - uv0;
                 let delta_uv2 = uv2 - uv0;
@@ -183,9 +183,17 @@ impl ModelBuilder {
                 //     delta_pos1 = delta_uv1.x * T + delta_u.y * B
                 //     delta_pos2 = delta_uv2.x * T + delta_uv2.y * B
                 // Solution from: https://sotrh.github.io/learn-wgpu/intermediate/tutorial11-normals/#the-tangent-and-the-bitangent
-                let r = 1.0 / (delta_uv1.x * delta_uv2.y - delta_uv1.y * delta_uv2.x);
-                let tangent = (delta_pos1 * delta_uv2.y - delta_pos2 * delta_uv1.y) * r;
-                let bitangent = (delta_pos2 * delta_uv1.x - delta_pos1 * delta_uv2.x) * r;
+                let r = 1.0 / (delta_uv1.x * delta_uv2.y - delta_uv2.x * delta_uv1.y);
+                let tangent = Vector3::new( r*(delta_uv2.y * edge1.x - delta_uv1.y *edge2.x),
+                                            r*(delta_uv2.y * edge1.y - delta_uv1.y *edge2.y),
+                                            r*(delta_uv2.y * edge1.z - delta_uv1.y *edge2.z),
+                );
+                //let tangent = (edge1 * delta_uv2.y - edge2 * delta_uv1.y) * r;
+                //let bitangent = (edge2 * delta_uv1.x - edge1 * delta_uv2.x) * r;
+                let bitangent = Vector3::new(
+                                              r*(-delta_uv2.x * edge1.x - delta_uv1.x *edge2.x),
+                                              r*(-delta_uv2.x * edge1.y - delta_uv1.x *edge2.y),
+                                              r*(-delta_uv2.x * edge1.z - delta_uv1.x *edge2.z));
                 vertices[chunk[0] as usize].tangent = tangent.into();
                 vertices[chunk[1] as usize].tangent = tangent.into();
                 vertices[chunk[2] as usize].tangent = tangent.into();

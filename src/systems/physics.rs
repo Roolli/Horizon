@@ -17,13 +17,14 @@ use rapier3d::{
     pipeline::{ChannelEventCollector, PhysicsPipeline},
 };
 use rapier3d::na::{UnitQuaternion, vector, Vector3};
-use rapier3d::prelude::{CCDSolver, IslandManager};
+use rapier3d::prelude::{CCDSolver, IslandManager, RigidBodyType};
 use specs::{Entities, Join, ReadStorage, System, WriteExpect, WriteStorage};
 
 use crate::components::{
     physicshandle::{PhysicsHandle},
     transform::Transform,
 };
+use crate::ui::debugstats::DebugStats;
 
 pub struct PhysicsWorld {
     pipeline: PhysicsPipeline,
@@ -109,11 +110,12 @@ impl<'a> System<'a> for Physics {
         WriteExpect<'a, PhysicsWorld>,
         ReadStorage<'a, PhysicsHandle>,
         WriteStorage<'a, Transform>,
-        Entities<'a>
+        Entities<'a>,
+        WriteExpect<'a,DebugStats>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
-        let (mut world, handles, mut transforms,entities) = data;
+        let (mut world, handles, mut transforms,entities,mut debug_ui) = data;
         // perform simulation
         world.step();
         for (handle, transform,ent) in (&handles, &mut transforms,&entities).join() {

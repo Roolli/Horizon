@@ -102,7 +102,8 @@ impl ECSContainer {
             cam_pos: rapier3d::na::Point3::new(0.0,0.0,0.0),
             cam_yaw_pitch: (0.0,0.0),
             texture_id:None,
-            selected_texture_name: TextureViewTypes::DeferredAlbedo
+            selected_texture_name: TextureViewTypes::DeferredPosition,
+            debug_texture_renderer: None,
         });
         world.insert(KeyboardEvent::default());
         world.insert(MouseMoveEvent::default());

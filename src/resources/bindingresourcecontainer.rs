@@ -58,4 +58,5 @@ pub enum TextureViewTypes {
     DeferredNormals,
     DeferredAlbedo,
     Skybox,
+    Depth,
 }

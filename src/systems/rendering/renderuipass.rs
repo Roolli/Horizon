@@ -3,7 +3,7 @@ use epi::{IntegrationInfo, WebInfo};
 use specs::{ReadExpect, System, WriteExpect};
 use wgpu::{FilterMode, Texture, TextureView};
 
-use crate::{BindingResourceContainer, DeltaTime, renderer::state::State};
+use crate::{BindingResourceContainer, DeltaTime, renderer::state::State, TextureViewTypes};
 use crate::renderer::utils::texturerenderer::TextureRenderer;
 use crate::resources::commandencoder::HorizonCommandEncoder;
 use crate::resources::eguicontainer::EguiContainer;
@@ -42,43 +42,59 @@ impl<'a> System<'a> for RenderUIPass {
            }));
            debug_ui.debug_texture_view = albedo_view;
        }
-
+        let mut texture_view = None;
         let encoder = command_encoder.get_encoder();
         {
-            let renderer = TextureRenderer::new_depth_texture_visualizer(
-                &state.device,
-                    &state.depth_texture.view,
-                &state.sc_descriptor,
-            );
-            // binding_resource_container
-            //     .texture_views
-            //     .get("shadow_view")
-            //     .unwrap(),
+            let renderer = match debug_ui.selected_texture_name {
+                TextureViewTypes::DeferredPosition | TextureViewTypes::DeferredNormals => {
+                    Some(TextureRenderer::hdr_texture_visualizer(
+                        &state.device,
+                        binding_resource_container.texture_views[debug_ui.selected_texture_name].as_ref().unwrap(),
+                        &state.sc_descriptor,
+                    ))
+                },
+                TextureViewTypes::Shadow | TextureViewTypes::Depth => {
+                    Some(TextureRenderer::new_depth_texture_visualizer(
+                        &state.device,
+                        &state.depth_texture.view,
+                        &state.sc_descriptor,
+                    ))
+                }
+                _ => { None },
+            };
+            if let Some(texture_renderer) = renderer
+            {
+                let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    color_attachments: &[wgpu::RenderPassColorAttachment {
+                        view: debug_ui.debug_texture_view.as_ref().unwrap(),
+                        resolve_target: None,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(wgpu::Color {
+                                r: 0.1,
+                                g: 0.2,
+                                b: 0.3,
+                                a: 1.0,
+                            }),
+                            store: true,
+                        },
+                    }],
+                    depth_stencil_attachment: None,
+                    label: Some("texture renderer"),
+                });
 
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                color_attachments: &[wgpu::RenderPassColorAttachment {
-                    view: debug_ui.debug_texture_view.as_ref().unwrap(),
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
-                            a: 1.0,
-                        }),
-                        store: true,
-                    },
-                }],
-                depth_stencil_attachment: None,
-                label: Some("texture renderer"),
-            });
+                render_pass.set_pipeline(&texture_renderer.1);
+                render_pass.set_bind_group(0, &texture_renderer.0, &[]);
+                render_pass.draw(0..6, 0..1);
+                texture_view = Some(debug_ui.debug_texture_view.as_ref().unwrap());
+            }
+            else if debug_ui.selected_texture_name == TextureViewTypes::DeferredAlbedo
+            {
+                texture_view = Some(binding_resource_container.texture_views[TextureViewTypes::DeferredAlbedo].as_ref().unwrap())
+            }
 
-            render_pass.set_pipeline(&renderer.1);
-            render_pass.set_bind_group(0, &renderer.0, &[]);
-            render_pass.draw(0..6, 0..1);
         }
-        debug_ui.texture_id = Some(egui_container.render_pass.egui_texture_from_wgpu_texture(&state.device,binding_resource_container.texture_views[debug_ui.selected_texture_name].as_ref().unwrap(),FilterMode::Linear));
 
+        debug_ui.texture_id = Some(egui_container.render_pass.egui_texture_from_wgpu_texture(&state.device,texture_view.as_ref().unwrap(),FilterMode::Linear));
         debug_ui.show(&egui_container.platform.context(),&mut true);
         let (output, paint_commands) = egui_container.platform.end_frame(None);
         let paint_jobs = egui_container.platform.context().tessellate(paint_commands);

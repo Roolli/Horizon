@@ -21,8 +21,8 @@ use crate::{components::scriptingcallback::ScriptingCallback, ECS_CONTAINER, fil
     windowevents::{KeyboardEvent, MouseInputEvent, MouseMoveEvent, ResizeEvent},
 }, SkyboxBindGroup, systems::{
     physics::{Physics, PhysicsWorld},
-}};
-use crate::systems::events::handlelifecycleevents::HandleOnRenderCallbacks;
+}, TextureViewTypes};
+
 use crate::systems::events::handlewindowevents::HandleWindowEvents;
 use crate::systems::events::resize::Resize;
 use crate::systems::rendering::computelightculling::ComputeLightCulling;
@@ -99,6 +99,10 @@ impl ECSContainer {
             messages:Vec::new(),
             debug_texture:None,
             debug_texture_view:None,
+            cam_pos: rapier3d::na::Point3::new(0.0,0.0,0.0),
+            cam_yaw_pitch: (0.0,0.0),
+            texture_id:None,
+            selected_texture_name: TextureViewTypes::DeferredAlbedo
         });
         world.insert(KeyboardEvent::default());
         world.insert(MouseMoveEvent::default());

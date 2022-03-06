@@ -16,8 +16,6 @@ impl<'a> System<'a> for RenderUIPass {
     type SystemData = (WriteExpect<'a, EguiContainer>,ReadExpect<'a,State>,WriteExpect<'a,HorizonCommandEncoder>,WriteExpect<'a,DebugStats>,ReadExpect<'a,BindingResourceContainer>);
 
     fn run(&mut self, (mut egui_container,state,mut command_encoder,mut debug_ui,binding_resource_container): Self::SystemData) {
-
-        debug_ui.show(&egui_container.platform.context(),&mut true);
         if debug_ui.debug_texture.is_none()
         {
             let albedo_texture:Option<Texture> = Some(state.device.create_texture(&wgpu::TextureDescriptor {
@@ -79,11 +77,9 @@ impl<'a> System<'a> for RenderUIPass {
             render_pass.set_bind_group(0, &renderer.0, &[]);
             render_pass.draw(0..6, 0..1);
         }
+        debug_ui.texture_id = Some(egui_container.render_pass.egui_texture_from_wgpu_texture(&state.device,binding_resource_container.texture_views[debug_ui.selected_texture_name].as_ref().unwrap(),FilterMode::Linear));
 
-        let image_id = egui_container.render_pass.egui_texture_from_wgpu_texture(&state.device,&debug_ui.debug_texture.as_ref().unwrap(),FilterMode::Linear);
-        egui::Window::new("depth_view").show(&egui_container.platform.context(),|ui|{
-            ui.image(image_id,egui::Vec2::new(640.0,480.0));
-        });
+        debug_ui.show(&egui_container.platform.context(),&mut true);
         let (output, paint_commands) = egui_container.platform.end_frame(None);
         let paint_jobs = egui_container.platform.context().tessellate(paint_commands);
 

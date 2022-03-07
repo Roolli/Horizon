@@ -1,10 +1,11 @@
-use std::{collections::HashMap, io::BufRead};
 use std::io::BufReader;
+use std::{collections::HashMap, io::BufRead};
 
 use super::fileloader;
 use fileloader::FileLoader;
 
 use futures::future::join_all;
+use gltf::Gltf;
 use js_sys::Atomics::load;
 use tobj::LoadResult;
 pub struct Importer {
@@ -16,24 +17,28 @@ impl Importer {
     }
     pub async fn import_obj_model(&self, obj_file_path: &str) -> LoadResult {
         let obj_file = self.file_loader.load_file(obj_file_path).await;
-        tobj::load_obj_buf_async(&mut obj_file.as_slice(),&tobj::LoadOptions{
-            triangulate:true,
-            ignore_points:false,
-            ignore_lines:false,
-            single_index:true,
-        },
-        move |path| {
-            async move{
+        tobj::load_obj_buf_async(
+            &mut obj_file.as_slice(),
+            &tobj::LoadOptions {
+                triangulate: true,
+                ignore_points: false,
+                ignore_lines: false,
+                single_index: true,
+            },
+            move |path| async move {
                 let contents = self.file_loader.load_file(path.as_str()).await;
-                 let buff = tobj::load_mtl_buf(&mut contents.as_slice());
+                let buff = tobj::load_mtl_buf(&mut contents.as_slice());
                 buff
-            }
-        }
-        ).await
+            },
+        )
+        .await
     }
 
     pub async fn import_file(&self, file_path: &str) -> Vec<u8> {
         self.file_loader.load_file(file_path).await
+    }
+    pub async fn import_gltf_model(&self, file_path: &str) -> gltf::Result<gltf::Import> {
+        gltf::import_slice(self.file_loader.load_file(file_path).await.as_slice())
     }
 }
 #[cfg(not(target_arch = "wasm32"))]
@@ -53,7 +58,7 @@ impl Default for Importer {
 impl Default for Importer {
     fn default() -> Self {
         use web_sys::Window;
-        
+
         let win: Window = web_sys::window().unwrap();
         let doc = win.document().unwrap();
         use crate::filesystem::webfileloader::WebFileLoader;

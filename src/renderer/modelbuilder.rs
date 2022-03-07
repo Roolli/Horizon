@@ -1,12 +1,17 @@
-use std::collections::HashMap;
-use rapier3d::na::{Vector2, Vector3};
+use crate::components::gltfmodel::GltfPrimitive;
 use crate::renderer::primitives::vertex::ModelVertex;
+use js_sys::Atomics::load;
 use mesh::Mesh;
-use tobj::{Material, Model};
-use wgpu::util::DeviceExt;
+use rapier3d::na::{Vector2, Vector3};
 use rapier3d::prelude::*;
+use std::collections::{HashMap, HashSet};
+use tobj::{Material, Model};
+use web_sys::text;
+use wgpu::util::DeviceExt;
 
 use crate::filesystem::modelimporter::Importer;
+use crate::renderer::primitives::material::GltfMaterial;
+use crate::renderer::primitives::mesh::{GltfMesh, VertexAttributeType};
 use crate::scripting::util::glmconversion::Vec3;
 
 use super::{
@@ -15,7 +20,7 @@ use super::{
 };
 pub struct ModelBuilder {
     pub diffuse_texture_bind_group_layout: wgpu::BindGroupLayout,
-     importer: Importer,
+    importer: Importer,
 }
 
 impl ModelBuilder {
@@ -68,64 +73,71 @@ impl ModelBuilder {
         &self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        model_data:(Vec<Model>,Vec<(Vec<u8>,Vec<u8>,String)>),
+        model_data: (Vec<Model>, Vec<(Vec<u8>, Vec<u8>, String)>),
         name: &str,
     ) -> HorizonModel {
-        let (obj_models,obj_materials) = model_data;
-                // mats
-            let mut mats = Vec::new();
-            for material_textures in obj_materials
-            {
-                let diffuse_texture=    if !material_textures.0.is_empty()
-                {
-                    crate::renderer::primitives::texture::Texture::load(
-                        device,
-                        queue,
-                        material_textures.0.as_slice(),
-                        Some(format!("diffuse-{}",material_textures.2).as_str()),
-                        false,
-                    ).unwrap()
-                }
-                else {
-                    texture::Texture::create_default_texture_with_color(
-                        device,
-                        queue,
-                        [255, 0, 0],
-                        Some("DEFAULT_DIFFUSE_TEXTURE"),
-                        false,
-                    )
-                };
-                let normal_texture = if !material_textures.1.is_empty()
-                {
-                    texture::Texture::load(device,queue,material_textures.1.as_slice(),Some(format!("normal-{}",material_textures.2).as_str()),true).unwrap()
-                }
-                else {
-                    texture::Texture::create_default_texture_with_color(
-                        device,
-                        queue,
-                        [0, 0, 255],
-                        Some("DEFAULT_NORMAL_TEXTURE"),
-                        true
-                    )
-                };
-                let bind_group = Self::create_bind_group(
+        let (obj_models, obj_materials) = model_data;
+        // mats
+        let mut mats = Vec::new();
+        for material_textures in obj_materials {
+            let diffuse_texture = if !material_textures.0.is_empty() {
+                crate::renderer::primitives::texture::Texture::load(
                     device,
-                    &self.diffuse_texture_bind_group_layout,
-                    &diffuse_texture,
-                    &normal_texture,
-                );
-                mats.push(crate::renderer::primitives::material::Material {
-                    diffuse_texture,
-                    name: material_textures.2,
-                    bind_group,
-                    normal_texture,
-                });
-            }
+                    queue,
+                    material_textures.0.as_slice(),
+                    Some(format!("diffuse-{}", material_textures.2).as_str()),
+                    false,
+                )
+                .unwrap()
+            } else {
+                texture::Texture::create_default_texture_with_color(
+                    device,
+                    queue,
+                    [255, 0, 0],
+                    Some("DEFAULT_DIFFUSE_TEXTURE"),
+                    false,
+                )
+            };
+            let normal_texture = if !material_textures.1.is_empty() {
+                texture::Texture::load(
+                    device,
+                    queue,
+                    material_textures.1.as_slice(),
+                    Some(format!("normal-{}", material_textures.2).as_str()),
+                    true,
+                )
+                .unwrap()
+            } else {
+                texture::Texture::create_default_texture_with_color(
+                    device,
+                    queue,
+                    [0, 0, 255],
+                    Some("DEFAULT_NORMAL_TEXTURE"),
+                    true,
+                )
+            };
+            let bind_group = Self::create_bind_group(
+                device,
+                &self.diffuse_texture_bind_group_layout,
+                &diffuse_texture,
+                &normal_texture,
+            );
+            mats.push(crate::renderer::primitives::material::Material {
+                diffuse_texture,
+                name: material_textures.2,
+                bind_group,
+                normal_texture,
+            });
+        }
 
         let mut meshes = Vec::new();
         for model in obj_models {
             let mut vertices = Vec::new();
-            assert_eq!(model.mesh.positions.len() % 3, 0, "position layout is wrong");
+            assert_eq!(
+                model.mesh.positions.len() % 3,
+                0,
+                "position layout is wrong"
+            );
             let _min_extents = Vector3::new(f32::MAX, f32::MAX, f32::MAX);
             let _max_extents = Vector3::new(f32::MIN, f32::MIN, f32::MIN);
             for i in 0..model.mesh.positions.len() / 3 {
@@ -160,7 +172,6 @@ impl ModelBuilder {
             }
             let indices = &model.mesh.indices;
             for chunk in indices.chunks(3) {
-
                 let v0 = vertices[chunk[0] as usize];
                 let v1 = vertices[chunk[1] as usize];
                 let v2 = vertices[chunk[2] as usize];
@@ -184,16 +195,18 @@ impl ModelBuilder {
                 //     delta_pos2 = delta_uv2.x * T + delta_uv2.y * B
                 // Solution from: https://sotrh.github.io/learn-wgpu/intermediate/tutorial11-normals/#the-tangent-and-the-bitangent
                 let r = 1.0 / (delta_uv1.x * delta_uv2.y - delta_uv2.x * delta_uv1.y);
-                let tangent = Vector3::new( r*(delta_uv2.y * edge1.x - delta_uv1.y *edge2.x),
-                                            r*(delta_uv2.y * edge1.y - delta_uv1.y *edge2.y),
-                                            r*(delta_uv2.y * edge1.z - delta_uv1.y *edge2.z),
+                let tangent = Vector3::new(
+                    r * (delta_uv2.y * edge1.x - delta_uv1.y * edge2.x),
+                    r * (delta_uv2.y * edge1.y - delta_uv1.y * edge2.y),
+                    r * (delta_uv2.y * edge1.z - delta_uv1.y * edge2.z),
                 );
                 //let tangent = (edge1 * delta_uv2.y - edge2 * delta_uv1.y) * r;
                 //let bitangent = (edge2 * delta_uv1.x - edge1 * delta_uv2.x) * r;
                 let bitangent = Vector3::new(
-                                              r*(-delta_uv2.x * edge1.x - delta_uv1.x *edge2.x),
-                                              r*(-delta_uv2.x * edge1.y - delta_uv1.x *edge2.y),
-                                              r*(-delta_uv2.x * edge1.z - delta_uv1.x *edge2.z));
+                    r * (-delta_uv2.x * edge1.x - delta_uv1.x * edge2.x),
+                    r * (-delta_uv2.x * edge1.y - delta_uv1.x * edge2.y),
+                    r * (-delta_uv2.x * edge1.z - delta_uv1.x * edge2.z),
+                );
                 vertices[chunk[0] as usize].tangent = tangent.into();
                 vertices[chunk[1] as usize].tangent = tangent.into();
                 vertices[chunk[2] as usize].tangent = tangent.into();
@@ -260,6 +273,78 @@ impl ModelBuilder {
             ],
         })
     }
+    pub fn create_gltf_model(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        data: (
+            gltf::Document,
+            Vec<gltf::buffer::Data>,
+            Vec<gltf::image::Data>,
+        ),
+    ) {
+        let mut materials = Vec::new();
+        let mut named_materials = HashMap::default();
+        let mut linear_textures = HashSet::default();
+        for material in data.0.materials() {
+            let loaded_mat = Self::load_gltf_material(&material);
+            materials.push(loaded_mat);
+            if let Some(name) = material.name() {
+                named_materials.insert(name.to_string(), loaded_mat);
+            }
+            if let Some(normal_texture) = material.normal_texture() {
+                linear_textures.insert(normal_texture.texture().index());
+            }
+            if let Some(occlusion_texture) = material.occlusion_texture() {
+                linear_textures.insert(occlusion_texture.texture().index());
+            }
+            if let Some(roughness_texture) = material
+                .pbr_metallic_roughness()
+                .metallic_roughness_texture()
+            {
+                linear_textures.insert(roughness_texture.texture().index());
+            }
+        }
+        let mut meshes = Vec::new();
+        for mesh in data.0.meshes() {
+            let mut primitives = Vec::new();
+            for primitive in mesh.primitives() {
+                let reader = primitive.reader(|buffer| Some(&data.1[buffer.index()]));
+
+                let mut mesh = GltfMesh::new(primitive.mode());
+                if let Some(position_vertex_attribs) = reader.read_positions().map(|v| v.collect())
+                {
+                    mesh.add_vertex_attribute(
+                        VertexAttributeType::Position,
+                        position_vertex_attribs,
+                    );
+                }
+                if let Some(normal_vertex_attribs) = reader.read_normals().map(|v| v.collect()) {
+                    mesh.add_vertex_attribute(VertexAttributeType::Normal, normal_vertex_attribs);
+                }
+                if let Some(tangent_vertex_attribs) = reader.read_tangents().map(|v| v.collect()) {
+                    mesh.add_vertex_attribute(VertexAttributeType::Tangent, tangent_vertex_attribs);
+                }
+                if let Some(tex_coords_attribs) =
+                    reader.read_tex_coords(0).map(|v| v.into_f32().collect())
+                {
+                    mesh.add_vertex_attribute(
+                        VertexAttributeType::TextureCoords,
+                        tex_coords_attribs,
+                    );
+                }
+                if let Some(indices) = reader.read_indices().map(|v| v.into_u32().collect()) {
+                    mesh.add_indices(indices);
+                }
+                primitives.push(GltfPrimitive {
+                    mesh,
+                    material: primitive
+                        .material()
+                        .index()
+                        .and_then(|i| materials.get(i).cloned()),
+                });
+            }
+        }
+    }
 
     fn update_bounding_box_extents(
         min_extent: &mut Vector3<f32>,
@@ -273,5 +358,26 @@ impl ModelBuilder {
         max_extent.x = f32::max(max_extent.x, coords[0]);
         max_extent.y = f32::max(max_extent.y, coords[1]);
         max_extent.z = f32::max(max_extent.x, coords[2]);
+    }
+    fn load_gltf_material(material: &gltf::material::Material) -> GltfMaterial {
+        let pbr = material.pbr_metallic_roughness();
+
+        let color = pbr.base_color_factor();
+        let base_color_texture = if let Some(tex_info) = pbr.base_color_texture() {
+            //TODO: load as wgpu::Texture, tex_info.texture().source()
+        };
+        let normal_map_texture = if let Some(normal_tex) = material.normal_texture() {
+            //TODO: load as wgpu::Texture, tex_info.texture().source()
+        };
+
+        let metallic_roughness_texture =
+            if let Some(metallic_roughness) = pbr.metallic_roughness_texture() {
+                //TODO: load as wgpu::Texture, tex_info.texture().source()
+            };
+        let occlusion_texture = if let Some(occulsion_texture) = material.occlusion_texture() {};
+        let emissive = material.emissive_factor();
+        let emissive_texutre = if let Some(emissive_info) = material.emissive_texture() {
+            //TODO: load as wgpu::Texture, tex_info.texture().source()
+        };
     }
 }

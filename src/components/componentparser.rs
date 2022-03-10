@@ -1,4 +1,4 @@
-
+use std::ops::Deref;
 use crate::components::componentparser::ComponentParserError::NotFound;
 use crate::components::modelcollider::ModelCollider;
 use crate::components::physicshandle::PhysicsHandle;
@@ -12,6 +12,7 @@ use rapier3d::prelude::*;
 use ref_thread_local::Ref;
 use specs::{Builder, Entity, EntityBuilder, Join, World, WorldExt};
 use crate::renderer::model::HorizonModel;
+use crate::renderer::primitives::mesh::{VertexAttributeType, VertexAttribValues};
 
 #[derive(Debug, Clone)]
 pub enum ComponentParserError {
@@ -156,7 +157,14 @@ impl ParseComponent for PhysicsComponentParser {
                         let model = colliders
                             .get(world.entities().entity(model))
                             .ok_or(ComponentParserError::InvalidData("modelCollider"))?;
-                        let collider_builder = ColliderBuilder::convex_hull(model.meshes[0].points.as_slice()).unwrap();
+                        // TODO fix
+                       let values = if let VertexAttribValues::Float32x3{0:values} = model.meshes[0].primitives[0].mesh.attribute(VertexAttributeType::Position).unwrap(){
+                            values.clone()
+                        }
+                       else {
+                          vec![[0.0,0.0,0.0]]
+                       };
+                        let collider_builder = ColliderBuilder::convex_hull(&[Point3::new(0.0,0.0,0.0)]).unwrap();
                         collider_handle = Some(physics_world.add_collider(collider_builder.build(), body_handle));
                         rigid_body_handle = Some(body_handle);
                     }

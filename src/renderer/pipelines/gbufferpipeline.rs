@@ -2,7 +2,7 @@ use crate::renderer::{
     pipelines::RenderPipelineBuilder,
     primitives::{
         texture::Texture,
-        vertex::{ModelVertex, Vertex},
+        vertex::{MeshVertexData, Vertex},
     },
 };
 
@@ -33,7 +33,7 @@ impl<'a> HorizonPipeline<'a> for GBufferPipeline {
         };
         let module = device.create_shader_module(&module_descriptor);
         let vertex_state = wgpu::VertexState {
-            buffers: &[ModelVertex::desc()],
+            buffers: &[MeshVertexData::desc()],
             entry_point: "vs_main",
             module: &module,
         };

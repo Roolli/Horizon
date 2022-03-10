@@ -5,9 +5,11 @@ use super::fileloader;
 use fileloader::FileLoader;
 
 use futures::future::join_all;
-use gltf::Gltf;
+use gltf::{Buffer, Gltf, Image};
 use js_sys::Atomics::load;
 use tobj::LoadResult;
+use web_sys::Document;
+
 pub struct Importer {
     file_loader: Box<dyn FileLoader>,
 }
@@ -37,8 +39,8 @@ impl Importer {
     pub async fn import_file(&self, file_path: &str) -> Vec<u8> {
         self.file_loader.load_file(file_path).await
     }
-    pub async fn import_gltf_model(&self, file_path: &str) -> gltf::Result<gltf::Import> {
-        gltf::import_slice(self.file_loader.load_file(file_path).await.as_slice())
+    pub async fn import_gltf_model(&self, file_path: &str) -> Result<(gltf::Document, Vec<gltf::buffer::Data>, Vec<gltf::image::Data>),ImporterError> {
+          gltf::import_slice(self.file_loader.load_file(file_path).await.as_slice()).map_err(|e| ImporterError::LoadError)
     }
 }
 #[cfg(not(target_arch = "wasm32"))]
@@ -65,4 +67,10 @@ impl Default for Importer {
         let url = doc.url().unwrap().clone();
         Importer::new(Box::new(WebFileLoader::new(url)))
     }
+}
+#[derive(Clone,Debug)]
+pub enum ImporterError{
+    InvalidAssetPath,
+    LoadError,
+    MissingAsset(String)
 }

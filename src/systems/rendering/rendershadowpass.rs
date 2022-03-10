@@ -86,12 +86,12 @@ impl<'a> System<'a> for RenderShadowPass {
                 (std::mem::size_of::<TransformRaw>() * begin_instance_index as usize) as BufferAddress,
                 bytemuck::cast_slice(&instance_buffer),
             );
-
-            for mesh in &model.meshes {
-                pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
-                pass.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-                pass.draw_indexed(0..mesh.element_count, 0, begin_instance_index..begin_instance_index + instance_buffer.len() as u32);
-            }
+            // TODO: FIX
+            // for mesh in &model.meshes {
+            //     pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
+            //     pass.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+            //     pass.draw_indexed(0..mesh.element_count, 0, begin_instance_index..begin_instance_index + instance_buffer.len() as u32);
+            // }
             begin_instance_index += instance_buffer.len() as u32;
         }
         drop(pass);

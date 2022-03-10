@@ -5,9 +5,10 @@ use crate::components::transform::Transform;
 use crate::ecscontainer::{ECSContainer, ECSError};
 use crate::renderer::primitives::lights::pointlight::PointLight;
 use crate::systems::physics::PhysicsWorld;
-use crate::{CustomEvent, EVENT_LOOP_PROXY};
+use crate::{CustomEvent, EVENT_LOOP_PROXY, HorizonModel, ModelBuilder};
 use js_sys::Error;
 use std::iter::Once;
+use std::mem::size_of_val;
 
 use super::scriptevent::ScriptEvent;
 #[cfg(not(target_arch = "wasm32"))]
@@ -227,29 +228,32 @@ pub async fn load_model(object_name: JsValue) -> Result<JsValue, JsValue> {
     if let Some(obj) = object_name.as_string() {
         log::info!(target: "model_load","loading model {}",obj);
         let importer = Importer::default();
-        let file_contents = importer.import_obj_model(obj.as_str()).await.unwrap();
+        //let file_contents = importer.import_obj_model(obj.as_str()).await.unwrap();
+        //
+        // let mut mats = Vec::new();
+        // for mat in file_contents.1.unwrap() {
+        //     let diffuse_texture_raw = if !mat.diffuse_texture.is_empty() {
+        //         importer.import_file(mat.diffuse_texture.as_str()).await
+        //     } else {
+        //         Vec::new()
+        //     };
+        //     let normal_texture_raw = if !mat.normal_texture.is_empty() {
+        //         importer.import_file(mat.normal_texture.as_str()).await
+        //     } else {
+        //         Vec::new()
+        //     };
+        //     mats.push((diffuse_texture_raw, normal_texture_raw, mat.name));
+        // }
 
-        let mut mats = Vec::new();
-        for mat in file_contents.1.unwrap() {
-            let diffuse_texture_raw = if !mat.diffuse_texture.is_empty() {
-                importer.import_file(mat.diffuse_texture.as_str()).await
-            } else {
-                Vec::new()
-            };
-            let normal_texture_raw = if !mat.normal_texture.is_empty() {
-                importer.import_file(mat.normal_texture.as_str()).await
-            } else {
-                Vec::new()
-            };
-            mats.push((diffuse_texture_raw, normal_texture_raw, mat.name));
-        }
+        let gltf_contents = importer.import_gltf_model(obj.as_str()).await.unwrap();
+       let model =  ModelBuilder::create_gltf_model(gltf_contents).map_err(|e|JsValue::from_str(format!("error during model load: {:?}",e).as_str()))?;
 
         let val = ref_thread_local::RefThreadLocal::borrow(&EVENT_LOOP_PROXY);
         let (sender, receiver) = futures::channel::oneshot::channel::<Entity>();
         val.as_ref()
             .unwrap()
             .send_event(CustomEvent::RequestModelLoad(
-                (file_contents.0, mats),
+                model,
                 sender,
             ))
             .unwrap();

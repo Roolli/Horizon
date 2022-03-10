@@ -1,7 +1,7 @@
 use super::HorizonPipeline;
 
 use crate::renderer::pipelines::RenderPipelineBuilder;
-use crate::renderer::primitives::vertex::{ModelVertex, Vertex};
+use crate::renderer::primitives::vertex::{MeshVertexData, Vertex};
 
 use wgpu::{BindGroupLayout, ColorTargetState};
 
@@ -43,7 +43,7 @@ impl<'a> HorizonPipeline<'a> for ShadowPipeline {
             stencil: wgpu::StencilState::default(),
         };
         let vertex_state = wgpu::VertexState {
-            buffers: &[ModelVertex::desc()],
+            buffers: &[MeshVertexData::desc()],
             entry_point: "vs_main",
             module: &module,
         };

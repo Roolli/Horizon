@@ -137,13 +137,14 @@ impl<'a> System<'a> for WriteGBuffer {
             render_pass.set_pipeline(&gbuffer_pipeline.0);
 
             render_pass.set_bind_group(1, &uniform_bind_group_container.bind_group, &[]);
-            for mesh in &model.meshes {
-                render_pass.set_bind_group(0, &model.materials[mesh.material].bind_group, &[]);
-                render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
-                render_pass
-                    .set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-                render_pass.draw_indexed(0..mesh.element_count, 0, begin_instance_index..begin_instance_index + instance_buffer.len() as u32);
-            }
+            // TODO: FIX
+            // for mesh in &model.meshes {
+            //     render_pass.set_bind_group(0, &model.materials[mesh.material].bind_group, &[]);
+            //     render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
+            //     render_pass
+            //         .set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+            //     render_pass.draw_indexed(0..mesh.element_count, 0, begin_instance_index..begin_instance_index + instance_buffer.len() as u32);
+            // }
             begin_instance_index += instance_buffer.len() as u32;
 
         }

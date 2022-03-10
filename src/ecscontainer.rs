@@ -81,12 +81,10 @@ impl ECSContainer {
                 label: Some("Render encoder"),
             });
         let importer = Importer::default();
-        let model_builder = ModelBuilder::new(&state.device, importer);
         let egui_render_pass =
             egui_wgpu_backend::RenderPass::new(&state.device, state.sc_descriptor.format, 1);
 
         drop(state);
-        world.insert(model_builder);
         world.insert(egui_render_pass);
         world.insert(ResizeEvent {
             new_size: size,

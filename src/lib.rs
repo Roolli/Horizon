@@ -4,6 +4,7 @@ use std::sync::Mutex;
 use egui::emath::Numeric;
 use egui_wgpu_backend::RenderPass;
 use egui_winit_platform::{Platform, PlatformDescriptor};
+use gltf::{buffer, Document};
 use lazy_static::lazy_static;
 
 use crate::{
@@ -71,6 +72,7 @@ use wasm_bindgen_futures::spawn_local;
 use ecscontainer::ECSContainer;
 use crate::renderer::bindgroupcontainer::BindGroupContainer;
 use crate::renderer::bindgroups::skybox::SkyboxBindGroup;
+use crate::renderer::model::HorizonModel;
 use crate::renderer::pipelines::skyboxpipeline::SkyboxPipeline;
 use crate::renderer::primitives::texture::Texture;
 use crate::resources::bindingresourcecontainer::{BufferTypes, SamplerTypes, TextureTypes, TextureViewTypes};
@@ -92,7 +94,7 @@ extern "C" {
 // TODO: convert sender to result<T> and return proper errors
 #[derive(Debug)]
 enum CustomEvent {
-    RequestModelLoad((Vec<Model>, Vec<(Vec<u8>, Vec<u8>, String)>), futures::channel::oneshot::Sender<Entity>),
+    RequestModelLoad(HorizonModel, futures::channel::oneshot::Sender<Entity>),
     SkyboxTextureLoad(Vec<u8>, futures::channel::oneshot::Sender<()>),
 }
 ref_thread_local::ref_thread_local! {
@@ -346,18 +348,22 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                     CustomEvent::RequestModelLoad(data, sender) => {
                         let container = ECSContainer::global();
                         let state = container.world.read_resource::<State>();
-                        let obj_model = container
-                            .world
-                            .read_resource::<ModelBuilder>()
-                            .create(&state.device, &state.queue, data, "test.obj");
-                        // TODO: change to return result to handle missing assets
-                        let collision_builder =
-                            rapier3d::geometry::ColliderBuilder::convex_hull(obj_model.meshes[0].points.as_slice()).unwrap();
+                        for material_data in data.materials
+                        {
+                            // TODO: continue from here!!
+
+                        }
+                        // let obj_model = container
+                        //     .world
+                        //     .read_resource::<ModelBuilder>().create_gltf_model();
+
+                        // let collision_builder =
+                        //     rapier3d::geometry::ColliderBuilder::convex_hull(obj_model.meshes[0].points.as_slice()).unwrap();
                         let model_entity = container
                             .world
                             .create_entity_unchecked()
-                            .with(obj_model)
-                            .with(crate::components::modelcollider::ModelCollider(collision_builder))
+                                        //.with(obj_model)
+                           // .with(crate::components::modelcollider::ModelCollider(collision_builder))
                             .build();
                         sender.send(model_entity).unwrap();
                     }
@@ -456,9 +462,7 @@ fn setup_pipelines(world: &mut World) {
     let gbuffer_pipeline = GBufferPipeline::create_pipeline(
         &state.device,
         (
-            &world
-                .read_resource::<ModelBuilder>()
-                .diffuse_texture_bind_group_layout,
+            &ModelBuilder::get_diffuse_texture_bind_group_layout(&state.device),
             &uniform_container.layout,
         ),
         &[

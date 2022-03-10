@@ -1,11 +1,15 @@
 use std::{num::NonZeroU8};
+use std::collections::HashSet;
 
 use anyhow::*;
 use bytemuck::Contiguous;
 use ddsfile::{DataFormat, DxgiFormat, FourCC};
-use image::{DynamicImage, GenericImageView, ImageBuffer, ImageFormat};
+use image::{DynamicImage, GenericImageView, ImageBuffer, ImageFormat, ImageResult};
 use wgpu::util::DeviceExt;
+use crate::filesystem::modelimporter::Importer;
+use crate::renderer::primitives::texture::ImageLoadError::ImageParseError;
 use crate::SkyboxBindGroup;
+
 
 pub struct Texture {
     pub texture: wgpu::Texture,
@@ -70,6 +74,7 @@ impl Texture {
             },
             texture_size,
         );
+        //TODO: parse sampler from glb also
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
@@ -180,4 +185,21 @@ impl Texture {
         (texture,texture_view)
 
     }
+    pub fn create_image_from_gltf_texture(gltf_texture:gltf::Texture,buffer_data:&[gltf::buffer::Data]) -> Result<DynamicImage,ImageLoadError>
+    {
+        let image =  if let gltf::image::Source::View {view,mime_type}  =  gltf_texture.source().source() {
+            let data = &buffer_data[view.buffer().index()];
+
+                image::load_from_memory(&data.0[view.offset()..view.offset()+view.length()]).map_err(|e| ImageParseError(format!("error while parsing image: Inner error: {:?}",e)))
+        }else {
+            Err(ImageLoadError::InvalidSource)
+        };
+        image
+    }
+}
+#[derive(Clone,Debug)]
+pub enum ImageLoadError {
+    InvalidSource,
+    ImageParseError(String),
+    UnknownError,
 }

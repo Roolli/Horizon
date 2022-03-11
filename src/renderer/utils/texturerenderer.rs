@@ -1,4 +1,5 @@
-
+use bytemuck::Contiguous;
+use wgpu::SamplerBindingType;
 
 /// Debug renderer for textures like shadow maps
 pub struct TextureRenderer {
@@ -12,6 +13,10 @@ impl TextureRenderer {
         texture_view: &wgpu::TextureView,
         swap_chain_descriptor: &wgpu::SurfaceConfiguration,
     ) -> (wgpu::BindGroup,wgpu::RenderPipeline) {
+
+        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            ..Default::default()
+        });
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Debug Renderer"),
             entries: &[
@@ -25,6 +30,12 @@ impl TextureRenderer {
                         view_dimension: wgpu::TextureViewDimension::D2,
                     },
                 },
+                wgpu::BindGroupLayoutEntry{
+                    binding:1,
+                    visibility:wgpu::ShaderStages::FRAGMENT,
+                    ty:wgpu::BindingType::Sampler(SamplerBindingType::NonFiltering),
+                    count:None,
+                }
             ],
         });
 
@@ -35,6 +46,11 @@ impl TextureRenderer {
                     binding: 0,
                     resource: wgpu::BindingResource::TextureView(texture_view),
                 },
+                wgpu::BindGroupEntry{
+                    binding:1,
+                    resource:wgpu::BindingResource::Sampler(&sampler),
+                }
+
             ],
             label: Some("Texture_renderer bind_group"),
             layout: &bind_group_layout,

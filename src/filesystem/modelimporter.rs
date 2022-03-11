@@ -4,11 +4,11 @@ use std::{collections::HashMap, io::BufRead};
 use super::fileloader;
 use fileloader::FileLoader;
 
-use futures::future::join_all;
+
 use gltf::{Buffer, Gltf, Image};
-use js_sys::Atomics::load;
+
 use tobj::LoadResult;
-use web_sys::Document;
+
 
 pub struct Importer {
     file_loader: Box<dyn FileLoader>,

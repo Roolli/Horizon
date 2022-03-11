@@ -130,6 +130,7 @@ fn fs_main(in: FragmentInput) -> @location(0) vec4<f32> {
     var result = vec3<f32>(0.0);
     let coordinates = in.fragPos.xy / canvasSize.canvasConstants;
     let position = textureSample(positions,texture_sampler,coordinates).xyz;
+    // TODO: get occlusion factor & roughness from their respective channels
   
     
     let object_normal = textureSample(normals,texture_sampler,coordinates);

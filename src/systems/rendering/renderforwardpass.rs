@@ -100,7 +100,6 @@ impl<'a> System<'a> for RenderForwardPass {
             .join()
             .next()
             .unwrap();
-        // TODO: move to it's own system
         render_pass.set_bind_group(0, &deffered_bind_group_container.bind_group, &[]);
         render_pass.set_bind_group(1, &uniform_bind_group_container.bind_group, &[]);
         render_pass.set_bind_group(2, &light_bind_group_container.bind_group, &[]);
@@ -109,7 +108,6 @@ impl<'a> System<'a> for RenderForwardPass {
             0,
             binding_resource_container.buffers[DeferredVao].as_ref().unwrap().slice(..),
         );
-        // // // TODO: move this to it's own system
         render_pass.draw(0..6, 0..1);
         drop(render_pass);
     }

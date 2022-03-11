@@ -17,11 +17,11 @@ impl<'a> HorizonPipeline<'a> for GBufferPipeline {
         bind_group_layouts: Self::RequiredLayouts,
         targets: &[wgpu::ColorTargetState],
     ) -> wgpu::RenderPipeline {
-        let (diffuse_bind_group, uniform_bind_group) = bind_group_layouts;
+        let (material_bind_group, global_uniforms_bind_group) = bind_group_layouts;
 
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                bind_group_layouts: &[diffuse_bind_group, uniform_bind_group],
+                bind_group_layouts: &[global_uniforms_bind_group,material_bind_group],
                 label: Some("GBuffer pipeline layout"),
                 push_constant_ranges: &[],
             });
@@ -57,7 +57,7 @@ impl<'a> HorizonPipeline<'a> for GBufferPipeline {
         let primitve_state = wgpu::PrimitiveState {
             front_face: wgpu::FrontFace::Ccw,
             topology: wgpu::PrimitiveTopology::TriangleList,
-            cull_mode: Some(wgpu::Face::Back),
+            cull_mode: None,
             strip_index_format: None,
             polygon_mode: wgpu::PolygonMode::Fill,
             unclipped_depth: device

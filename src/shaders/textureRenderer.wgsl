@@ -19,7 +19,7 @@ fn vs_main(@builtin(vertex_index) in: u32) -> @builtin(position)vec4<f32> {
 
 @stage(fragment)
 fn fs_main(@builtin(position) input: vec4<f32>) -> @location(0) vec4<f32> {
-    return textureLoad(t_texture,vec2<i32>(floor(input.xy)),0);
+    return textureSample(t_texture,t_sampler,input.xy);
 }
 
 

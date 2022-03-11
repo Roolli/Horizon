@@ -1,5 +1,6 @@
 use egui::{Context, CtxRef, TextureId, Ui};
 use rapier3d::na::{Point3, Vector3};
+use specs::Entity;
 use crate::{TextureTypes, TextureViewTypes};
 use crate::ui::{UiComponent, ViewComponent};
 
@@ -14,7 +15,10 @@ pub struct DebugStats
     pub cam_yaw_pitch: (f32,f32),
     pub texture_id: Option<TextureId>,
     pub selected_texture_name: TextureViewTypes,
-    pub debug_texture_renderer: Option<(wgpu::BindGroup,wgpu::RenderPipeline)>
+    pub debug_texture_renderer: Option<(wgpu::BindGroup,wgpu::RenderPipeline)>,
+    pub selected_entity: Option<Entity>,
+    pub selected_material: usize,
+    pub selected_texture:usize,
 }
 
 impl UiComponent for DebugStats

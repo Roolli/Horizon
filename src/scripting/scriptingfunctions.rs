@@ -249,7 +249,7 @@ pub async fn load_model(object_name: JsValue) -> Result<JsValue, JsValue> {
        let model =  ModelBuilder::create_gltf_model(gltf_contents).map_err(|e|JsValue::from_str(format!("error during model load: {:?}",e).as_str()))?;
 
         let val = ref_thread_local::RefThreadLocal::borrow(&EVENT_LOOP_PROXY);
-        let (sender, receiver) = futures::channel::oneshot::channel::<Entity>();
+        let (sender, receiver) = futures::channel::oneshot::channel::<Result<Entity,ScriptingError>>();
         val.as_ref()
             .unwrap()
             .send_event(CustomEvent::RequestModelLoad(
@@ -258,8 +258,15 @@ pub async fn load_model(object_name: JsValue) -> Result<JsValue, JsValue> {
             ))
             .unwrap();
 
-        if let Ok(entity_id) = receiver.await {
-            Ok(JsValue::from_f64(entity_id.id().into()))
+        if let Ok(res) = receiver.await {
+            if let Ok(res) = res
+            {
+                Ok(JsValue::from_f64(res.id().into()))
+            }
+            else {
+                Err(JsValue::from_str(format!("{:?}",res.err().unwrap()).as_str()))
+            }
+
         } else {
             Err(JsValue::from_str("failed to load model!"))
         }

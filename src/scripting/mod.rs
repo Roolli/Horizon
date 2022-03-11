@@ -7,7 +7,8 @@ pub mod util;
 use wasm_bindgen::prelude::*;
 #[derive(Clone,Debug)]
 pub enum ScriptingError {
-    MissingComponent(&'static str)
+    MissingComponent(&'static str),
+    ModelLoadFailed
 }
 
 #[cfg_attr(target_arch = "wasm32",wasm_bindgen)]

@@ -199,13 +199,13 @@ impl ModelBuilder {
     pub fn create_gltf_model(
         data: (Document,Vec<gltf::buffer::Data>,Vec<gltf::image::Data>)
     ) -> Result<HorizonModel,GltfLoadError> {
-        let mut materials = Vec::new();
+        let mut materials = HashMap::new();
        // let mut named_materials = HashMap::default();
         let mut linear_textures = HashSet::default();
 
         for material in data.0.materials() {
             let loaded_mat = Self::load_gltf_material(&material,&data.1,&data.2,&linear_textures).map_err(|e|GltfLoadError::InnerError(format!("Error occurred while loading gltf model: Inner Error: {:?}",e)))?;
-            materials.push(loaded_mat);
+            materials.insert(material.index().unwrap_or(0),loaded_mat);
             // if let Some(name) = material.name() {
             //     named_materials.insert(name.to_string(), loaded_mat);
             // }
@@ -225,10 +225,11 @@ impl ModelBuilder {
         let mut meshes = Vec::new();
         for mesh in data.0.meshes() {
             let mut primitives = Vec::new();
-            for primitive in mesh.primitives() {
+            for (index,primitive) in mesh.primitives().enumerate() {
+                // TODO: read joints
                 let reader = primitive.reader(|buffer| Some(&data.1[buffer.index()]));
 
-                let mut mesh = GltfMesh::new(primitive.mode());
+                let mut mesh = GltfMesh::new(primitive.mode(),mesh.name().unwrap_or(format!("Object {}",index).as_str()).to_string());
                 if let Some(position_vertex_attribs) = reader.read_positions().map(|v| VertexAttribValues::Float32x3( v.collect()))
                 {
                     mesh.add_vertex_attribute(
@@ -242,6 +243,7 @@ impl ModelBuilder {
                 if let Some(tangent_vertex_attribs) = reader.read_tangents().map(|v| VertexAttribValues::Float32x4(v.collect())) {
                     mesh.add_vertex_attribute(VertexAttributeType::Tangent, tangent_vertex_attribs);
                 }
+
                 if let Some(tex_coords_attribs) =
                     reader.read_tex_coords(0).map(|v| VertexAttribValues::Float32x2(v.into_f32().collect()))
                 {
@@ -287,27 +289,38 @@ impl ModelBuilder {
         let pbr = material.pbr_metallic_roughness();
 
         let color = pbr.base_color_factor();
-
-        let base_color_texture = if let Some(tex_info) = pbr.base_color_texture() {
-            let res = Texture::create_image_from_gltf_texture(tex_info.texture(),buffer_data)?;
+        let base_color_texture = if let Some(tex_info) = pbr.base_color_texture()  {
+            let data = &image_data[tex_info.texture().index()];
+            log::info!("data format: {:?} Width:{} height:{}",data.format,data.width,data.height);
+            // if linear_textures.contains(&tex_info.texture().index())
+            // {
+            //  None // TODO: filter out duplicate assets
+            // }
+            //else {
+                let res = Texture::create_image_from_gltf_texture(tex_info.texture(),buffer_data)?;
+                log::info!("size H:{} W:{} name:{:?}",res.height(),res.width(),material.name());
                 Some(res)
+            //}
         }else {
             None
         };
         let normal_map_texture = if let Some(normal_tex) = material.normal_texture() {
             let res = Texture::create_image_from_gltf_texture(normal_tex.texture(),buffer_data)?;
+            log::info!("size H:{} W:{} name:{:?}",res.height(),res.width(),material.name());
             Some(res)
         }else {None};
 
         let metallic_roughness_texture =
             if let Some(metallic_roughness) = pbr.metallic_roughness_texture() {
                 let res = Texture::create_image_from_gltf_texture(metallic_roughness.texture(),buffer_data)?;
+                log::info!("size H:{} W:{} name:{:?}",res.height(),res.width(),material.name());
                 Some(res)
             }else {
                 None
             };
         let occlusion_texture = if let Some(occulsion_texture) = material.occlusion_texture() {
             let res = Texture::create_image_from_gltf_texture(occulsion_texture.texture(),buffer_data)?;
+            log::info!("size H:{} W:{} name:{:?}",res.height(),res.width(),material.name());
             Some(res)
         }else {
             None
@@ -315,9 +328,17 @@ impl ModelBuilder {
         let emissive = material.emissive_factor();
         let emissive_texture = if let Some(emissive_info) = material.emissive_texture() {
             let res = Texture::create_image_from_gltf_texture(emissive_info.texture(),buffer_data)?;
+            log::info!("size H:{} W:{} name:{:?}",res.height(),res.width(),material.name());
             Some(res)
         }else {
             None
+        };
+        let name = if let Some(mat_name) = material.name()
+        {
+            mat_name.to_string()
+        }
+        else {
+            "unnamed".to_string()
         };
         Ok(GltfMaterial{
             base_color_texture,
@@ -328,9 +349,10 @@ impl ModelBuilder {
             base_color:color,
             double_sided:material.double_sided(),
             pbr_roughness:pbr.roughness_factor(),
-            unlit:false,
+            unlit:material.unlit(),
             emissive_color:emissive,
             metallic_factor:pbr.metallic_factor(),
+            name,
         })
     }
 }

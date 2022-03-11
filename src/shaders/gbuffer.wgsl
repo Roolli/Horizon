@@ -13,10 +13,9 @@ struct GBufferInputs {
 struct VertexOutputs {
     @builtin(position) pos: vec4<f32>;
     @location(0) v_tex_coord: vec2<f32>;
-    @location(1) worldFragPos: vec3<f32>;
+    @location(1) world_frag_pos: vec3<f32>;
     @location(2) tangent: vec3<f32>;
-    @location(3) bitangent: vec3<f32>;
-    @location(4) normal: vec3<f32>;
+    @location(3) normal: vec3<f32>;
 };
 
 struct Globals {
@@ -48,18 +47,16 @@ var<storage,read> normals: Normals;
 fn vs_main(in: GBufferInputs) -> VertexOutputs {
     var output: VertexOutputs;
     output.v_tex_coord = in.tex_coord; 
-    var  model_matrix: mat4x4<f32> = transform.elements[in.instance_index];
+    var model_matrix: mat4x4<f32> = transform.elements[in.instance_index];
     var normal: mat4x4<f32> = normals.elements[in.instance_index];
-    let tan = normalize(vec3<f32>((model_matrix * vec4<f32>(in.tangent,0.0)).xyz));
-    let normal_something = normalize(vec3<f32>((model_matrix * vec4<f32>(in.a_normal,0.0)).xyz));
-    let bitan = cross(normal_something,tan);
-    var normal_matrix: mat3x3<f32> = mat3x3<f32>(normal[0].xyz,normal[1].xyz,normal[2].xyz);    
+    let frag_tangent = vec3<f32>((normal * vec4<f32>(in.tangent,0.0)).xyz);
+    let frag_normal = vec3<f32>((normal * vec4<f32>(in.a_normal,0.0)).xyz);
+   // var normal_matrix: mat3x3<f32> = mat3x3<f32>(normal[0].xyz,normal[1].xyz,normal[2].xyz);    
     //output.worldFragNormal  = normalize(normal_matrix*in.a_normal);
-    output.bitangent = bitan;
-    output.tangent = tan;
-    output.normal = normal_something;
+    output.tangent = frag_tangent;
+    output.normal = frag_normal;
     var model_space: vec4<f32>  = model_matrix * vec4<f32>(in.a_pos,1.0);
-    output.worldFragPos = model_space.xyz;    
+    output.world_frag_pos = model_space.xyz;    
 
     output.pos= globals.u_view_proj* model_space;
     return output;
@@ -116,15 +113,29 @@ struct MaterialUniforms {
     emissive_color: vec3<f32>;
 };
 
-//TODO: add more textures and calculate proper pbr values
+//TODO: calculate proper pbr values
 @stage(fragment)
 fn fs_main(in: VertexOutputs) -> GBufferOutputs {
     var out: GBufferOutputs;
-    out.albedo = textureSample(t_texture,t_sampler,in.v_tex_coord);
-    out.position = vec4<f32>(in.worldFragPos,1.0);
-    var normal = textureSample(t_normal,t_normal_sampler,in.v_tex_coord).xyz;
-    normal = normal * 2.0 - 1.0;
-    normal = normalize(mat3x3<f32>(in.tangent,in.bitangent,in.normal) * normal);
-    out.normal = vec4<f32>(normal,1.0);
+    var albedo = vec4<f32>(material_uniforms.base_color_factor.xyz,1.0);
+    var texture_color = textureSample(t_texture,t_sampler,in.v_tex_coord);
+    if(texture_color.a < 0.001)
+    {
+        discard;
+    }
+    
+    let occulison = textureSample(t_occlusion,t_occlusion_sampler,in.v_tex_coord).r;
+    albedo = vec4<f32>(material_uniforms.base_color_factor.xyz * texture_color.xyz,1.0);
+    out.albedo = albedo;
+    out.position = vec4<f32>(in.world_frag_pos,1.0);
+    var tangent_normal:vec3<f32> = textureSample(t_normal,t_normal_sampler,in.v_tex_coord).xyz;
+    tangent_normal = tangent_normal * 2.0 - 1.0;
+    var tangent:  vec3<f32> = normalize(in.tangent);
+    var frag_normal: vec3<f32> = normalize(in.normal);
+    var bitangent: vec3<f32> = cross(tangent,frag_normal);
+    tangent = normalize(tangent - dot(tangent,frag_normal) * frag_normal);
+
+    tangent_normal= normalize(mat3x3<f32>(tangent,bitangent,frag_normal) * tangent_normal);
+    out.normal = vec4<f32>(tangent_normal,textureSample(t_roughness,t_emissive_sampler,in.v_tex_coord).r);
     return out;
 }

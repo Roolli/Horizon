@@ -1,7 +1,7 @@
 use specs::{Entities, Join, ReadExpect, ReadStorage, System, WriteExpect};
 use wgpu::{BufferAddress, LoadOp};
 
-use crate::{components::transform::{Transform, TransformRaw}, DeferredAlbedo, DeferredNormals, DeferredPosition, EguiContainer, Instances, Normals, renderer::{
+use crate::{components::transform::{Transform, TransformRaw}, DeferredAlbedo, DeferredNormals, DeferredPosition, EguiContainer, Instances, Normals, RawModel, renderer::{
     bindgroupcontainer::BindGroupContainer,
     bindgroups::uniforms::UniformBindGroup,
     model::{HorizonModel},
@@ -10,6 +10,7 @@ use crate::{components::transform::{Transform, TransformRaw}, DeferredAlbedo, De
 }, resources::{
     bindingresourcecontainer::BindingResourceContainer, commandencoder::HorizonCommandEncoder,
 }};
+use crate::components::gltfmodel::DrawModel;
 
 pub struct WriteGBuffer;
 
@@ -21,7 +22,7 @@ impl<'a> System<'a> for WriteGBuffer {
         ReadStorage<'a, UniformBindGroup>,
         ReadStorage<'a, BindGroupContainer>,
         ReadStorage<'a, Transform>,
-        ReadStorage<'a, HorizonModel>,
+        ReadStorage<'a, RawModel>,
         ReadExpect<'a, GBufferPipeline>,
         WriteExpect<'a,EguiContainer>,
         Entities<'a>,
@@ -102,6 +103,12 @@ impl<'a> System<'a> for WriteGBuffer {
                 },
             ],
         });
+        let (_, uniform_bind_group_container) = (&uniform_bind_group, &bind_group_container)
+            .join()
+            .next()
+            .unwrap();
+        render_pass.set_bind_group(0, &uniform_bind_group_container.bind_group, &[]);
+        render_pass.set_pipeline(&gbuffer_pipeline.0);
         let mut begin_instance_index:u32 = 0;
         for (model, model_ent) in (&models, &*entities).join() {
             let mut instance_buffer:Vec<TransformRaw> = Vec::new();
@@ -130,21 +137,10 @@ impl<'a> System<'a> for WriteGBuffer {
                 (std::mem::size_of::<TransformRaw>()  *begin_instance_index as usize) as BufferAddress,
                 bytemuck::cast_slice(&normal_matrices),
             );
-            let (_, uniform_bind_group_container) = (&uniform_bind_group, &bind_group_container)
-                .join()
-                .next()
-                .unwrap();
-            render_pass.set_pipeline(&gbuffer_pipeline.0);
 
-            render_pass.set_bind_group(1, &uniform_bind_group_container.bind_group, &[]);
+
             // TODO: FIX
-            // for mesh in &model.meshes {
-            //     render_pass.set_bind_group(0, &model.materials[mesh.material].bind_group, &[]);
-            //     render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
-            //     render_pass
-            //         .set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-            //     render_pass.draw_indexed(0..mesh.element_count, 0, begin_instance_index..begin_instance_index + instance_buffer.len() as u32);
-            // }
+            render_pass.draw_model_instanced(model,begin_instance_index..begin_instance_index + instance_buffer.len() as u32);
             begin_instance_index += instance_buffer.len() as u32;
 
         }

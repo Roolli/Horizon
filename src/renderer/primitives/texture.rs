@@ -45,7 +45,8 @@ impl Texture {
             depth_or_array_layers: 1,
         };
 
-        let texture = device.create_texture(&wgpu::TextureDescriptor {
+
+        let texture = device.create_texture_with_data(queue,&wgpu::TextureDescriptor {
             label,
             dimension: wgpu::TextureDimension::D2,
             size: texture_size,
@@ -57,35 +58,24 @@ impl Texture {
                 wgpu::TextureFormat::Rgba8UnormSrgb
             },
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-        });
 
-        queue.write_texture(
-            wgpu::ImageCopyTexture {
-                texture: &texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-                aspect: wgpu::TextureAspect::All,
-            },
-            &rgba,
-            wgpu::ImageDataLayout {
-                offset: 0,
-                bytes_per_row: std::num::NonZeroU32::new(4 * dimensions.0),
-                rows_per_image: std::num::NonZeroU32::new(dimensions.1),
-            },
-            texture_size,
-        );
-        //TODO: parse sampler from glb also
+        },&rgba);
+
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Nearest,
             mipmap_filter: wgpu::FilterMode::Nearest,
+            mag_filter:wgpu::FilterMode::Linear,
+            min_filter:wgpu::FilterMode::Nearest,
             anisotropy_clamp: NonZeroU8::from_integer(1),
             ..Default::default()
         });
+        if label.is_some() && !label.as_ref().unwrap().contains("default")
+        {
+            log::info!("size:{:?} name:{:?}",texture_size,label);
+        }
         Ok(Self {
             sampler,
             texture,
@@ -98,14 +88,14 @@ impl Texture {
         color: [u8; 3],
         label: Option<&str>,
         is_normal: bool,
-    ) -> Self {
-        let mut buffer: image::RgbImage = ImageBuffer::new(512, 512);
+    ) -> Result<Self> {
+        let mut buffer: image::RgbImage = ImageBuffer::new(256, 256);
         for (_x, _y, pixel) in buffer.enumerate_pixels_mut() {
             *pixel = image::Rgb(color);
         }
 
         let img = DynamicImage::ImageRgb8(buffer);
-        Self::from_image(device,queue, &img, label, is_normal).unwrap()
+        Self::from_image(device,queue, &img, label, is_normal)
     }
     pub fn create_depth_texture(
         device: &wgpu::Device,

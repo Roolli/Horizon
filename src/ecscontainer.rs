@@ -7,7 +7,7 @@ use specs::{DispatcherBuilder, RunNow, System, World, WorldExt};
 use crate::components::assetidentifier::AssetIdentifier;
 use crate::components::modelcollider::ModelCollider;
 use crate::scripting::scriptevent::ScriptEvent;
-use crate::{components::scriptingcallback::ScriptingCallback, ECS_CONTAINER, filesystem::modelimporter::Importer, renderer::{
+use crate::{components::scriptingcallback::ScriptingCallback, ECS_CONTAINER, filesystem::modelimporter::Importer, HorizonModel, RawModel, renderer::{
     bindgroupcontainer::BindGroupContainer,
     bindgroups::{
         deferred::DeferredBindGroup, lighting::LightBindGroup, shadow::ShadowBindGroup,
@@ -102,6 +102,9 @@ impl ECSContainer {
             texture_id:None,
             selected_texture_name: TextureViewTypes::DeferredPosition,
             debug_texture_renderer: None,
+            selected_entity:None,
+            selected_texture:0,
+            selected_material:0,
         });
         world.insert(KeyboardEvent::default());
         world.insert(MouseMoveEvent::default());
@@ -124,6 +127,8 @@ impl ECSContainer {
         world.register::<ScriptingCallback>();
         world.register::<ScriptEvent>();
         world.register::<AssetIdentifier>();
+        world.register::<RawModel>();
+        world.register::<HorizonModel>();
     }
     pub fn global<'a>() -> Ref<'a,ECSContainer>  {
          ref_thread_local::RefThreadLocal::borrow(&ECS_CONTAINER)

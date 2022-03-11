@@ -24,19 +24,21 @@ pub enum VertexAttributeType {
 }
 #[derive(Debug)]
 pub struct GltfMesh {
+   pub name:String,
     mode: wgpu::PrimitiveTopology,
-    vertex_attribs: BTreeMap<VertexAttributeType, VertexAttribValues>,
-    indices: Option<Vec<u32>>,
+    pub vertex_attribs: BTreeMap<VertexAttributeType, VertexAttribValues>,
+    pub indices: Option<Vec<u32>>,
 }
 
 impl GltfMesh {
-    pub fn new(mode: gltf::mesh::Mode) -> Self {
+    pub fn new(mode: gltf::mesh::Mode,name:String) -> Self {
         let topology = match mode {
             Mode::Triangles => wgpu::PrimitiveTopology::TriangleList,
             Mode::Points => wgpu::PrimitiveTopology::PointList,
             _ => wgpu::PrimitiveTopology::TriangleStrip,
         };
         GltfMesh {
+            name,
             mode: topology,
             vertex_attribs: Default::default(),
             indices: Default::default(),
@@ -51,6 +53,9 @@ impl GltfMesh {
     pub fn attribute(&self,id:VertexAttributeType) -> Option<&VertexAttribValues>
     {
         self.vertex_attribs.get(&id)
+    }
+    pub fn mode(&self) -> wgpu::PrimitiveTopology  {
+        self.mode
     }
 }
 // https://github.com/bevyengine/bevy/blob/e369a8ad5138af28a7e760fac3f07b278c27ebb4/crates/bevy_render/src/mesh/mesh/mod.rs

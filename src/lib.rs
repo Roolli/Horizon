@@ -5,7 +5,7 @@ use egui::emath::Numeric;
 use egui_wgpu_backend::RenderPass;
 use egui_winit_platform::{Platform, PlatformDescriptor};
 use gltf::{buffer, Document};
-use lazy_static::lazy_static;
+use image::DynamicImage;
 
 use crate::{
     renderer::bindgroups::gbuffer::GBuffer,
@@ -57,6 +57,8 @@ use winit::{
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
 // allocator.
 
+
+
 #[cfg(all(target_arch = "wasm32", feature = "wee_alloc"))]
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
@@ -69,12 +71,17 @@ use tobj::Model;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
+use wgpu::util::DeviceExt;
 use ecscontainer::ECSContainer;
+use crate::components::gltfmodel::{RawMaterial, RawMesh, RawModel};
 use crate::renderer::bindgroupcontainer::BindGroupContainer;
 use crate::renderer::bindgroups::skybox::SkyboxBindGroup;
 use crate::renderer::model::HorizonModel;
 use crate::renderer::pipelines::skyboxpipeline::SkyboxPipeline;
+use crate::renderer::primitives::material::MaterialUniform;
+use crate::renderer::primitives::mesh::{VertexAttributeType, VertexAttribValues};
 use crate::renderer::primitives::texture::Texture;
+use crate::renderer::primitives::vertex::MeshVertexData;
 use crate::resources::bindingresourcecontainer::{BufferTypes, SamplerTypes, TextureTypes, TextureViewTypes};
 use crate::resources::bindingresourcecontainer::BufferTypes::{CanvasSize, Instances, Normals, PointLight, ShadowUniform, Skybox, SpotLight, Tiling, Uniform};
 use crate::resources::bindingresourcecontainer::SamplerTypes::{DeferredTexture, Shadow};
@@ -83,7 +90,9 @@ use crate::resources::camera::CameraController;
 use crate::resources::deltatime::DeltaTime;
 use crate::resources::eguicontainer::EguiContainer;
 use crate::resources::projection::Projection;
+use crate::scripting::ScriptingError;
 use crate::systems::events::handlelifecycleevents::HandleInitCallbacks;
+use crate::ui::debugstats::DebugStats;
 
 #[wasm_bindgen]
 extern "C" {
@@ -94,7 +103,7 @@ extern "C" {
 // TODO: convert sender to result<T> and return proper errors
 #[derive(Debug)]
 enum CustomEvent {
-    RequestModelLoad(HorizonModel, futures::channel::oneshot::Sender<Entity>),
+    RequestModelLoad(HorizonModel, futures::channel::oneshot::Sender<Result<Entity,ScriptingError>>),
     SkyboxTextureLoad(Vec<u8>, futures::channel::oneshot::Sender<()>),
 }
 ref_thread_local::ref_thread_local! {
@@ -213,7 +222,7 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
 
     let state = ecs.world.write_resource::<State>();
     let cam = Camera::new(Point3::new(-64.0, 29.9, 0.5), f32::to_radians(-2.0), f32::to_radians(-16.0));
-    let proj = Projection::new(state.sc_descriptor.width, state.sc_descriptor.height, f32::to_radians(45.0), 2.0, 200.0);
+    let proj = Projection::new(state.sc_descriptor.width, state.sc_descriptor.height, f32::to_radians(45.0), 0.5, 200.0);
     let cam_controller = CameraController::new(10.0, 2.0);
 
     drop(state);
@@ -348,30 +357,154 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                     CustomEvent::RequestModelLoad(data, sender) => {
                         let container = ECSContainer::global();
                         let state = container.world.read_resource::<State>();
-                        for material_data in data.materials
+                        let mut gpu_mats = HashMap::new();
+                        for (index,material_data) in &data.materials
                         {
-                            // TODO: continue from here!!
-
+                            let material_uniforms = &material_data.to_raw_material();
+                            let diffuse_texture = load_texture_from_image(format!("diffuse-{}",material_data.name).as_str(),&state.device,&state.queue,&material_data.base_color_texture,None,false);
+                            let normal_map = load_texture_from_image(format!("normal-{}",material_data.name).as_str(),&state.device,&state.queue,&material_data.normal_map_texture,Some([0u8,0u8,255u8]),true);
+                            let roughness_texture = load_texture_from_image(format!("roughness-{}",material_data.name).as_str(),&state.device,&state.queue,&material_data.roughness_texture,None,false);
+                            let emissive_texture = load_texture_from_image(format!("emissive-{}",material_data.name).as_str(),&state.device,&state.queue,&material_data.emissive_texture,None,false);
+                            let occlusion_texture = load_texture_from_image(format!("occlusion-{}",material_data.name).as_str(),&state.device,&state.queue,&material_data.occlusion_texture,None,false);
+                            let material_uniform = state.device.create_buffer_init(&wgpu::util::BufferInitDescriptor{
+                                label:Some(format!("uniform-{}",material_data.name).as_str()),
+                                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                                contents: bytemuck::bytes_of(material_uniforms)
+                            });
+                            let bind_group = crate::renderer::bindgroups::material::MaterialBindGroup::create_container(&state.device,(&diffuse_texture,&roughness_texture,&normal_map,&occlusion_texture,&emissive_texture,&material_uniform));
+                            gpu_mats.insert(*index,RawMaterial{
+                                normal_map,
+                                occlusion_texture,
+                                uniform_buffer:material_uniform,
+                                roughness_texture,
+                                emissive_texture,
+                                bind_group_container:bind_group,
+                                base_color_texture:diffuse_texture
+                            });
                         }
-                        // let obj_model = container
-                        //     .world
-                        //     .read_resource::<ModelBuilder>().create_gltf_model();
+                        let mut meshes = Vec::new();
+                        for mesh in &data.meshes
+                        {
+                            for primitive in &mesh.primitives
+                            {
+                                 if let Some(VertexAttribValues::Float32x3(pos)) = primitive.mesh.vertex_attribs.get(&VertexAttributeType::Position)
+                                {
+                                    let vertex_count = pos.len();
+                                    log::info!("vertex count: {}",vertex_count);
+                                    let mut normals =vec![[0.0,0.0,0.0];vertex_count];
+                                    let mut tangents = vec![[0.0,0.0,0.0,0.0];vertex_count];
+                                    let mut vertex_colors = vec![0;vertex_count];
+                                    let mut texture_coords =vec![[0.0,0.0];vertex_count];
+                                    let mut weights = vec![[0.0,0.0,0.0,0.0];vertex_count];
+                                    let mut joint_ids = vec![0;vertex_count];
+
+                                     if let Some(VertexAttribValues::Float32x3(norm_values)) = primitive.mesh.vertex_attribs.get(&VertexAttributeType::Normal)
+                                    {
+                                        normals.copy_from_slice(norm_values);
+                                    }
+                                     if let Some(VertexAttribValues::Float32x4(tangent_values)) = primitive.mesh.vertex_attribs.get(&VertexAttributeType::Tangent)
+                                    {
+                                       tangents.copy_from_slice(tangent_values);
+                                    }
+
+                                     if let Some(VertexAttribValues::Float32x2(tex_coords_values)) = primitive.mesh.vertex_attribs.get(&VertexAttributeType::TextureCoords)
+                                    {
+                                            texture_coords.copy_from_slice(tex_coords_values.as_slice());
+                                    }
+
+                                    if let Some(VertexAttribValues::Uint32(vertex_color_values)) = primitive.mesh.vertex_attribs.get(&VertexAttributeType::VertexColor)
+                                    {
+                                      vertex_colors.copy_from_slice(vertex_color_values.as_slice());
+                                    }
+
+                                    if let Some(VertexAttribValues::Float32x4(weight_values)) = primitive.mesh.vertex_attribs.get(&VertexAttributeType::JointWeight)
+                                    {
+                                      weights.copy_from_slice(weight_values.as_slice())
+                                    }
+                                    if let Some(VertexAttribValues::Uint32(joint_id_values)) = primitive.mesh.vertex_attribs.get(&VertexAttributeType::JointIndex)
+                                    {
+                                        joint_ids.copy_from_slice(joint_id_values.as_slice());
+                                    }
+                                    let mut vertex_data = Vec::new();
+                                    for i in 0..vertex_count
+                                    {
+                                        vertex_data.push(MeshVertexData {
+                                            position: pos[i],
+                                            normals:normals[i],
+                                            tex_coords:texture_coords[i],
+                                            joint_index:joint_ids[i],
+                                            vertex_color:vertex_colors[i],
+                                            tangent:tangents[i],
+                                            joint_weight:weights[i],
+                                        });
+                                    }
+                                    //TODO: compute AABB
+                                    let vertex_buffer = state.device.create_buffer_init(&wgpu::util::BufferInitDescriptor{
+                                        label:Some(format!("{}-vertex_buffer",primitive.mesh.name).as_str()),
+                                        usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                                        contents: bytemuck::cast_slice(vertex_data.as_slice())
+                                    });
+                                    let indices =primitive.mesh.indices.as_ref().unwrap();
+                                    let index_buffer = state.device.create_buffer_init(&wgpu::util::BufferInitDescriptor{
+                                        label: Some(format!("{}-index_buffer",primitive.mesh.name).as_str()),
+                                        usage: wgpu::BufferUsages::INDEX |wgpu::BufferUsages::COPY_DST,
+                                        contents:bytemuck::cast_slice(indices.as_slice())
+                                    });
+
+                                    meshes.push(RawMesh{
+                                        name: primitive.mesh.name.clone(),
+                                        index_buffer,
+                                        vertex_buffer,
+                                        material_index:primitive.material.unwrap_or(0),
+                                        index_buffer_len: indices.len() as u32,
+                                    });
+                                }
+                                else {
+                                    sender.send( Err(ScriptingError::ModelLoadFailed)).unwrap();
+                                    return;
+                                }
+                            }
+                        }
 
                         // let collision_builder =
                         //     rapier3d::geometry::ColliderBuilder::convex_hull(obj_model.meshes[0].points.as_slice()).unwrap();
+                        let raw_model = RawModel{
+                             meshes,
+                            materials: gpu_mats
+                        };
                         let model_entity = container
                             .world
                             .create_entity_unchecked()
-                                        //.with(obj_model)
-                           // .with(crate::components::modelcollider::ModelCollider(collision_builder))
+                            .with(raw_model)
+                            .with(data)
+                        //   .with(crate::components::modelcollider::ModelCollider(collision_builder))
                             .build();
-                        sender.send(model_entity).unwrap();
+                        let mut debug_ui = container.world.write_resource::<DebugStats>();
+                        debug_ui.selected_entity = Some(model_entity);
+                        sender.send(Ok(model_entity)).unwrap();
                     }
                 };
             }
             _ => {}
         }
     });
+}
+
+fn load_texture_from_image(name: &str, device:&wgpu::Device,queue:&wgpu::Queue,image:&Option<DynamicImage>,default_color:Option<[u8;3]>,is_normal:bool) -> Texture
+{
+     if let Some(ref texture) = image
+    {
+        Texture::from_image(device,queue,texture,Some(name.to_string().as_str()),is_normal).unwrap()
+    }
+    else {
+        let def_color = if let Some(color) =default_color {
+            color
+        }
+        else {
+            [255,255,255]
+        };
+        Texture::create_default_texture_with_color(device,queue,def_color,Some(format!("default-{}",name).as_str()),is_normal).unwrap()
+    }
 }
 
 /// Initializes a new ECS container (World) and registers the components, creates the dependency tree for the system and sets up resources.
@@ -462,7 +595,7 @@ fn setup_pipelines(world: &mut World) {
     let gbuffer_pipeline = GBufferPipeline::create_pipeline(
         &state.device,
         (
-            &ModelBuilder::get_diffuse_texture_bind_group_layout(&state.device),
+            &crate::renderer::bindgroups::material::MaterialBindGroup::get_layout(&state.device),
             &uniform_container.layout,
         ),
         &[

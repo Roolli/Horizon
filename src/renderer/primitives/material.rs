@@ -22,6 +22,7 @@ pub struct GltfMaterial {
     pub emissive_color: [f32;3],
     pub emissive_texture: Option<DynamicImage>,
     pub unlit: bool,
+    pub name:String,
 }
 impl GltfMaterial {
     pub fn to_raw_material(&self) ->MaterialUniform

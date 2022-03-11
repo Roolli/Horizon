@@ -1,7 +1,7 @@
 use specs::{Entities, Join, ReadExpect, ReadStorage, System, WriteExpect};
 use wgpu::BufferAddress;
 
-use crate::{BufferTypes, components::transform::{Transform}, Instances, renderer::{
+use crate::{BufferTypes, components::transform::{Transform}, Instances, RawModel, renderer::{
     bindgroupcontainer::BindGroupContainer,
     bindgroups::shadow::ShadowBindGroup,
     model::{HorizonModel},
@@ -10,6 +10,7 @@ use crate::{BufferTypes, components::transform::{Transform}, Instances, renderer
 }, resources::{
     bindingresourcecontainer::BindingResourceContainer, commandencoder::HorizonCommandEncoder,
 }, ShadowUniform};
+use crate::components::gltfmodel::DrawModel;
 use crate::components::transform::TransformRaw;
 use crate::resources::bindingresourcecontainer::TextureViewTypes;
 
@@ -20,7 +21,7 @@ impl<'a> System<'a> for RenderShadowPass {
         WriteExpect<'a, HorizonCommandEncoder>,
         ReadExpect<'a, BindingResourceContainer>,
         Entities<'a>,
-        ReadStorage<'a, HorizonModel>,
+        ReadStorage<'a, RawModel>,
         ReadStorage<'a, Transform>,
         ReadStorage<'a, BindGroupContainer>,
         ReadStorage<'a, ShadowBindGroup>,
@@ -86,12 +87,14 @@ impl<'a> System<'a> for RenderShadowPass {
                 (std::mem::size_of::<TransformRaw>() * begin_instance_index as usize) as BufferAddress,
                 bytemuck::cast_slice(&instance_buffer),
             );
-            // TODO: FIX
-            // for mesh in &model.meshes {
-            //     pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
-            //     pass.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-            //     pass.draw_indexed(0..mesh.element_count, 0, begin_instance_index..begin_instance_index + instance_buffer.len() as u32);
-            // }
+           // pass.draw_model_instanced(model,begin_instance_index..begin_instance_index + instance_buffer.len() as u32);
+            for mesh in &model.meshes {
+                pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
+                pass
+                    .set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                pass.draw_indexed(0..mesh.index_buffer_len, 0, begin_instance_index..begin_instance_index + instance_buffer.len() as u32);
+            }
+
             begin_instance_index += instance_buffer.len() as u32;
         }
         drop(pass);

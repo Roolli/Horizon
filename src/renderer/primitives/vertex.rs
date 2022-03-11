@@ -1,5 +1,5 @@
 use bytemuck::{Pod, Zeroable};
-use crate::renderer::primitives::mesh::GltfMesh;
+
 
 pub trait Vertex {
     fn desc<'a>() -> wgpu::VertexBufferLayout<'a>;

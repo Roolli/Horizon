@@ -6,7 +6,7 @@ use crate::ecscontainer::{ECSContainer, ECSError};
 use crate::renderer::primitives::lights::pointlight::PointLight;
 use crate::systems::physics::PhysicsWorld;
 use crate::{CustomEvent, EVENT_LOOP_PROXY, HorizonModel, ModelBuilder};
-use js_sys::Error;
+
 use std::iter::Once;
 use std::mem::size_of_val;
 
@@ -29,7 +29,7 @@ use v8::{Function, Global};
 
 use crate::components::assetidentifier::AssetIdentifier;
 use crate::components::componentparser::{ComponentParser, ComponentParserError, ParseComponent};
-use crate::components::componenttypes::ComponentTypes;
+use crate::components::componenttypes::{ComponentData, ComponentTypes};
 use crate::filesystem::modelimporter::Importer;
 use crate::scripting::util::componentconversions::{PointLightComponent, TransformComponent};
 use crate::scripting::util::horizonentity::HorizonEntity;
@@ -94,7 +94,7 @@ impl ScriptingFunctions {
     }
     /// Gets the component's data based on it's type for the given entity.
     // TODO: return some boxed stuff instead of JsValue with trait or something
-    pub fn get_component(component_type: ComponentTypes, entity_id: Index) -> JsValue{
+    pub fn get_component(component_type: ComponentTypes, entity_id: Index) -> ComponentData{
         let container = ECSContainer::global();
         match component_type {
             ComponentTypes::Transform => {
@@ -103,9 +103,9 @@ impl ScriptingFunctions {
                     .read_component::<Transform>()
                     .get(container.world.entities().entity(entity_id))
                 {
-                    JsValue::from_serde(&TransformComponent::from(*transform)).unwrap()
+                    ComponentData::Transform( TransformComponent::from(*transform))
                 } else {
-                    JsValue::NULL
+                    ComponentData::Empty
                 }
             }
             ComponentTypes::PhysicsHandle => {
@@ -117,15 +117,15 @@ impl ScriptingFunctions {
                     // all transforms (pos, rot etc.. are not returned as they are part of the transform struct and the physics system has authority over those values for entities which have physics.
                    let physics_world =  container.world.read_resource::<PhysicsWorld>();
                     let rigid_body = physics_world.body_set.get(physics_handle.rigid_body_handle).unwrap();
-                    JsValue::from_serde( &PhysicsValues {
+                  ComponentData::Physics( PhysicsValues {
                         angular_damping: rigid_body.angular_damping(),
                         linear_damping: rigid_body.linear_damping(),
                         linear_velocity: rigid_body.linvel().xyz().into(),
                         angular_velocity: rigid_body.angvel().xyz().into(),
                         mass: rigid_body.mass(),
-                    }).unwrap()
+                    })
                 } else {
-                    JsValue::NULL
+                    ComponentData::Empty
                 }
             }
             ComponentTypes::AssetIdentifier => {
@@ -134,9 +134,9 @@ impl ScriptingFunctions {
                     .read_component::<AssetIdentifier>()
                     .get(container.world.entities().entity(entity_id))
                 {
-                    JsValue::from_serde(&identifier).unwrap()
+                    ComponentData::AssetIdentifier( identifier.0.clone())
                 } else {
-                    JsValue::NULL
+                    ComponentData::Empty
                 }
             }
             ComponentTypes::PointLight => {
@@ -145,9 +145,9 @@ impl ScriptingFunctions {
                     .read_component::<PointLight>()
                     .get(container.world.entities().entity(entity_id))
                 {
-                    JsValue::from_serde(&PointLightComponent::from(*point_light)).unwrap()
+                    ComponentData::PointLight(PointLightComponent::from(*point_light))
                 } else {
-                    JsValue::NULL
+                    ComponentData::Empty
                 }
             }
         }
@@ -214,6 +214,7 @@ impl ScriptingFunctions {
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "registerCallback"))]
+#[cfg(target_arch = "wasm32")]
 pub fn register_callback(event_type: ScriptEvent, callback: js_sys::Function) {
     let mut ecs = ECSContainer::global_mut();
     let builder = ecs.world.create_entity();
@@ -222,7 +223,7 @@ pub fn register_callback(event_type: ScriptEvent, callback: js_sys::Function) {
         .with(event_type)
         .build();
 }
-
+#[cfg(target_arch = "wasm32")]
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "loadModel"))]
 pub async fn load_model(object_name: JsValue) -> Result<JsValue, JsValue> {
     if let Some(obj) = object_name.as_string() {
@@ -274,7 +275,7 @@ pub async fn load_model(object_name: JsValue) -> Result<JsValue, JsValue> {
         Err(JsValue::from_str("Invalid model name!"))
     }
 }
-
+#[cfg(target_arch = "wasm32")]
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "setSkyboxTexture"))]
 pub async fn set_skybox_texture(texture_path: JsValue) -> Result<JsValue, JsValue> {
     if let Some(path) = texture_path.as_string() {

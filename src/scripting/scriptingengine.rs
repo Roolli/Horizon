@@ -1,4 +1,5 @@
 use std::{sync::Once};
+use std::collections::HashMap;
 
 #[cfg(not(target_arch = "wasm32"))]
 use rusty_v8 as v8;
@@ -36,7 +37,7 @@ impl V8ScriptingEngine {
 
             global_context = v8::Global::new(handle_scope, context);
         }
-        isolate.set_slot(Rc::new(RefCell::new(ScriptingEngineState {
+        isolate.set_slot(std::rc::Rc::new(std::cell::RefCell::new(ScriptingEngineState {
             callbacks: HashMap::new(),
             global_context: Some(global_context),
         })));
@@ -54,13 +55,13 @@ impl V8ScriptingEngine {
         let horizon_key = v8::String::new(scope, "Horizon").unwrap();
         let horizon_val = v8::Object::new(scope);
         global.set(scope, horizon_key.into(), horizon_val.into());
-        Self::bind_function(scope, horizon_val, "print", ScriptingFunctions::print);
-        Self::bind_function(
-            scope,
-            horizon_val,
-            "registerCallback",
-            ScriptingFunctions::register_callback,
-        );
+        // Self::bind_function(scope, horizon_val, "print", ScriptingFunctions::print);
+        // Self::bind_function(
+        //     scope,
+        //     horizon_val,
+        //     "registerCallback",
+        //     ScriptingFunctions::register_callback,
+        // );
         scope.escape(context)
     }
     fn script_origin<'a>(
@@ -141,9 +142,9 @@ impl V8ScriptingEngine {
         let val = template.get_function(scope).unwrap();
         obj.set(scope, key.into(), val.into());
     }
-    pub fn state(isolate: &v8::Isolate) -> Rc<RefCell<ScriptingEngineState>> {
+    pub fn state(isolate: &v8::Isolate) -> std::rc::Rc<std::cell::RefCell<ScriptingEngineState>> {
         let state = isolate
-            .get_slot::<Rc<RefCell<ScriptingEngineState>>>()
+            .get_slot::<std::rc::Rc<std::cell::RefCell<ScriptingEngineState>>>()
             .unwrap();
         state.clone()
     }
@@ -156,7 +157,7 @@ pub struct ScriptingEngineState {
 
 
 #[cfg(not(target_arch = "wasm32"))]
-impl ScriptingFunctions {
+impl crate::scripting::scriptingfunctions::ScriptingFunctions {
     pub fn print(
         scope: &mut v8::HandleScope,
         args: v8::FunctionCallbackArguments,
@@ -167,7 +168,7 @@ impl ScriptingFunctions {
         let string = obj.to_string(try_catch_scope).unwrap();
 
         log::info!("{}", string.to_rust_string_lossy(try_catch_scope));
-        stdout().flush().unwrap();
+       // std::io::stdout().flush().unwrap();
     }
     // TODO: Expose the world object and add methods for adding
     // https://github.com/denoland/deno/blob/main/core/bindings.rs#L463

@@ -402,9 +402,8 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                                  if let Some(VertexAttribValues::Float32x3(pos)) = primitive.mesh.vertex_attribs.get(&VertexAttributeType::Position)
                                 {
                                     let vertex_count = pos.len();
-                                    log::info!("vertex count: {}",vertex_count);
                                     let mut normals =vec![[0.0,0.0,0.0];vertex_count];
-                                    let mut tangents = vec![[0.0,0.0,0.0,0.0];vertex_count];
+                                    let mut tangents = vec![[1.0,1.0,1.0,1.0];vertex_count];
                                     let mut vertex_colors = vec![0;vertex_count];
                                     let mut texture_coords =vec![[0.0,0.0];vertex_count];
                                     let mut weights = vec![[0.0,0.0,0.0,0.0];vertex_count];

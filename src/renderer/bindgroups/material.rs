@@ -36,13 +36,17 @@ impl<'a> HorizonBindGroup<'a> for MaterialBindGroup {
                     },
                     count: None,
                 },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 3,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                wgpu::BindGroupLayoutEntry{ // normal map texture
+                    binding:3,
+                    visibility:wgpu::ShaderStages::FRAGMENT,
+                    ty:wgpu::BindingType::Texture {
+                        multisampled:false,
+                        sample_type: wgpu::TextureSampleType::Float {filterable:true},
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                    },
                     count: None,
                 },
-                wgpu::BindGroupLayoutEntry{ // normal map texture
+                wgpu::BindGroupLayoutEntry{ // occlusion map texture
                     binding:4,
                     visibility:wgpu::ShaderStages::FRAGMENT,
                     ty:wgpu::BindingType::Texture {
@@ -52,46 +56,18 @@ impl<'a> HorizonBindGroup<'a> for MaterialBindGroup {
                     },
                     count: None,
                 },
-                wgpu::BindGroupLayoutEntry{
+                wgpu::BindGroupLayoutEntry{ // emissive map texture
                     binding:5,
                     visibility:wgpu::ShaderStages::FRAGMENT,
-                    ty:wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count:None,
-                },
-                wgpu::BindGroupLayoutEntry{ // occlusion map texture
-                    binding:6,
-                    visibility:wgpu::ShaderStages::FRAGMENT,
                     ty:wgpu::BindingType::Texture {
                         multisampled:false,
                         sample_type: wgpu::TextureSampleType::Float {filterable:true},
                         view_dimension: wgpu::TextureViewDimension::D2,
                     },
                     count: None,
-                },
-                wgpu::BindGroupLayoutEntry{
-                    binding:7,
-                    visibility:wgpu::ShaderStages::FRAGMENT,
-                    ty:wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count:None,
-                },
-                wgpu::BindGroupLayoutEntry{ // emissive map texture
-                    binding:8,
-                    visibility:wgpu::ShaderStages::FRAGMENT,
-                    ty:wgpu::BindingType::Texture {
-                        multisampled:false,
-                        sample_type: wgpu::TextureSampleType::Float {filterable:true},
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry{
-                    binding:9,
-                    visibility:wgpu::ShaderStages::FRAGMENT,
-                    ty:wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count:None,
                 },
                 wgpu::BindGroupLayoutEntry {
-                    binding:10,
+                    binding:6,
                     visibility:wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
@@ -125,36 +101,19 @@ impl<'a> HorizonBindGroup<'a> for MaterialBindGroup {
                 },
                 wgpu::BindGroupEntry {
                     binding: 3,
-                    resource: wgpu::BindingResource::Sampler(&roughness_texture.sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 4,
                     resource: wgpu::BindingResource::TextureView(&normal_map.view),
                 },
                 wgpu::BindGroupEntry {
-                    binding: 5,
-                    resource: wgpu::BindingResource::Sampler(&normal_map.sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 6,
+                    binding: 4,
                     resource: wgpu::BindingResource::TextureView(&occlusion_texture.view),
                 },
                 wgpu::BindGroupEntry {
-                    binding: 7,
-                    resource: wgpu::BindingResource::Sampler(&occlusion_texture.sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 8,
+                    binding: 5,
                     resource: wgpu::BindingResource::TextureView(&emissive_texture.view),
                 },
-                wgpu::BindGroupEntry {
-                    binding: 9,
-                    resource: wgpu::BindingResource::Sampler(&emissive_texture.sampler),
-                },
                 wgpu::BindGroupEntry{
-                    binding:10,
+                    binding:6,
                     resource: wgpu::BindingResource::Buffer(material_uniforms.as_entire_buffer_binding())
-
                 }
             ],
         });

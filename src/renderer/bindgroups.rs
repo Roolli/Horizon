@@ -12,6 +12,7 @@ pub mod tiling;
 pub mod uniforms;
 pub mod skybox;
 pub mod material;
+pub mod debugtexture;
 
 pub trait HorizonBindGroup<'a> {
     type BindingResources;

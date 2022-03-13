@@ -32,6 +32,7 @@ pub enum BufferTypes {
     SpotLight,
     Tiling,
     Skybox,
+    DebugTextureVertex
 }
 
 #[derive(Enum)]
@@ -40,6 +41,7 @@ pub enum SamplerTypes
     Shadow,
     DeferredTexture,
     Skybox,
+    DebugTexture,
 }
 
 #[derive(Enum)]

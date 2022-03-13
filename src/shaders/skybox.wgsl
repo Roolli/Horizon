@@ -1,17 +1,18 @@
 struct SkyVertexOutput {
-    @builtin(position) position: vec4<f32>;
-    @location(0) uv: vec3<f32>;
-}
+    [[builtin(position)]] position: vec4<f32>;
+    [[location(0)]] uv: vec3<f32>;
+};
 struct ReflectionData {
     projection_inverse: mat4x4<f32>;
     view: mat4x4<f32>;
-}
-@group(0)
-@binding(0)
+};
+
+[[group(0),
+binding(0)]]
 var<uniform> reflection_data: ReflectionData;
 
-@stage(vertex)
-fn sky_vs(@builtin(vertex_index) vertex_index: u32) -> SkyVertexOutput {
+[[stage(vertex)]]
+fn sky_vs([[builtin(vertex_index)]] vertex_index: u32) -> SkyVertexOutput {
     // draw large triangle https://github.com/gfx-rs/wgpu/blob/master/wgpu/examples/skybox/shader.wgsl
     let tmp1 = i32(vertex_index) / 2;
     let tmp2 = i32(vertex_index) & 1;
@@ -30,14 +31,14 @@ fn sky_vs(@builtin(vertex_index) vertex_index: u32) -> SkyVertexOutput {
     return out;
 }
 
-@group(0)
-@binding(1)
+[[group(0)
+,binding(1)]]
 var r_texture: texture_cube<f32>;
-@group(0)
-@binding(2)
+[[group(0)
+,binding(2)]]
 var r_sampler: sampler;
 
-@stage(fragment)
-fn sky_fs(in: SkyVertexOutput) -> @location(0) vec4<f32> {
+[[stage(fragment)]]
+fn sky_fs(in: SkyVertexOutput) -> [[location(0)]] vec4<f32> {
     return textureSample(r_texture,r_sampler,in.uv);
 }

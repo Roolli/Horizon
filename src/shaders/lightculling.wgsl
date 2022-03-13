@@ -51,32 +51,30 @@ struct CanvasSize {
      canvasConstants: vec2<f32>;
 };
 
-@group(0)
-@binding(1)
+[[group(0),
+binding(1)]]
 var<storage,read>pointLights: PointLightContainer;
 
-@group(0)
-@binding(2)
+[[group(0)
+,binding(2)]]
 var<storage,read> spotLights: SpotLightContainer;
 
 
 
-@group(1)
-@binding(0)
+[[group(1)
+,binding(0)]]
 var<uniform> globals: Globals;
 
 
-@group(2)
-@binding(0)
+[[group(2),
+binding(0)]]
 var<uniform> tileInfo:TileInfo;
-@group(2)
-@binding(1)
+[[group(2)
+,binding(1)]]
 var<uniform> canvasSize: CanvasSize;
 
-
- @stage(compute)
- @workgroup_size(64,1,1)
-fn main(@builtin(global_invocation_id) Global_Invocation_Id: vec3<u32>) {
+ [[stage(compute),workgroup_size(64,1,1)]]
+fn main([[builtin(global_invocation_id)]] Global_Invocation_Id: vec3<u32>) {
      let index = Global_Invocation_Id.x;
      if(index >= globals.lights_num.x)
      {

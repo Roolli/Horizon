@@ -24,7 +24,7 @@ impl<'a> HorizonPipeline<'a> for ForwardPipeline {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 bind_group_layouts: &[deferred_bind_group, uniform_bind_group, light_bind_group],
-                label: Some("Render pipeline layout"),
+                label: Some("forward render pipeline layout"),
                 push_constant_ranges: &[],
             });
 
@@ -32,7 +32,7 @@ impl<'a> HorizonPipeline<'a> for ForwardPipeline {
             source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(include_str!(
                 "../../shaders/forward.wgsl"
             ))),
-            label: Some("shadow shader"),
+            label: Some("forward shader"),
         };
         let module = device.create_shader_module(&module_descriptor);
 
@@ -52,17 +52,8 @@ impl<'a> HorizonPipeline<'a> for ForwardPipeline {
             module: &module,
             entry_point: "fs_main",
         });
-
-        let depth_stencil_state = wgpu::DepthStencilState {
-            bias: wgpu::DepthBiasState {
-                ..Default::default()
-            },
-            depth_compare: wgpu::CompareFunction::Greater,
-            format: Texture::DEPTH_FORMAT,
-            depth_write_enabled: false,
-            stencil: wgpu::StencilState::default(),
-        };
-        let primitve_state = wgpu::PrimitiveState {
+        
+        let primitive = wgpu::PrimitiveState {
             front_face: wgpu::FrontFace::Ccw,
             topology: wgpu::PrimitiveTopology::TriangleList,
             cull_mode: Some(wgpu::Face::Back),
@@ -77,7 +68,7 @@ impl<'a> HorizonPipeline<'a> for ForwardPipeline {
 
         RenderPipelineBuilder::create_pipeline(
             fragment_state,
-            primitve_state,
+            primitive,
             vertex_state,
             device,
             &render_pipeline_layout,

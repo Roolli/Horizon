@@ -1,6 +1,6 @@
 
-@stage(vertex)
-fn vs_main(@location(0) pos: vec2<f32>) -> @builtin(position) vec4<f32> {
+[[stage(vertex)]]
+fn vs_main([[location(0)]] pos: vec2<f32>) -> [[builtin(position)]] vec4<f32> {
     return vec4<f32>(pos,0.0,1.0);
 }
 
@@ -38,53 +38,53 @@ struct Globals {
     lights_num: vec4<u32>;
 };
 
-@group(0)
-@binding(0)
+[[group(0)
+,binding(0)]]
 var  texture_sampler: sampler;
 
-@group(0)
-@binding(1)
+[[group(0)
+,binding(1)]]
 var positions:texture_2d<f32>;
-@group(0)
-@binding(2)
+[[group(0)
+,binding(2)]]
 var normals: texture_2d<f32>;
-@group(0)
-@binding(3)
+[[group(0)
+,binding(3)]]
 var albedo: texture_2d<f32>;
 
 struct CanvasSize {
      canvasConstants: vec2<f32>;
 };
-@group(0)
-@binding(4)
+[[group(0)
+,binding(4)]]
 var<uniform> canvasSize: CanvasSize;
 
 
-@group(1)
-@binding(0)
+[[group(1)
+,binding(0)]]
 var<uniform> globals: Globals;
 
-@group(1)
-@binding(1)
+[[group(1)
+,binding(1)]]
 var t_shadow: texture_2d<f32>;
-@group(1)
-@binding(2)
+[[group(1)
+,binding(2)]]
 var s_shadow: sampler;
 
-@group(2)
-@binding(0)
+[[group(2)
+,binding(0)]]
 var<uniform> dirLight: DirectionalLight;
 
-@group(2)
-@binding(1)
+[[group(2)
+,binding(1)]]
 var<storage,read>pointLights: PointLightContainer;
 
-@group(2)
-@binding(2)
+[[group(2),
+binding(2)]]
 var<storage,read> spotLights: SpotLightContainer;
 
 struct FragmentInput {
-@builtin(position) fragPos: vec4<f32>;
+[[builtin(position)]] fragPos: vec4<f32>;
 };
 
 
@@ -125,8 +125,8 @@ fn calcDirLightContribution(normal: vec3<f32>, view_direction: vec3<f32>, object
     
 }
 
-@stage(fragment)
-fn fs_main(in: FragmentInput) -> @location(0) vec4<f32> {
+[[stage(fragment)]]
+fn fs_main(in: FragmentInput) -> [[location(0)]] vec4<f32> {
     var result = vec3<f32>(0.0);
     let coordinates = in.fragPos.xy / canvasSize.canvasConstants;
     let position = textureSample(positions,texture_sampler,coordinates).xyz;

@@ -18,6 +18,7 @@ use chrono::Duration;
 
 use specs::prelude::*;
 use crate::resources::bindingresourcecontainer::BufferTypes::DeferredVao;
+use crate::resources::surfacetexture::SurfaceTexture;
 
 pub struct RenderForwardPass;
 
@@ -32,6 +33,7 @@ impl<'a> System<'a> for RenderForwardPass {
         ReadExpect<'a, ForwardPipeline>,
         Write<'a, RenderResult>,
         ReadStorage<'a, DeferredBindGroup>,
+        ReadExpect<'a,SurfaceTexture>
     );
 
     fn run(
@@ -44,31 +46,24 @@ impl<'a> System<'a> for RenderForwardPass {
             uniform_bind_group,
             bind_group_containers,
             forward_pipeline,
-            mut render_result,
+            render_result,
             deferred_bind_group,
+            surface_texture,
         ): Self::SystemData,
     ) {
-        let frame_result = state.surface.get_current_texture();
-        let frame;
-        if let Ok(f) = frame_result {
-            frame = f;
-        } else {
-            render_result.result = frame_result.err();
+        if render_result.result.is_some()
+        {
             return;
         }
 
-        let frame_view = &frame
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
-
         let cmd_encoder = encoder.get_encoder();
 
-
+        let view = surface_texture.texture.as_ref().unwrap().texture.create_view(&wgpu::TextureViewDescriptor::default());
 
         let mut render_pass = cmd_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("forward pass"),
             color_attachments: &[wgpu::RenderPassColorAttachment {
-                view: frame_view,
+                view: &view,
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(wgpu::Color {

@@ -28,7 +28,7 @@ impl GltfMaterial {
     pub fn to_raw_material(&self) ->MaterialUniform
     {
         MaterialUniform {
-            emissive_color: self.emissive_color,
+            emissive_color: [self.emissive_color[0],self.emissive_color[1],self.emissive_color[2],1.0],
             roughness_metallic: [self.pbr_roughness,self.metallic_factor,0.0,0.0],
             base_color_factor: self.base_color,
         }
@@ -41,5 +41,5 @@ pub struct MaterialUniform
 {
     pub base_color_factor: [f32;4],
     pub roughness_metallic:[f32;4],
-    pub emissive_color:[f32;3],
+    pub emissive_color:[f32;4],
 }

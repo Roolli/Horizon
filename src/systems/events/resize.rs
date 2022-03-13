@@ -7,7 +7,7 @@ use crate::{CanvasSize, DeferredAlbedo, DeferredNormals, DeferredPosition, Defer
     bindgroups::{deferred::DeferredBindGroup, gbuffer::GBuffer, HorizonBindGroup},
     primitives::{texture::Texture, uniforms::CanvasConstants},
     state::State,
-}, resources::{bindingresourcecontainer::BindingResourceContainer, windowevents::ResizeEvent}};
+}, resources::{bindingresourcecontainer::BindingResourceContainer, windowevents::ResizeEvent}};use crate::resources::commandencoder::HorizonCommandEncoder;
 
 pub struct Resize;
 
@@ -19,6 +19,7 @@ impl<'a> System<'a> for Resize {
         WriteStorage<'a, BindGroupContainer>,
         WriteExpect<'a,Projection>,
         ReadStorage<'a, DeferredBindGroup>,
+        WriteExpect<'a, HorizonCommandEncoder>,
         Entities<'a>,
     );
 
@@ -27,9 +28,9 @@ impl<'a> System<'a> for Resize {
         let mut resize_event = data.0;
         let mut resource_container = data.2;
         let mut bind_group_container = data.3;
-        let deferred_bind_group = data.5;
         let mut proj = data.4;
-        let entities = data.6;
+        let deferred_bind_group = data.5;
+        let entities = data.7;
         if resize_event.handled {
             return;
         }

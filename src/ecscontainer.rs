@@ -1,5 +1,4 @@
 use std::borrow::{Borrow, BorrowMut};
-use js_sys::JSON::stringify;
 use rapier3d::na::Vector3;
 use ref_thread_local::{Ref, RefMut, RefThreadLocal};
 use specs::{DispatcherBuilder, RunNow, System, World, WorldExt};
@@ -7,7 +6,7 @@ use specs::{DispatcherBuilder, RunNow, System, World, WorldExt};
 use crate::components::assetidentifier::AssetIdentifier;
 use crate::components::modelcollider::ModelCollider;
 use crate::scripting::scriptevent::ScriptEvent;
-use crate::{components::scriptingcallback::ScriptingCallback, ECS_CONTAINER, filesystem::modelimporter::Importer, HorizonModel, RawModel, renderer::{
+use crate::{components::scriptingcallback::ScriptingCallback, DebugTextureBindGroup, ECS_CONTAINER, filesystem::modelimporter::Importer, HorizonModel, RawModel, renderer::{
     bindgroupcontainer::BindGroupContainer,
     bindgroups::{
         deferred::DeferredBindGroup, lighting::LightBindGroup, shadow::ShadowBindGroup,
@@ -22,9 +21,11 @@ use crate::{components::scriptingcallback::ScriptingCallback, ECS_CONTAINER, fil
 }, SkyboxBindGroup, systems::{
     physics::{Physics, PhysicsWorld},
 }, TextureViewTypes};
+use crate::resources::surfacetexture::SurfaceTexture;
 
 use crate::systems::events::handlewindowevents::HandleWindowEvents;
 use crate::systems::events::resize::Resize;
+use crate::systems::rendering::acquiretexture::AcquireTexture;
 use crate::systems::rendering::computelightculling::ComputeLightCulling;
 use crate::systems::rendering::renderforwardpass::RenderForwardPass;
 use crate::systems::rendering::rendershadowpass::RenderShadowPass;
@@ -53,6 +54,7 @@ impl Default for ECSContainer{
             .with_thread_local(RenderShadowPass)
             .with_thread_local(WriteGBuffer)
             .with_thread_local(ComputeLightCulling)
+            .with_thread_local(AcquireTexture)
             .with_thread_local(RenderForwardPass)
             .with_thread_local(RenderSkyBox)
             .with_thread_local(RenderUIPass)
@@ -80,7 +82,6 @@ impl ECSContainer {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("Render encoder"),
             });
-        let importer = Importer::default();
         let egui_render_pass =
             egui_wgpu_backend::RenderPass::new(&state.device, state.sc_descriptor.format, 1);
 
@@ -91,6 +92,7 @@ impl ECSContainer {
             handled: false,
             scale_factor:None,
         });
+        world.insert(SurfaceTexture{texture:None});
         world.insert( DebugStats{
             fps:0,
             unique_model_count: 1,
@@ -124,6 +126,7 @@ impl ECSContainer {
         world.register::<DeferredBindGroup>();
         world.register::<TilingBindGroup>();
         world.register::<SkyboxBindGroup>();
+        world.register::<DebugTextureBindGroup>();
         world.register::<ScriptingCallback>();
         world.register::<ScriptEvent>();
         world.register::<AssetIdentifier>();

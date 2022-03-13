@@ -21,9 +21,6 @@ impl<'a> HorizonPipeline<'a> for ShadowPipeline {
             push_constant_ranges: &[],
         });
 
-        // [2021-04-02T16:10:08Z ERROR wgpu_core::validation] Unexpected varying type: Array { base: [1], size: Constant([5]), stride: None }
-        // let vs_module =
-        //     device.create_shader_module(&wgpu::include_spirv!("../../shaders/shadow.vert.spv"));
         let module_descriptor = wgpu::ShaderModuleDescriptor {
             source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(include_str!(
                 "../../shaders/shadow.wgsl"

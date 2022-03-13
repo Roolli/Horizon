@@ -203,7 +203,7 @@ web-sys = { version="0.3.53",features = [
     'CssStyleDeclaration',
   ]}
 [dependencies.wgpu]
-version="0.12" 
+version="0.12"
 
 [dependencies.image]
 version= "0.24.0"

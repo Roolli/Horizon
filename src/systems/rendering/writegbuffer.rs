@@ -138,8 +138,6 @@ impl<'a> System<'a> for WriteGBuffer {
                 bytemuck::cast_slice(&normal_matrices),
             );
 
-
-            // TODO: FIX
             render_pass.draw_model_instanced(model,begin_instance_index..begin_instance_index + instance_buffer.len() as u32);
             begin_instance_index += instance_buffer.len() as u32;
 

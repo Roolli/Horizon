@@ -63,20 +63,25 @@ use winit::{
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-use once_cell::sync::OnceCell;
-use rapier3d::na::{Point3, Vector3};
+
+use rapier3d::na::{Point3, Quaternion, UnitQuaternion, Vector3};
 use ref_thread_local::RefThreadLocal;
 
-use tobj::Model;
+
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
+#[cfg(target_arch = "wasm32")]
 use wasm_bindgen_futures::spawn_local;
 use wgpu::util::DeviceExt;
 use ecscontainer::ECSContainer;
+use crate::components::componenttypes::ComponentTypes::Transform;
 use crate::components::gltfmodel::{RawMaterial, RawMesh, RawModel};
+use crate::filesystem::modelimporter::Importer;
 use crate::renderer::bindgroupcontainer::BindGroupContainer;
+use crate::renderer::bindgroups::debugtexture::DebugTextureBindGroup;
 use crate::renderer::bindgroups::skybox::SkyboxBindGroup;
 use crate::renderer::model::HorizonModel;
+use crate::renderer::pipelines::debugtexturepipeline::DebugTexturePipeline;
 use crate::renderer::pipelines::skyboxpipeline::SkyboxPipeline;
 use crate::renderer::primitives::material::MaterialUniform;
 use crate::renderer::primitives::mesh::{VertexAttributeType, VertexAttribValues};
@@ -94,9 +99,10 @@ use crate::scripting::ScriptingError;
 use crate::systems::events::handlelifecycleevents::HandleInitCallbacks;
 use crate::ui::debugstats::DebugStats;
 
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32",wasm_bindgen)]
 extern "C" {
-    #[wasm_bindgen(catch, js_namespace = Function, js_name = "prototype.call.call")]
+    #[cfg_attr(target_arch="wasm32",wasm_bindgen(catch, js_namespace = Function, js_name = "prototype.call.call"))]
+    #[cfg(target_arch = "wasm32")]
     fn call_catch(this: &JsValue) -> Result<(), JsValue>;
 }
 
@@ -191,18 +197,24 @@ pub fn setup() {
         {
             env_logger::init();
 
-            unsafe {
-                if !ECS_INSTANCE.set(ECSContainer::new()).is_ok() {
-                    panic!();
-                }
-
-                let state = block_on(State::new(&window));
+            {
+                let mut ecs = ECSContainer::global_mut();
+                let state = futures::executor::block_on(State::new(&window));
+                // ! for now block
+                let platform = Platform::new(PlatformDescriptor {
+                    physical_height: state.sc_descriptor.height,
+                    physical_width: state.sc_descriptor.width,
+                    scale_factor: window.scale_factor(),
+                    ..Default::default()
+                });
+                ecs.world.insert(EguiContainer {
+                    render_pass: RenderPass::new(&state.device, state.sc_descriptor.format, 1),
+                    platform,
+                });
+                ecs.setup(state);
+                setup_pipelines(&mut ecs.world);
+                create_debug_scene();
             }
-            // ! for now block
-            let ecs = ECSContainer::global_mut();
-            ecs.setup(state);
-            setup_pipelines(&mut ecs.world);
-            block_on(create_debug_scene());
             run(event_loop, window);
         }
 }
@@ -409,7 +421,7 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
 
                                      if let Some(VertexAttribValues::Float32x2(tex_coords_values)) = primitive.mesh.vertex_attribs.get(&VertexAttributeType::TextureCoords)
                                     {
-                                            texture_coords.copy_from_slice(tex_coords_values.as_slice());
+                                        texture_coords.copy_from_slice(tex_coords_values.as_slice());
                                     }
 
                                     if let Some(VertexAttribValues::Uint32(vertex_color_values)) = primitive.mesh.vertex_attribs.get(&VertexAttributeType::VertexColor)
@@ -479,9 +491,10 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                             .with(data)
                         //   .with(crate::components::modelcollider::ModelCollider(collision_builder))
                             .build();
+                        container.world.create_entity_unchecked().with(crate::components::transform::Transform{position: Vector3::new(0.0,0.0,0.0),rotation:UnitQuaternion::from_euler_angles(0.0,90.0_f32.to_radians(),90.0_f32.to_radians()),scale:Vector3::new(1.0,1.0,1.0),model:Some(model_entity)}).build();
                         let mut debug_ui = container.world.write_resource::<DebugStats>();
-                        debug_ui.selected_entity = Some(model_entity);
-                        sender.send(Ok(model_entity)).unwrap();
+                        //debug_ui.selected_entity = Some(model_entity);
+                        //sender.send(Ok(model_entity)).unwrap();
                     }
                 };
             }
@@ -518,6 +531,7 @@ fn setup_pipelines(world: &mut World) {
     DeferredBindGroup::get_resources(&state.device, &mut binding_resource_container);
     TilingBindGroup::get_resources(&state.device, &mut binding_resource_container);
     SkyboxBindGroup::get_resources(&state.device, &mut binding_resource_container);
+    DebugTextureBindGroup::get_resources(&state.device,&mut binding_resource_container);
     GBuffer::generate_g_buffers(
         &state.device,
         &state.sc_descriptor,
@@ -592,6 +606,10 @@ fn setup_pipelines(world: &mut World) {
                         binding_resource_container.samplers[SamplerTypes::Skybox].as_ref().unwrap()),
     );
 
+    // debug texture bindgroup needs to be recreated at each texture switch  as there's no way to replace a binding inside a bindgroup
+    let debug_texture_container = DebugTextureBindGroup::create_container(&state.device,
+                                                                          (binding_resource_container.texture_views[TextureViewTypes::DeferredNormals].as_ref().unwrap(),
+                                                                          binding_resource_container.samplers[SamplerTypes::DebugTexture].as_ref().unwrap()));
     let gbuffer_pipeline = GBufferPipeline::create_pipeline(
         &state.device,
         (
@@ -635,6 +653,10 @@ fn setup_pipelines(world: &mut World) {
     );
     let skybox_pipeline = SkyboxPipeline::create_pipeline(&state.device, &skybox_container.layout, &[state.sc_descriptor.format.into()]);
 
+
+    let debug_texture_pipeline = DebugTexturePipeline::create_pipeline(&state.device,&debug_texture_container.layout,&[wgpu::TextureFormat::Bgra8Unorm.into()]);
+
+
     drop(state);
     drop(binding_resource_container);
     world.insert(LightPipeline(light_pipeline));
@@ -643,6 +665,7 @@ fn setup_pipelines(world: &mut World) {
     world.insert(GBufferPipeline(gbuffer_pipeline));
     world.insert(LightCullingPipeline(lightculling_pipeline));
     world.insert(SkyboxPipeline(skybox_pipeline));
+    world.insert(DebugTexturePipeline(debug_texture_pipeline));
     world
         .create_entity()
         .with(UniformBindGroup)
@@ -673,32 +696,48 @@ fn setup_pipelines(world: &mut World) {
         .with(SkyboxBindGroup)
         .with(skybox_container)
         .build();
+    world.create_entity()
+        .with(DebugTextureBindGroup)
+        .with(debug_texture_container).build();
 }
 
-async fn create_debug_scene() {
-    #[cfg(not(target_arch = "wasm32"))]
-        {
-            let mut js = V8ScriptingEngine::new();
-            // TODO: load all the scripts and execute them before the first frame is rendered. maybe do modules and whatnot.
-            js.execute(
-                "test.js",
-                String::from_utf8(Importer::default().import_file("./test.js").await)
-                    .unwrap()
-                    .as_str(),
-            );
+  fn create_debug_scene() {
+    // #[cfg(not(target_arch = "wasm32"))]
+    //     {
+    //         let mut js = V8ScriptingEngine::new();
+    //         // TODO: load all the scripts and execute them before the first frame is rendered. maybe do modules and whatnot.
+    //         js.execute(
+    //             "test.js",
+    //             String::from_utf8(Importer::default().import_file("./test.js").await)
+    //                 .unwrap()
+    //                 .as_str(),
+    //         );
+    //
+    //         {
+    //             let global_context = js.global_context();
+    //             let isolate = &mut js.isolate;
+    //
+    //             let state_rc = V8ScriptingEngine::state(isolate);
+    //             let js_state = state_rc.borrow();
+    //             let handle_scope = &mut rusty_v8::HandleScope::with_context(isolate, global_context);
+    //             for (_k, v) in js_state.callbacks.iter() {
+    //                 let func = v.get(handle_scope);
+    //                 let recv = rusty_v8::Integer::new(handle_scope, 1).into();
+    //                 func.call(handle_scope, recv, &[]);
+    //             }
+    //         }
+    //     }
+    let importer = Importer::default();
+    let gltf_contents = futures::executor::block_on(importer.import_gltf_model("280z.glb")).unwrap();
+    let model =  ModelBuilder::create_gltf_model(gltf_contents).unwrap();
 
-            {
-                let global_context = js.global_context();
-                let isolate = &mut js.isolate;
-
-                let state_rc = V8ScriptingEngine::state(isolate);
-                let js_state = state_rc.borrow();
-                let handle_scope = &mut rusty_v8::HandleScope::with_context(isolate, global_context);
-                for (_k, v) in js_state.callbacks.iter() {
-                    let func = v.get(handle_scope);
-                    let recv = rusty_v8::Integer::new(handle_scope, 1).into();
-                    func.call(handle_scope, recv, &[]);
-                }
-            }
-        }
+    let val = ref_thread_local::RefThreadLocal::borrow(&EVENT_LOOP_PROXY);
+    let (sender, receiver) = futures::channel::oneshot::channel::<Result<Entity,ScriptingError>>();
+    val.as_ref()
+        .unwrap()
+        .send_event(CustomEvent::RequestModelLoad(
+            model,
+            sender,
+        ))
+        .unwrap();
 }

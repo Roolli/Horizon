@@ -5,6 +5,7 @@ pub mod lightpipeline;
 pub mod shadowpipeline;
 pub mod texturepipeline;
 pub mod skyboxpipeline;
+pub mod debugtexturepipeline;
 
 use wgpu::ColorTargetState;
 pub trait HorizonPipeline<'a> {

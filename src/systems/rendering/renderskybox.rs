@@ -3,26 +3,22 @@ use wgpu::{RenderPassColorAttachment, RenderPassDepthStencilAttachment};
 use crate::{LightBindGroup, RenderResult, SkyboxBindGroup, SkyboxPipeline, State};
 use crate::renderer::bindgroupcontainer::BindGroupContainer;
 use crate::resources::commandencoder::HorizonCommandEncoder;
+use crate::resources::surfacetexture::SurfaceTexture;
 
 pub struct RenderSkyBox;
 
 impl<'a> System<'a> for RenderSkyBox{
-    type SystemData = (Write<'a,RenderResult>,ReadStorage<'a,BindGroupContainer>,ReadStorage<'a,SkyboxBindGroup>,ReadExpect<'a,SkyboxPipeline>,ReadExpect<'a,State>,WriteExpect<'a,HorizonCommandEncoder>);
+    type SystemData = (ReadExpect<'a,SurfaceTexture>,ReadExpect<'a,RenderResult>,ReadStorage<'a,BindGroupContainer>,ReadStorage<'a,SkyboxBindGroup>,ReadExpect<'a,SkyboxPipeline>,ReadExpect<'a,State>,WriteExpect<'a,HorizonCommandEncoder>);
 
-    fn run(&mut self, (mut render_result,bind_group_container,skybox_bind_group,pipeline,state,mut command_encoder): Self::SystemData) {
-        let frame_result = state.surface.get_current_texture();
-        let frame;
-        if let Ok(f) = frame_result {
-            frame = f;
-        } else {
-            render_result.result = frame_result.err();
+    fn run(&mut self, (surface_texture,render_result,bind_group_container,skybox_bind_group,pipeline,state,mut command_encoder): Self::SystemData) {
+
+        if render_result.result.is_some()
+        {
             return;
         }
-          let frame_view = &frame
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
-        let cmd_encoder = command_encoder.get_encoder();
 
+        let cmd_encoder = command_encoder.get_encoder();
+        let view = surface_texture.texture.as_ref().unwrap().texture.create_view(&wgpu::TextureViewDescriptor::default());
         let mut render_pass = cmd_encoder.begin_render_pass(&wgpu::RenderPassDescriptor{
             label: Some("SkyboxRenderPass"),
             color_attachments: &[
@@ -32,7 +28,7 @@ impl<'a> System<'a> for RenderSkyBox{
                        load: wgpu::LoadOp::Load,
                        store: true,
                    },
-                   view: frame_view
+                   view: &view,
                }
             ],
                 depth_stencil_attachment:    Some(RenderPassDepthStencilAttachment {

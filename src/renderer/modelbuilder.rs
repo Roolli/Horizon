@@ -229,34 +229,34 @@ impl ModelBuilder {
                 // TODO: read joints
                 let reader = primitive.reader(|buffer| Some(&data.1[buffer.index()]));
 
-                let mut mesh = GltfMesh::new(primitive.mode(),mesh.name().unwrap_or(format!("Object {}",index).as_str()).to_string());
+                let mut own_mesh = GltfMesh::new(primitive.mode(),mesh.name().unwrap_or(format!("Object {}",index).as_str()).to_string());
                 if let Some(position_vertex_attribs) = reader.read_positions().map(|v| VertexAttribValues::Float32x3( v.collect()))
                 {
-                    mesh.add_vertex_attribute(
+                    own_mesh.add_vertex_attribute(
                         VertexAttributeType::Position,
                         position_vertex_attribs,
                     );
                 }
                 if let Some(normal_vertex_attribs) = reader.read_normals().map(|v| VertexAttribValues::Float32x3(v.collect())) {
-                    mesh.add_vertex_attribute(VertexAttributeType::Normal, normal_vertex_attribs);
+                    own_mesh.add_vertex_attribute(VertexAttributeType::Normal, normal_vertex_attribs);
                 }
                 if let Some(tangent_vertex_attribs) = reader.read_tangents().map(|v| VertexAttribValues::Float32x4(v.collect())) {
-                    mesh.add_vertex_attribute(VertexAttributeType::Tangent, tangent_vertex_attribs);
+                    own_mesh.add_vertex_attribute(VertexAttributeType::Tangent, tangent_vertex_attribs);
                 }
 
                 if let Some(tex_coords_attribs) =
                     reader.read_tex_coords(0).map(|v| VertexAttribValues::Float32x2(v.into_f32().collect()))
                 {
-                    mesh.add_vertex_attribute(
+                    own_mesh.add_vertex_attribute(
                         VertexAttributeType::TextureCoords,
                         tex_coords_attribs,
                     );
                 }
                 if let Some(indices) = reader.read_indices().map(|v| v.into_u32().collect()) {
-                    mesh.add_indices(indices);
+                    own_mesh.add_indices(indices);
                 }
                 primitives.push(GltfPrimitive {
-                    mesh,
+                    mesh:own_mesh,
                     material: primitive
                         .material()
                         .index(),

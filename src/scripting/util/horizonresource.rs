@@ -1,14 +1,15 @@
-use js_sys::Number;
+
 use specs::WorldExt;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 use crate::{DirectionalLight, ECSContainer};
 use crate::scripting::util::glmconversion::Vec3;
-
-
+#[cfg(target_arch = "wasm32")]
+use js_sys::Number;
 //TODO: add option to switch between FPS style and free cam
 #[cfg_attr(target_arch = "wasm32",wasm_bindgen(js_name="Camera"))]
 pub struct ScriptingCamera;
+#[cfg(target_arch = "wasm32")]
 #[cfg_attr(target_arch = "wasm32",wasm_bindgen(js_class="Camera"))]
 impl ScriptingCamera{
     #[cfg_attr(target_arch = "wasm32",wasm_bindgen(js_name="getPosition"))]

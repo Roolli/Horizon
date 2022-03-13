@@ -1,4 +1,5 @@
 use specs::*;
+#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsValue;
 use crate::components::scriptingcallback::ScriptingCallback;
 use crate::DeltaTime;
@@ -14,7 +15,7 @@ impl<'a> System<'a> for HandleInitCallbacks {
             for( event,callback) in (&events,&callbacks).join() {
                 if *event == ScriptEvent::Init
                 {
-                    callback.get_callback().call0(&JsValue::UNDEFINED).unwrap();
+                    //callback.get_callback().call0(&JsValue::UNDEFINED).unwrap();
                 }
             }
     }
@@ -30,7 +31,7 @@ impl<'a> System<'a> for HandleOnRenderCallbacks{
         for (event,callback) in(&events, &callbacks).join(){
             if *event == ScriptEvent::OnTick {
 
-                callback.get_callback().call1(&JsValue::NULL,&JsValue::from(dt.delta)).unwrap();
+                //callback.get_callback().call1(&JsValue::NULL,&JsValue::from(dt.delta)).unwrap();
             }
         }
     }

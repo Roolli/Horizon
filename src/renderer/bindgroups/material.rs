@@ -153,7 +153,8 @@ impl<'a> HorizonBindGroup<'a> for MaterialBindGroup {
                 },
                 wgpu::BindGroupEntry{
                     binding:10,
-                    resource: material_uniforms.as_entire_binding(),
+                    resource: wgpu::BindingResource::Buffer(material_uniforms.as_entire_buffer_binding())
+
                 }
             ],
         });

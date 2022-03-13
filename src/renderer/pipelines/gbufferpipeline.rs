@@ -29,7 +29,7 @@ impl<'a> HorizonPipeline<'a> for GBufferPipeline {
             source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(include_str!(
                 "../../shaders/gbuffer.wgsl"
             ))),
-            label: Some("shadow shader"),
+            label: Some("GBuffer shader"),
         };
         let module = device.create_shader_module(&module_descriptor);
         let vertex_state = wgpu::VertexState {

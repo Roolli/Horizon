@@ -34,6 +34,9 @@ impl<'a> System<'a> for RenderUIPass {
         models,debug_texture_bind_group,
         mut bind_group_container,
         debug_texture_pipeline): Self::SystemData) {
+
+        egui_container.platform.begin_frame();
+        
         if debug_ui.debug_texture.is_none()
         {
             let albedo_texture:Option<Texture> = Some(state.device.create_texture(&wgpu::TextureDescriptor {
@@ -121,7 +124,6 @@ impl<'a> System<'a> for RenderUIPass {
 
                 let (_,  debug_texture_bind_group_container) = (&debug_texture_bind_group, &mut bind_group_container).join().next().unwrap();
                 *debug_texture_bind_group_container = DebugTextureBindGroup::create_container(&state.device, (texture, binding_resource_container.samplers[SamplerTypes::DebugTexture].as_ref().unwrap()));
-
                 render_pass.set_pipeline(&debug_texture_pipeline.0);
                 render_pass.set_vertex_buffer(0, binding_resource_container.buffers[BufferTypes::DeferredVao].as_ref().unwrap().slice(..));
                 render_pass.set_bind_group(0, &debug_texture_bind_group_container.bind_group, &[]);
@@ -130,7 +132,16 @@ impl<'a> System<'a> for RenderUIPass {
 
 
         }
-        debug_ui.texture_id = Some(egui_container.render_pass.egui_texture_from_wgpu_texture(&state.device,texture_view.as_ref().unwrap(),FilterMode::Linear));
+        //TODO: move egui begin to separate system... maybe.
+
+        if debug_ui.texture_id.is_some() {
+            let id = *debug_ui.texture_id.as_ref().unwrap();
+            egui_container.render_pass.update_egui_texture_from_wgpu_texture(&state.device, texture_view.as_ref().unwrap(), FilterMode::Linear,id ).unwrap();
+        }
+        else {
+            debug_ui.texture_id = Some(egui_container.render_pass.egui_texture_from_wgpu_texture(&state.device,texture_view.as_ref().unwrap(),FilterMode::Linear));
+        }
+
 
         debug_ui.show(&egui_container.platform.context(),&mut true);
         let (output, paint_commands) = egui_container.platform.end_frame(None);

@@ -291,14 +291,12 @@ impl ModelBuilder {
         let color = pbr.base_color_factor();
         let base_color_texture = if let Some(tex_info) = pbr.base_color_texture()  {
             let data = &image_data[tex_info.texture().index()];
-            log::info!("data format: {:?} Width:{} height:{}",data.format,data.width,data.height);
             // if linear_textures.contains(&tex_info.texture().index())
             // {
             //  None // TODO: filter out duplicate assets
             // }
             //else {
                 let res = Texture::create_image_from_gltf_texture(tex_info.texture(),buffer_data)?;
-                log::info!("size H:{} W:{} name:{:?}",res.height(),res.width(),material.name());
                 Some(res)
             //}
         }else {
@@ -306,21 +304,18 @@ impl ModelBuilder {
         };
         let normal_map_texture = if let Some(normal_tex) = material.normal_texture() {
             let res = Texture::create_image_from_gltf_texture(normal_tex.texture(),buffer_data)?;
-            log::info!("size H:{} W:{} name:{:?}",res.height(),res.width(),material.name());
             Some(res)
         }else {None};
 
         let metallic_roughness_texture =
             if let Some(metallic_roughness) = pbr.metallic_roughness_texture() {
                 let res = Texture::create_image_from_gltf_texture(metallic_roughness.texture(),buffer_data)?;
-                log::info!("size H:{} W:{} name:{:?}",res.height(),res.width(),material.name());
                 Some(res)
             }else {
                 None
             };
         let occlusion_texture = if let Some(occulsion_texture) = material.occlusion_texture() {
             let res = Texture::create_image_from_gltf_texture(occulsion_texture.texture(),buffer_data)?;
-            log::info!("size H:{} W:{} name:{:?}",res.height(),res.width(),material.name());
             Some(res)
         }else {
             None
@@ -328,7 +323,6 @@ impl ModelBuilder {
         let emissive = material.emissive_factor();
         let emissive_texture = if let Some(emissive_info) = material.emissive_texture() {
             let res = Texture::create_image_from_gltf_texture(emissive_info.texture(),buffer_data)?;
-            log::info!("size H:{} W:{} name:{:?}",res.height(),res.width(),material.name());
             Some(res)
         }else {
             None

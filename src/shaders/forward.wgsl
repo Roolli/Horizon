@@ -48,15 +48,17 @@ var positions:texture_2d<f32>;
 [[group(0)
 ,binding(2)]]
 var normals: texture_2d<f32>;
+[[group(0),binding(3)]]
+var specular:texture_2d<f32>;
 [[group(0)
-,binding(3)]]
+,binding(4)]]
 var albedo: texture_2d<f32>;
 
 struct CanvasSize {
      canvasConstants: vec2<f32>;
 };
 [[group(0)
-,binding(4)]]
+,binding(5)]]
 var<uniform> canvasSize: CanvasSize;
 
 
@@ -65,11 +67,11 @@ var<uniform> canvasSize: CanvasSize;
 var<uniform> globals: Globals;
 
 [[group(1)
-,binding(1)]]
-var t_shadow: texture_2d<f32>;
+,binding(3)]]
+var t_shadow: texture_depth_2d_array;
 [[group(1)
-,binding(2)]]
-var s_shadow: sampler;
+,binding(4)]]
+var s_shadow: sampler_comparison;
 
 [[group(2)
 ,binding(0)]]
@@ -87,6 +89,19 @@ struct FragmentInput {
 [[builtin(position)]] fragPos: vec4<f32>;
 };
 
+
+fn get_shadow_value(coords:vec4<f32>,cascade:i32) -> f32
+{
+    if(coords.w <= 0.0)
+    {
+        return 1.0;
+    }
+    let flip = vec2<f32>(0.5,-0.5);
+    let proj_correction = 1.0 / coords.w;
+    let light_local = coords.xy * flip * proj_correction + vec2<f32>(0.5,0.5);
+
+    return 1.0- textureSampleCompareLevel(t_shadow,s_shadow,light_local,cascade,coords.z*proj_correction);
+}
 
 let ambient_strength:f32 = 0.1;
 
@@ -131,17 +146,17 @@ fn fs_main(in: FragmentInput) -> [[location(0)]] vec4<f32> {
     let coordinates = in.fragPos.xy / canvasSize.canvasConstants;
     let position = textureSample(positions,texture_sampler,coordinates).xyz;
     // TODO: get occlusion factor & roughness from their respective channels
-  
-    
     let object_normal = textureSample(normals,texture_sampler,coordinates);
     let object_color = textureSample(albedo,texture_sampler,coordinates);
     let view_direction = normalize(-position);
+    let shadow = get_shadow_value(dirLight.dl_projection * vec4<f32>(position,1.0),0); // TODO: calculate cascade from frag_depth maybe?
+    result = result * shadow;
     result = result + calcDirLightContribution(object_normal.xyz,view_direction,object_color.xyz);
-
     for(var i:u32 =0u; i < arrayLength(&pointLights.elements) && i < u32(globals.lights_num.x) ;i = i+1u)
     {   
        result = result + calcPointLightContribution(pointLights.elements[i],position,object_normal.xyz,view_direction,object_color.xyz);
     }
+    
     return vec4<f32>(result,1.0);
 }
 

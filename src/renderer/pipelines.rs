@@ -44,7 +44,7 @@ impl RenderPipelineBuilder {
             vertex,
             fragment: fragment_state,
             primitive: primitve_state,
-            multisample: wgpu::MultisampleState {
+            multisample: wgpu::MultisampleState{
                 ..Default::default()
             },
             depth_stencil: depth_stencil_state,

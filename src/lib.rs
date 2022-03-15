@@ -6,6 +6,7 @@ use egui_wgpu_backend::RenderPass;
 use egui_winit_platform::{Platform, PlatformDescriptor};
 use gltf::{buffer, Document};
 use image::DynamicImage;
+use rand::{random, Rng};
 
 use crate::{
     renderer::bindgroups::gbuffer::GBuffer,
@@ -66,6 +67,7 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 use rapier3d::na::{Point3, Quaternion, UnitQuaternion, Vector3};
 use ref_thread_local::RefThreadLocal;
+use wgpu::{BlendFactor, ColorWrites};
 
 
 #[cfg(target_arch = "wasm32")]
@@ -87,7 +89,7 @@ use crate::renderer::primitives::material::MaterialUniform;
 use crate::renderer::primitives::mesh::{VertexAttributeType, VertexAttribValues};
 use crate::renderer::primitives::texture::Texture;
 use crate::renderer::primitives::vertex::MeshVertexData;
-use crate::resources::bindingresourcecontainer::{BufferTypes, SamplerTypes, TextureTypes, TextureViewTypes};
+use crate::resources::bindingresourcecontainer::{BufferTypes, SamplerTypes, TextureArrayViewTypes, TextureTypes, TextureViewTypes};
 use crate::resources::bindingresourcecontainer::BufferTypes::{CanvasSize, Instances, Normals, PointLight, ShadowUniform, Skybox, SpotLight, Tiling, Uniform};
 use crate::resources::bindingresourcecontainer::SamplerTypes::{DeferredTexture, Shadow};
 use crate::resources::bindingresourcecontainer::TextureViewTypes::{DeferredAlbedo, DeferredNormals, DeferredPosition};
@@ -97,6 +99,7 @@ use crate::resources::eguicontainer::EguiContainer;
 use crate::resources::projection::Projection;
 use crate::scripting::ScriptingError;
 use crate::systems::events::handlelifecycleevents::HandleInitCallbacks;
+use crate::TextureViewTypes::DeferredSpecular;
 use crate::ui::debugstats::DebugStats;
 
 #[cfg_attr(target_arch="wasm32",wasm_bindgen)]
@@ -223,7 +226,7 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
     //TODO: Might move to state
     let mut ecs = ECSContainer::global_mut();
     ecs.world.insert(DirectionalLight::new(
-        Point3::new(1.0, -1.0, 0.0),
+        Point3::new(1.0, 0.6, 1.0),
         wgpu::Color {
             r: 0.1,
             g: 0.1,
@@ -233,8 +236,8 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
     ));
 
     let state = ecs.world.write_resource::<State>();
-    let cam = Camera::new(Point3::new(-64.0, 29.9, 0.5), f32::to_radians(-2.0), f32::to_radians(-16.0));
-    let proj = Projection::new(state.sc_descriptor.width, state.sc_descriptor.height, f32::to_radians(45.0), 0.5, 200.0);
+    let cam = Camera::new(Point3::new(-2.0, 1.9, 0.5), f32::to_radians(-2.0), f32::to_radians(-16.0));
+    let proj = Projection::new(state.sc_descriptor.width, state.sc_descriptor.height, f32::to_radians(45.0), 0.001, 50.0);
     let cam_controller = CameraController::new(10.0, 2.0);
 
     drop(state);
@@ -490,9 +493,12 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                             .with(data)
                         //   .with(crate::components::modelcollider::ModelCollider(collision_builder))
                             .build();
-                        container.world.create_entity_unchecked().with(crate::components::transform::Transform{position: Vector3::new(0.0,0.0,0.0),rotation:UnitQuaternion::from_euler_angles(0.0,90.0_f32.to_radians(),90.0_f32.to_radians()),scale:Vector3::new(1.0,1.0,1.0),model:Some(model_entity)}).build();
-                        let mut debug_ui = container.world.write_resource::<DebugStats>();
-                        //debug_ui.selected_entity = Some(model_entity);
+                        let mut rng = rand::thread_rng();
+                        for i in 0..200 {
+                            container.world.create_entity_unchecked().with(crate::components::transform::Transform{position: Vector3::new(rng.gen_range(-100.0..100.0),0.0,rng.gen_range(-100.0..100.0)),rotation:UnitQuaternion::from_euler_angles(0.0,90.0_f32.to_radians(),90.0_f32.to_radians()),scale:Vector3::new(1.0,1.0,1.0),model:Some(model_entity)}).build();
+                        }
+
+
                         //sender.send(Ok(model_entity)).unwrap();
                     }
                 };
@@ -596,6 +602,8 @@ fn setup_pipelines(world: &mut World) {
             binding_resource_container
                 .texture_views[DeferredAlbedo].as_ref().unwrap(),
             binding_resource_container
+                .texture_views[DeferredSpecular].as_ref().unwrap(),
+            binding_resource_container
                 .buffers[CanvasSize].as_ref().unwrap(),
         ),
     );
@@ -605,7 +613,6 @@ fn setup_pipelines(world: &mut World) {
                         binding_resource_container.samplers[SamplerTypes::Skybox].as_ref().unwrap()),
     );
 
-    // debug texture bindgroup needs to be recreated at each texture switch  as there's no way to replace a binding inside a bindgroup
     let debug_texture_container = DebugTextureBindGroup::create_container(&state.device,
                                                                           (binding_resource_container.texture_views[TextureViewTypes::DeferredNormals].as_ref().unwrap(),
                                                                           binding_resource_container.samplers[SamplerTypes::DebugTexture].as_ref().unwrap()));
@@ -618,7 +625,12 @@ fn setup_pipelines(world: &mut World) {
         &[
             wgpu::TextureFormat::Rgba32Float.into(),
             wgpu::TextureFormat::Rgba32Float.into(),
-            wgpu::TextureFormat::Bgra8Unorm.into(),
+            wgpu::TextureFormat::Rgba32Float.into(),
+            wgpu::ColorTargetState{
+                format:wgpu::TextureFormat::Bgra8Unorm,
+                blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
+                write_mask: ColorWrites::all()
+            },
         ],
     );
     let forward_pipeline = ForwardPipeline::create_pipeline(

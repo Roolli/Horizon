@@ -3,6 +3,7 @@ use wgpu::{Device, TextureDescriptor};
 use crate::{DeferredAlbedo, DeferredNormals, DeferredPosition, resources::bindingresourcecontainer::BindingResourceContainer};
 use crate::resources::bindingresourcecontainer::SamplerTypes;
 use crate::resources::bindingresourcecontainer::TextureTypes::{Albedo, PositionDiffuseNormals};
+use crate::TextureViewTypes::DeferredSpecular;
 
 pub struct GBuffer;
 
@@ -55,6 +56,11 @@ impl GBuffer {
             base_array_layer: 1,
             ..Default::default()
         });
+        let specular_view = pos_diffuse_normal_texture.create_view(&wgpu::TextureViewDescriptor{
+            array_layer_count:std::num::NonZeroU32::new(1),
+            base_array_layer:2,
+            ..Default::default()
+        });
         let albedo_view = albedo_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
         resource_container.textures[PositionDiffuseNormals] = Some(pos_diffuse_normal_texture);
@@ -65,7 +71,7 @@ impl GBuffer {
              Some(albedo_view);
 
         resource_container.texture_views[DeferredNormals]= Some(normal_view);
-
+        resource_container.texture_views[DeferredSpecular] = Some(specular_view);
         resource_container
             .texture_views[DeferredPosition]=Some(position_view);
         resource_container

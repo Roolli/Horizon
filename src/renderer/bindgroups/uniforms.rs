@@ -1,3 +1,4 @@
+use std::num::NonZeroU32;
 use super::HorizonBindGroup;
 use crate::renderer::{
     bindgroups::BindGroupContainer, primitives::uniforms::Globals, state::State,
@@ -62,7 +63,7 @@ impl<'a> HorizonBindGroup<'a> for UniformBindGroup {
                     ty: wgpu::BindingType::Texture {
                         multisampled: false,
                         sample_type: wgpu::TextureSampleType::Depth,
-                        view_dimension: wgpu::TextureViewDimension::D2,
+                        view_dimension: wgpu::TextureViewDimension::D2Array,
                     },
                 },
                 wgpu::BindGroupLayoutEntry {
@@ -82,7 +83,7 @@ impl<'a> HorizonBindGroup<'a> for UniformBindGroup {
         let (sampler, texture_view, uniform_buffer, normal_buffer, instance_buffer) =
             binding_resources;
 
-        let uniform_bind_group_layout = UniformBindGroup::get_layout(&device);
+        let uniform_bind_group_layout = UniformBindGroup::get_layout(device);
         let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("uniform_bind_group"),
             entries: &[
@@ -117,31 +118,7 @@ impl<'a> HorizonBindGroup<'a> for UniformBindGroup {
         device: &wgpu::Device,
         resource_container: &mut crate::resources::bindingresourcecontainer::BindingResourceContainer,
     ) {
-        let shadow_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            label: Some("shadow_sampler"),
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            compare: Some(wgpu::CompareFunction::LessEqual),
-            ..Default::default()
-        });
 
-        let shadow_texture = device.create_texture(&wgpu::TextureDescriptor {
-            size: State::SHADOW_SIZE,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Depth32Float,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT,
-            label: Some("shadow texture"),
-            mip_level_count: 1,
-            sample_count: 1,
-        });
-
-        let shadow_view = shadow_texture.create_view(&wgpu::TextureViewDescriptor {
-            ..Default::default()
-        });
 
         let normal_matrix_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             mapped_at_creation: false,
@@ -164,12 +141,7 @@ impl<'a> HorizonBindGroup<'a> for UniformBindGroup {
             size: uniform_size,
             mapped_at_creation: false,
         });
-        resource_container
-            .samplers[Shadow] = Some(shadow_sampler);
-        resource_container
-            .textures[TextureTypes::Shadow] = Some(shadow_texture);
-        resource_container
-            .texture_views[TextureViewTypes::Shadow] = Some(shadow_view);
+
         resource_container
             .buffers[Normals] = Some(normal_matrix_buffer);
         resource_container

@@ -1,5 +1,6 @@
 use specs::{Entities, Join, ReadExpect, ReadStorage, System, WriteExpect};
 use wgpu::{BufferAddress, LoadOp};
+use wgpu::LoadOp::Load;
 
 use crate::{components::transform::{Transform, TransformRaw}, DeferredAlbedo, DeferredNormals, DeferredPosition, EguiContainer, Instances, Normals, RawModel, renderer::{
     bindgroupcontainer::BindGroupContainer,
@@ -11,6 +12,7 @@ use crate::{components::transform::{Transform, TransformRaw}, DeferredAlbedo, De
     bindingresourcecontainer::BindingResourceContainer, commandencoder::HorizonCommandEncoder,
 }};
 use crate::components::gltfmodel::DrawModel;
+use crate::TextureViewTypes::DeferredSpecular;
 
 pub struct WriteGBuffer;
 
@@ -43,9 +45,6 @@ impl<'a> System<'a> for WriteGBuffer {
             entities,
         ): Self::SystemData,
     ) {
-        //TODO: move egui begin to separate system... maybe.
-        egui_container.platform.begin_frame();
-
         let cmd_encoder = encoder.get_encoder();
 
         let mut render_pass = cmd_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -86,6 +85,19 @@ impl<'a> System<'a> for WriteGBuffer {
                     },
                     view: binding_resource_container
                         .texture_views[DeferredNormals].as_ref().unwrap(),
+                },
+                wgpu::RenderPassColorAttachment{
+                    resolve_target:None,
+                    ops: wgpu::Operations{
+                        load:LoadOp::Clear(wgpu::Color{
+                            r:0.0f64,
+                            g:0.0,
+                            b:0.0,
+                            a:0.0,
+                        }),
+                        store:true,
+                    },
+                    view:binding_resource_container.texture_views[DeferredSpecular].as_ref().unwrap()
                 },
                 wgpu::RenderPassColorAttachment {
                     resolve_target: None,

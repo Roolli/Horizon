@@ -6,6 +6,7 @@ pub struct BindingResourceContainer {
     pub textures: EnumMap<TextureTypes, Option< wgpu::Texture>>,
     pub texture_views: EnumMap<TextureViewTypes, Option<wgpu::TextureView>>,
     pub samplers: EnumMap<SamplerTypes, Option<wgpu::Sampler>>,
+    pub texture_array_views:EnumMap<TextureArrayViewTypes,Vec<wgpu::TextureView>>,
 }
 
 impl Default for BindingResourceContainer {
@@ -15,6 +16,7 @@ impl Default for BindingResourceContainer {
             textures: EnumMap::default(),
             texture_views: EnumMap::default(),
             samplers: EnumMap::default(),
+            texture_array_views:EnumMap::default(),
         }
     }
 }
@@ -55,10 +57,15 @@ Skybox,
 
 #[derive(Enum,Debug,PartialEq,Copy,Clone)]
 pub enum TextureViewTypes {
-    Shadow,
     DeferredPosition,
     DeferredNormals,
     DeferredAlbedo,
+    DeferredSpecular,
     Skybox,
+    Shadow,
     Depth,
+}
+#[derive(Enum,Debug,PartialOrd, PartialEq,Copy,Clone)]
+pub enum TextureArrayViewTypes{
+    Shadow
 }

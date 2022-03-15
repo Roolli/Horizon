@@ -31,7 +31,7 @@ impl<'a> HorizonPipeline<'a> for LightPipeline {
         };
         let module = device.create_shader_module(&module_descriptor);
         let vertex_state = wgpu::VertexState {
-            buffers: &[MeshVertexData::desc()],
+            buffers: &[],
             entry_point: "vs_main",
             module: &module,
         };

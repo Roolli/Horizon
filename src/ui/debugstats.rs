@@ -48,6 +48,7 @@ impl ViewComponent for DebugStats{
                        ui.selectable_value(&mut self.selected_texture_name,TextureViewTypes::DeferredPosition,"Deferred Position Texture View");
                        ui.selectable_value(&mut self.selected_texture_name,TextureViewTypes::DeferredNormals,"Deferred Normals Texture View");
                        ui.selectable_value(&mut self.selected_texture_name,TextureViewTypes::DeferredAlbedo,"Deferred Albedo Texture View");
+                       ui.selectable_value(&mut self.selected_texture_name,TextureViewTypes::DeferredSpecular,"Deferred Specular Texture View");
                        ui.selectable_value(&mut self.selected_texture_name,TextureViewTypes::Shadow,"Shadow texture View");
                    });
                     if let Some(tex_id) = self.texture_id

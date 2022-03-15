@@ -8,6 +8,7 @@ use crate::{CanvasSize, DeferredAlbedo, DeferredNormals, DeferredPosition, Defer
     primitives::{texture::Texture, uniforms::CanvasConstants},
     state::State,
 }, resources::{bindingresourcecontainer::BindingResourceContainer, windowevents::ResizeEvent}};use crate::resources::commandencoder::HorizonCommandEncoder;
+use crate::TextureViewTypes::DeferredSpecular;
 
 pub struct Resize;
 
@@ -71,6 +72,7 @@ impl<'a> System<'a> for Resize {
                     .texture_views[DeferredPosition].as_ref().unwrap(),
                 resource_container.texture_views[DeferredNormals].as_ref().unwrap(),
                 resource_container.texture_views[DeferredAlbedo].as_ref().unwrap(),
+                resource_container.texture_views[DeferredSpecular].as_ref().unwrap(),
                 resource_container
                     .buffers[CanvasSize].as_ref().unwrap()
             ),

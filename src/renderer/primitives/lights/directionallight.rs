@@ -1,4 +1,5 @@
 use __core::ops::Range;
+use std::ops::{Add, Div, DivAssign};
 use bytemuck::*;
 use rapier3d::na::{Matrix4, Point3, Vector3, Vector4};
 
@@ -18,11 +19,10 @@ impl DirectionalLight {
         Self { direction, color }
     }
 
-    pub fn to_raw(&self, cam: &Camera,proj:&Projection) -> DirectionalLightRaw {
-        let view = Matrix4::look_at_rh(&Point3::origin(),&self.direction,&Vector3::y());
-        let proj = Self::get_frustum_bounding_box(self, cam, proj,  &view);
-        let view_proj =
-           Matrix4::from(State::OPENGL_TO_WGPU_MATRIX) * proj * view;
+    pub fn to_raw(&self, cam: &Camera,proj: &Projection) -> DirectionalLightRaw {
+        let view_proj = Self::get_view_and_proj_matrix(self, cam, proj);
+        let wgpu_view_proj =
+           Matrix4::from(State::OPENGL_TO_WGPU_MATRIX) * view_proj;
         DirectionalLightRaw {
             direction: [self.direction.x, self.direction.y, self.direction.z, 1.0],
             color: [
@@ -31,41 +31,40 @@ impl DirectionalLight {
                 self.color.b as f32,
                 1.0,
             ],
-            projection: view_proj.into(),
+            projection: wgpu_view_proj.into(),
         }
     }
-    fn get_frustum_bounding_box(
+    fn get_view_and_proj_matrix(
         &self,
         cam: &Camera,
-        proj:&Projection,
-        light_space: &Matrix4<f32>,
+        proj:&Projection
     ) -> Matrix4<f32> {
-        let cam_view = cam.get_view_matrix();
 
-        let cam_inverse = cam_view.try_inverse().unwrap();
 
-        let tan_half_horizontal_fov = f32::tan(f32::to_radians(proj.fov_y / 2.0));
-        let tan_half_vertical_fov = f32::tan(f32::to_radians((proj.fov_y * proj.aspect_ratio) / 2.0));
-        let x_near = proj.z_near * tan_half_horizontal_fov;
-        let x_far = proj.z_far * tan_half_horizontal_fov;
+        //TODO: get a regular projection matrix
+        let view_proj_inverse = (cam.get_view_matrix()*proj.calc_proj_matrix()).try_inverse().unwrap();
 
-        let y_near = proj.z_near * tan_half_vertical_fov;
-        let y_far = proj.z_far * tan_half_vertical_fov;
+        let mut corners = Vec::new();
+        for x in 0..2
+        {
+            for y in 0..2
+            {
+                for z in 0..2
+                {
+                    let point = view_proj_inverse * Vector4::new(2.0 * (x as f32) - 1.0,2.0* y as f32 - 1.0,2.0* z as f32 - 1.0,1.0);
+                    corners.push(point.component_div(&Vector4::new(1.0,1.0,1.0,1.0)));
+                }
+            }
+        }
+        let mut center = Point3::origin();
+        for c in &corners {
+            center += c.xyz();
+        }
+        let len = corners.len() as f32;
 
-        let frustum_corners = [
-            // near face
-            Vector4::new(x_near, y_near, proj.z_near, 1.0),
-            Vector4::new(-x_near, y_near, proj.z_near, 1.0),
-            Vector4::new(x_near, -y_near, proj.z_near, 1.0),
-            Vector4::new(-x_near, -y_near, proj.z_near, 1.0),
-            // far face
-            Vector4::new(x_far, y_far, proj.z_far, 1.0),
-            Vector4::new(-x_far, y_far, proj.z_far, 1.0),
-            Vector4::new(x_far, -y_far, proj.z_far, 1.0),
-            Vector4::new(-x_far, -y_far, proj.z_far, 1.0),
-        ];
+        center.div_assign(len);
 
-        let mut frustum_corners_l: Vec<Vector4<f32>> = Vec::new();
+        let light_view = Matrix4::look_at_rh(&Point3::new(center.x + self.direction.x,center.y + self.direction.y,center.z + self.direction.z), &self.direction,&Vector3::y());
 
         let mut min_x = f32::MAX;
         let mut min_y = f32::MAX;
@@ -73,20 +72,33 @@ impl DirectionalLight {
         let mut max_x = f32::MIN;
         let mut max_y = f32::MIN;
         let mut max_z = f32::MIN;
-        for i in 0..8 {
-            // world space
-            let vw = cam_inverse * frustum_corners[i];
-            frustum_corners_l.push(light_space * vw);
-            min_x = f32::min(min_x, frustum_corners_l[i].x);
-            min_y = f32::min(min_y, frustum_corners_l[i].y);
-            min_z = f32::min(min_z, frustum_corners_l[i].z);
+        for c in corners {
+            let transform = light_view * c;
+            min_x = min_x.min(transform.x);
+            min_y = min_y.min(transform.y);
+            min_z = min_z.min(transform.z);
+            max_x = max_x.max(transform.x);
+            max_y = max_y.max(transform.y);
+            max_z = max_z.max(transform.z);
 
-            max_x = f32::max(max_x, frustum_corners_l[i].x);
-            max_y = f32::max(max_y, frustum_corners_l[i].y);
-            max_z = f32::max(max_z, frustum_corners_l[i].z);
+        }
+        const ZMULT:f32 = 10.0;
+        if min_z < 0.0
+        {
+            min_z *=ZMULT;
+        }
+        else {
+            min_z /=ZMULT;
+        }
+        if max_z < 0.0
+        {
+            max_z /=ZMULT;
+        }
+        else {
+            max_z *=ZMULT;
         }
 
-        Matrix4::new_orthographic(min_x, max_x, min_y, max_y, min_z, max_z)
+        Matrix4::new_orthographic(min_x, max_x, min_y, max_y, min_z, max_z) * light_view
     }
 }
 
@@ -97,72 +109,3 @@ pub struct DirectionalLightRaw {
     pub direction: [f32; 4],
     pub color: [f32; 4],
 }
-// pub trait DrawLight<'a, 'b>
-// where
-//     'b: 'a,
-// {
-//     fn draw_light_mesh(&mut self, mesh: &'b Mesh, uniforms: &'b BindGroup, light: &'b BindGroup);
-//     fn draw_light_mesh_instanced(
-//         &mut self,
-//         mesh: &'b Mesh,
-//         instances: Range<u32>,
-//         uniforms: &'b BindGroup,
-//         light: &'b BindGroup,
-//     );
-//     fn draw_light_model(
-//         &mut self,
-//         model: &'b HorizonModel,
-//         uniforms: &'b BindGroup,
-//         light: &'b BindGroup,
-//     );
-//     fn draw_light_model_instanced(
-//         &mut self,
-//         model: &'b HorizonModel,
-//         instances: Range<u32>,
-//         uniforms: &'b BindGroup,
-//         light: &'b BindGroup,
-//     );
-// }
-// impl<'a, 'b> DrawLight<'a, 'b> for wgpu::RenderPass<'a>
-// where
-//     'b: 'a,
-// {
-//     fn draw_light_mesh(&mut self, mesh: &'b Mesh, uniforms: &'b BindGroup, light: &'b BindGroup) {
-//         self.draw_light_mesh_instanced(mesh, 0..1, uniforms, light);
-//     }
-//
-//     fn draw_light_mesh_instanced(
-//         &mut self,
-//         mesh: &'b Mesh,
-//         instances: Range<u32>,
-//         uniforms: &'b BindGroup,
-//         light: &'b BindGroup,
-//     ) {
-//         self.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
-//         self.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-//         self.set_bind_group(0, &uniforms, &[]);
-//         self.set_bind_group(1, &light, &[]);
-//         self.draw_indexed(0..mesh.element_count, 0, instances);
-//     }
-//
-//     fn draw_light_model(
-//         &mut self,
-//         model: &'b HorizonModel,
-//         uniforms: &'b BindGroup,
-//         light: &'b BindGroup,
-//     ) {
-//         self.draw_light_model_instanced(model, 0..1, uniforms, light);
-//     }
-//
-//     fn draw_light_model_instanced(
-//         &mut self,
-//         model: &'b HorizonModel,
-//         instances: Range<u32>,
-//         uniforms: &'b BindGroup,
-//         light: &'b BindGroup,
-//     ) {
-//         for mesh in &model.meshes {
-//             self.draw_light_mesh_instanced(mesh, instances.clone(), uniforms, light);
-//         }
-//     }
-// }

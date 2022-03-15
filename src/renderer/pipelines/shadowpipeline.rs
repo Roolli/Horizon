@@ -3,7 +3,7 @@ use super::HorizonPipeline;
 use crate::renderer::pipelines::RenderPipelineBuilder;
 use crate::renderer::primitives::vertex::{MeshVertexData, Vertex};
 
-use wgpu::{BindGroupLayout, ColorTargetState};
+use wgpu::{BindGroupLayout, ColorTargetState, vertex_attr_array};
 
 pub struct ShadowPipeline(pub wgpu::RenderPipeline);
 
@@ -39,8 +39,13 @@ impl<'a> HorizonPipeline<'a> for ShadowPipeline {
             depth_write_enabled: true,
             stencil: wgpu::StencilState::default(),
         };
+        let attr_array  = vertex_attr_array![0=>Float32x3];
         let vertex_state = wgpu::VertexState {
-            buffers: &[MeshVertexData::desc()],
+            buffers: &[wgpu::VertexBufferLayout{
+                array_stride: std::mem::size_of::<MeshVertexData>() as wgpu::BufferAddress,
+                attributes:&attr_array,
+                step_mode:wgpu::VertexStepMode::Vertex,
+            }],
             entry_point: "vs_main",
             module: &module,
         };

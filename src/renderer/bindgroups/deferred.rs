@@ -27,6 +27,7 @@ impl<'a> HorizonBindGroup<'a> for DeferredBindGroup {
         &'a wgpu::TextureView,
         &'a wgpu::TextureView,
         &'a wgpu::TextureView,
+        &'a wgpu::TextureView,
         &'a wgpu::Buffer,
     );
 
@@ -73,6 +74,16 @@ impl<'a> HorizonBindGroup<'a> for DeferredBindGroup {
                 wgpu::BindGroupLayoutEntry {
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     binding: 4,
+                    count: None,
+                    ty: wgpu::BindingType::Texture {
+                        multisampled: false,
+                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                    },
+                },
+                wgpu::BindGroupLayoutEntry {
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    binding: 5,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
@@ -88,7 +99,8 @@ impl<'a> HorizonBindGroup<'a> for DeferredBindGroup {
         device: &wgpu::Device,
         resources: Self::BindingResources,
     ) -> crate::renderer::bindgroupcontainer::BindGroupContainer {
-        let (sampler, position_texture, normals_texture, albedo_texture, canvas_size_buffer) =
+        let (sampler, position_texture,
+            normals_texture, albedo_texture,specular_view, canvas_size_buffer) =
             resources;
         let deferred_bind_group_layout = Self::get_layout(device);
         let deferred_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -108,10 +120,14 @@ impl<'a> HorizonBindGroup<'a> for DeferredBindGroup {
                 },
                 wgpu::BindGroupEntry {
                     binding: 3,
+                    resource: wgpu::BindingResource::TextureView(specular_view),
+                },
+                wgpu::BindGroupEntry{
+                    binding:4,
                     resource: wgpu::BindingResource::TextureView(albedo_texture),
                 },
                 wgpu::BindGroupEntry {
-                    binding: 4,
+                    binding: 5,
                     resource: canvas_size_buffer.as_entire_binding(),
                 },
             ],

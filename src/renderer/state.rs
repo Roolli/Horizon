@@ -1,35 +1,10 @@
 
-
-
-
-
-
-
-
-
-
-
 use crate::{
     renderer::primitives::{texture::Texture},
 };
 
-
-
-
-
 use crate::components::transform::*;
-
-
-
-
-
-
-use egui_winit_platform::Platform;
-use egui_winit_platform::PlatformDescriptor;
-
-
 use specs::{WorldExt};
-
 use winit::{event::*, window::Window};
 
 pub struct State {
@@ -53,9 +28,9 @@ impl State {
     pub const MAX_POINT_LIGHTS: usize = 1024;
     pub const MAX_SPOT_LIGHTS: usize = 1024;
     pub const SHADOW_SIZE: wgpu::Extent3d = wgpu::Extent3d {
-        depth_or_array_layers: 1,
-        height: 1024,
-        width: 4096,
+        depth_or_array_layers: 4,
+        height: 512,
+        width: 512,
     };
     pub async fn new(window: &Window) -> Self {
         let size = window.inner_size();
@@ -74,7 +49,7 @@ impl State {
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
-                    features: wgpu::Features::TEXTURE_COMPRESSION_BC,
+                    features: wgpu::Features::TEXTURE_COMPRESSION_BC | wgpu::Features::TEXTURE_BINDING_ARRAY,
                     limits: wgpu::Limits::default(),
                     label: Some("Device descriptor"),
                 },

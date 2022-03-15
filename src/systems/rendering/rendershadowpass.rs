@@ -1,7 +1,7 @@
 use specs::{Entities, Join, ReadExpect, ReadStorage, System, WriteExpect};
 use wgpu::BufferAddress;
 
-use crate::{BufferTypes, components::transform::{Transform}, Instances, RawModel, renderer::{
+use crate::{BufferTypes, Camera, components::transform::{Transform}, DirectionalLight, Instances, Projection, RawModel, renderer::{
     bindgroupcontainer::BindGroupContainer,
     bindgroups::shadow::ShadowBindGroup,
     model::{HorizonModel},
@@ -12,6 +12,7 @@ use crate::{BufferTypes, components::transform::{Transform}, Instances, RawModel
 }, ShadowUniform};
 use crate::components::gltfmodel::DrawModel;
 use crate::components::transform::TransformRaw;
+use crate::resources::bindingresourcecontainer::*;
 use crate::resources::bindingresourcecontainer::TextureViewTypes;
 
 pub struct RenderShadowPass;
@@ -26,6 +27,9 @@ impl<'a> System<'a> for RenderShadowPass {
         ReadStorage<'a, BindGroupContainer>,
         ReadStorage<'a, ShadowBindGroup>,
         ReadExpect<'a, ShadowPipeline>,
+        ReadExpect<'a, DirectionalLight>,
+        ReadExpect<'a, Camera>,
+        ReadExpect<'a,Projection>
     );
 
     fn run(
@@ -40,25 +44,27 @@ impl<'a> System<'a> for RenderShadowPass {
             bind_group_container,
             shadow_bind_group,
             shadow_pipeline,
+            dir_light,
+            camera,
+            projection,
         ): Self::SystemData,
     ) {
         let cmd_encoder = encoder.get_encoder();
-        cmd_encoder.push_debug_group("shadow pass");
-        // copy the light's view matrix to the shadow uniform buffer
-        let dir_light_buf = binding_resource_container
-            .buffers[BufferTypes::DirectionalLight].as_ref().unwrap();
+        // get a new frustum for every cascade texture
         let shadow_uniform_buf = binding_resource_container
             .buffers[ShadowUniform].as_ref().unwrap();
-        cmd_encoder.copy_buffer_to_buffer(dir_light_buf, 0, shadow_uniform_buf, 0, 64);
+        // cmd_encoder.copy_buffer_to_buffer(dir_light_buf, 0, shadow_uniform_buf, 0, 64);
+        for cascade in &binding_resource_container.texture_array_views[TextureArrayViewTypes::Shadow] {
+            let raw_dir_light = &dir_light.to_raw(&camera,&projection).projection;
+           state.queue.write_buffer(shadow_uniform_buf, 0, bytemuck::cast_slice(raw_dir_light));
 
-        cmd_encoder.insert_debug_marker("render_entities");
-        let mut pass = cmd_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("shadow pass descriptor"),
-            color_attachments: &[],
-            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                view: binding_resource_container
-                    .texture_views[TextureViewTypes::Shadow].as_ref().unwrap(),
-                depth_ops: Some(wgpu::Operations {
+            cmd_encoder.insert_debug_marker("render_entities");
+            let mut pass = cmd_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("shadow pass descriptor"),
+                color_attachments: &[],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: cascade,
+                    depth_ops: Some(wgpu::Operations {
                     load: wgpu::LoadOp::Clear(0.0f32),
                     store: true,
                 }),
@@ -71,7 +77,7 @@ impl<'a> System<'a> for RenderShadowPass {
             .next()
             .unwrap();
         pass.set_bind_group(0, &sh_pass_bind_group.bind_group, &[]);
-        let mut begin_instance_index :u32 = 0;
+        let mut begin_instance_index: u32 = 0;
         for (model, model_ent) in (&models, &*entities).join() {
             let mut instance_buffer = Vec::new();
             for transform in transforms.join() {
@@ -87,7 +93,6 @@ impl<'a> System<'a> for RenderShadowPass {
                 (std::mem::size_of::<TransformRaw>() * begin_instance_index as usize) as BufferAddress,
                 bytemuck::cast_slice(&instance_buffer),
             );
-           // pass.draw_model_instanced(model,begin_instance_index..begin_instance_index + instance_buffer.len() as u32);
             for mesh in &model.meshes {
                 pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
                 pass
@@ -97,6 +102,6 @@ impl<'a> System<'a> for RenderShadowPass {
 
             begin_instance_index += instance_buffer.len() as u32;
         }
-        drop(pass);
+     }
     }
 }

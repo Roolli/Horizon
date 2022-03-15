@@ -7,7 +7,6 @@ impl<'a> HorizonBindGroup<'a> for MaterialBindGroup {
     type BindingResources = (&'a Texture,&'a Texture,&'a Texture,&'a Texture,&'a Texture,&'a wgpu::Buffer);
 
     fn get_layout(device: &Device) -> BindGroupLayout {
-        // Sampler might not be needed for every texture
         device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[
                 wgpu::BindGroupLayoutEntry { // base color texture

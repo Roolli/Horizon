@@ -75,8 +75,8 @@ use wasm_bindgen::prelude::*;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen_futures::spawn_local;
 use wgpu::util::DeviceExt;
+use winit::platform::windows::WindowExtWindows;
 use ecscontainer::ECSContainer;
-use crate::components::componenttypes::ComponentTypes::Transform;
 use crate::components::gltfmodel::{RawMaterial, RawMesh, RawModel};
 use crate::filesystem::modelimporter::Importer;
 use crate::renderer::bindgroupcontainer::BindGroupContainer;
@@ -228,16 +228,16 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
     ecs.world.insert(DirectionalLight::new(
         Point3::new(normalized_dir.x,normalized_dir.y,normalized_dir.z),
         wgpu::Color {
-            r: 0.1,
-            g: 0.1,
-            b: 0.1,
+            r: 0.9,
+            g: 0.7,
+            b: 0.5,
             a: 1.0,
         },
     ));
 
     let state = ecs.world.write_resource::<State>();
     let cam = Camera::new(Point3::new(-2.0, 1.9, 0.5), f32::to_radians(-2.0), f32::to_radians(-16.0));
-    let proj = Projection::new(state.sc_descriptor.width, state.sc_descriptor.height, f32::to_radians(45.0), 0.01, 500.0);
+    let proj = Projection::new(state.sc_descriptor.width, state.sc_descriptor.height, f32::to_radians(45.0), 0.01);
     let cam_controller = CameraController::new(10.0, 2.0);
 
     drop(state);
@@ -250,6 +250,7 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
     let mut run_init = HandleInitCallbacks {};
     run_init.run_now(&ecs.world); // Very nice code... really....
     drop(ecs);
+    let mut cursor_state = false;
     event_loop.run(move |event, _, control_flow| {
         let container = ECSContainer::global();
         let mut egui_container = container.world.write_resource::<EguiContainer>();
@@ -279,6 +280,17 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                         } = input
                         {
                             *control_flow = ControlFlow::Exit
+                        }
+                        else if let KeyboardInput {
+                            state: ElementState::Pressed,
+                            virtual_keycode:Some(VirtualKeyCode::M),
+                            ..
+                        } = input {
+                            log::info!("cursor state before:{}",cursor_state);
+                            cursor_state = !cursor_state;
+                            log::info!("cursor state:{}",cursor_state);
+                            window.set_cursor_grab(cursor_state).unwrap();
+                            window.set_cursor_visible(!cursor_state);
                         }
                         let container = ECSContainer::global();
                         let mut keyboard_event = container
@@ -494,10 +506,10 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                         //   .with(crate::components::modelcollider::ModelCollider(collision_builder))
                             .build();
                         let mut rng = rand::thread_rng();
-                        for i in 0..200 {
-                            container.world.create_entity_unchecked().with(crate::components::transform::Transform{position: Vector3::new(rng.gen_range(-100.0..100.0),0.0,rng.gen_range(-100.0..100.0)),rotation:UnitQuaternion::from_euler_angles(0.0,90.0_f32.to_radians(),90.0_f32.to_radians()),scale:Vector3::new(1.0,1.0,1.0),model:Some(model_entity)}).build();
-                        }
-
+                        // for i in 0..200 {
+                            //container.world.create_entity_unchecked().with(crate::components::transform::Transform{position: Vector3::new(rng.gen_range(-100.0..100.0),0.0,rng.gen_range(-100.0..100.0)),rotation:UnitQuaternion::from_euler_angles(0.0,90.0_f32.to_radians(),90.0_f32.to_radians()),scale:Vector3::new(1.0,1.0,1.0),model:Some(model_entity)}).build();
+                        //}
+                        container.world.create_entity_unchecked().with(crate::components::transform::Transform{position: Vector3::new(0.0,0.0,0.0),rotation:UnitQuaternion::from_euler_angles(0.0,0.0,0.0),scale:Vector3::new(1.0,1.0,1.0),model:Some(model_entity)}).build();
 
                         //sender.send(Ok(model_entity)).unwrap();
                     }
@@ -741,7 +753,7 @@ fn setup_pipelines(world: &mut World) {
     //         }
     //     }
     let importer = Importer::default();
-    let gltf_contents = futures::executor::block_on(importer.import_gltf_model("280z.glb")).unwrap();
+    let gltf_contents = futures::executor::block_on(importer.import_gltf_model("Sponza.glb")).unwrap();
     let model =  ModelBuilder::create_gltf_model(gltf_contents).unwrap();
 
     let val = ref_thread_local::RefThreadLocal::borrow(&EVENT_LOOP_PROXY);

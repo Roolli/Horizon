@@ -118,10 +118,11 @@ impl<'a> HorizonBindGroup<'a> for ShadowBindGroup {
             resource_container
                 .texture_array_views[TextureArrayViewTypes::Shadow].push(shadow_view);
         });
-        let shadow_cascade_lengths =device.create_buffer_init(&wgpu::util::BufferInitDescriptor{
+        let shadow_cascade_lengths =device.create_buffer(&wgpu::BufferDescriptor{
             label:Some("Shadow cascade lengths"),
-            contents: bytemuck::cast_slice(State::SHADOW_CASCADES.as_slice()),
-            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::STORAGE
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::STORAGE,
+            size: (std::mem::size_of::<f32>() * State::SHADOW_SIZE.depth_or_array_layers as usize) as wgpu::BufferAddress,
+            mapped_at_creation:false,
         });
         let shadow_view = shadow_texture.create_view(&wgpu::TextureViewDescriptor::default());
         resource_container.buffers[crate::BufferTypes::ShadowCascadeLengths] = Some(shadow_cascade_lengths);

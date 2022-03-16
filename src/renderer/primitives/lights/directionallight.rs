@@ -30,87 +30,92 @@ impl DirectionalLight {
             ],
         }
     }
-   pub fn get_view_and_proj_matrix(
+   pub fn get_view_and_proj_matrices(
         &self,
         cam: &Camera,
         z_near:f32,
         z_far:f32,
-        fov_y:f32,
-        aspect_ratio:f32,
-    ) -> Matrix4<f32> {
+       projection:&Projection
+    ) -> Vec<(f32,Matrix4<f32>)> {
 
-       // let clip_range = z_far - z_near;
-       // let min_z = z_near;
-       // let max_z = z_near + clip_range;
-       // let range = max_z  - min_z;
-       // let ratio = max_z / min_z;
-       // for  i in 0..State::SHADOW_CASCADES.len()
-       // {
-       //      let p = (i as f32 + 1.0) / State::SHADOW_CASCADES.len() as f32;
-       //     let log = min_z * powf32(ratio,p);
-       //     let uniform = min_z + range *p;
-       //     let d = cascade_split_lambda  * (log-uniform) + uniform;
-       //
-       // }
+       let mut cascade_splits = Vec::new();
+       let mut cascades = Vec::new();
+       let clip_range = z_far - z_near;
+       let min_z = z_near;
+       let max_z = z_near + clip_range;
+       let range = max_z  - min_z;
+       let ratio = max_z / min_z;
+       let cascade_split_lambda = 0.95;
+        // from: https://developer.nvidia.com/gpugems/GPUGems3/gpugems3_ch10.html
+       for  i in 0..State::SHADOW_SIZE.depth_or_array_layers
+       {
+            let p = (i as f32 + 1.0) / State::SHADOW_SIZE.depth_or_array_layers as f32;
+           let log = min_z * ratio.powf(p);
+           let uniform = min_z + range *p;
+           let d = cascade_split_lambda  * (log-uniform) + uniform;
+            cascade_splits.push((d - z_near) / clip_range);
+       }
 
-        let proj  = Perspective3::new(aspect_ratio,fov_y,z_near,z_far);
-        let view_proj_inverse = (proj.as_matrix()*cam.get_view_matrix()).try_inverse().unwrap();
-        let mut corners = Vec::new();
-        for x in 0..2
+       let mut last_split_dist = 0.0;
+        for split in cascade_splits
         {
-            for y in 0..2
-            {
-                for z in 0..2
-                {
-                    let point = view_proj_inverse * Vector4::new(2.0 * (x as f32) - 1.0,2.0* y as f32 - 1.0,2.0* z as f32 - 1.0,1.0);
-                    corners.push(point.component_div(&Vector4::new(1.0,1.0,1.0,1.0)));
-                }
+
+
+            let proj  = Perspective3::new(projection.aspect_ratio,projection.fov_y,z_near,z_far);
+            let view_proj_inverse = (proj.as_matrix()*cam.get_view_matrix()).try_inverse().unwrap();
+            let mut corners = vec![
+                Vector3::new(-1.0, 1.0,-1.0),
+                Vector3::new( 1.0, 1.0,-1.0),
+                Vector3::new( 1.0,-1.0,-1.0),
+                Vector3::new(-1.0,-1.0,-1.0),
+                Vector3::new(-1.0, 1.0, 1.0),
+                Vector3::new( 1.0, 1.0, 1.0),
+                Vector3::new( 1.0,-1.0, 1.0),
+                Vector3::new(-1.0,-1.0, 1.0),
+            ];
+
+          for i in 0..corners.len()
+          {
+              let point = view_proj_inverse * Vector4::new(corners[i].x,corners[i].y,corners[i].z,1.0);
+              corners[i] = point.component_div(&Vector4::new(1.0,1.0,1.0,1.0)).xyz();
+          }
+
+
+            for i in 0..4 {
+                let dist = corners[i+4] - corners[i];
+                corners[i+4] = corners[i] + (dist * split);
+                corners[i] = corners[i] + (dist * last_split_dist);
             }
-        }
+            // Calculate center
+            let mut center = Vector3::zeros();
+            for c in &corners {
+                center += c.xyz();
+            }
+            let len = corners.len() as f32;
+            center.div_assign(len);
 
-        let mut center = Vector3::zeros();
-        for c in &corners {
-            center += c.xyz();
-        }
-        let len = corners.len() as f32;
-        center.div_assign(len);
+            let mut radius = 0.0_f32;
+            for i in 0..corners.len()
+            {
+               // let dist = rapier3d::na::distance(&Point3::from(corners[i].xyz()),&Point3::from(center));
+                let dist = (corners[i].xyz() - center).magnitude();
+                radius = radius.max(dist);
+            }
+            radius = (radius * 16.0).ceil() / 16.0;
+            let max_extent = Vector3::new(radius,radius,radius);
+            let min_extent = -max_extent;
+            let offset = 15.0;
+            let light_dir = -self.direction;
+            let light_view = Matrix4::look_at_rh(&Point3::from(center + light_dir.coords * -min_extent.z),&Point3::from(center) ,&Vector3::y_axis());
+            let ortho:Matrix4<f32> = Matrix4::new_orthographic(min_extent.x, max_extent.x, min_extent.y, max_extent.y, -offset,split * z_far + offset);
+            let split_depth = (z_near + split * clip_range ) * -1.0;
+            let view_proj =  * ortho * light_view;
+            cascades.push((split_depth,view_proj));
 
-        //&Point3::from(center)
-        let light_view = Matrix4::look_at_rh(&Point3::origin()  ,&self.direction ,&Vector3::y_axis());
-       //&self.direction.add(center)
-        let mut min_x = f32::MAX;
-        let mut min_y = f32::MAX;
-        let mut min_z = f32::MAX;
-        let mut max_x = f32::MIN;
-        let mut max_y = f32::MIN;
-        let mut max_z = f32::MIN;
-        for c in corners {
-            let transform = light_view * c;
-            min_x = min_x.min(transform.x);
-            min_y = min_y.min(transform.y);
-            min_z = min_z.min(transform.z);
-            max_x = max_x.max(transform.x);
-            max_y = max_y.max(transform.y);
-            max_z = max_z.max(transform.z);
+            last_split_dist = split;
+         }
+        cascades
 
-        }
-        const ZMULT:f32 = 100.0;
-        if min_z < 0.0
-        {
-            min_z *=ZMULT;
-        }
-        else {
-            min_z /=ZMULT;
-        }
-        if max_z < 0.0
-        {
-            max_z /=ZMULT;
-        }
-        else {
-            max_z *=ZMULT;
-        }
-        let ortho = Matrix4::new_orthographic(min_x, max_x, min_y, max_y, min_z, max_z);
-        Matrix4::from(State::OPENGL_TO_WGPU_MATRIX) *  ortho * light_view
     }
 }
 

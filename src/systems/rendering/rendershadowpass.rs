@@ -54,26 +54,12 @@ impl<'a> System<'a> for RenderShadowPass {
         // get a new frustum for every cascade texture
         let shadow_uniform_buf = binding_resource_container
             .buffers[ShadowUniform].as_ref().unwrap();
-        let mut raw_dir_lights = Vec::new();
-        for v in 0..State::SHADOW_CASCADES.len()+1
-        {
-            // if v == 0 {
-            //     raw_dir_lights.push(dir_light.get_view_and_proj_matrix(&camera,State::CASCADE_DISTS.0,State::SHADOW_CASCADES[v],projection.fov_y,projection.aspect_ratio).data.0);
-            // }
-          //  else
-            if v < State::SHADOW_CASCADES.len()
-            {
-                raw_dir_lights.push(dir_light.get_view_and_proj_matrix(&camera,State::CASCADE_DISTS.0,State::SHADOW_CASCADES[v],projection.fov_y,projection.aspect_ratio).data.0);
-            }
-            else {
-                raw_dir_lights.push(dir_light.get_view_and_proj_matrix(&camera,State::CASCADE_DISTS.0,State::CASCADE_DISTS.1,projection.fov_y,projection.aspect_ratio).data.0);
-            }
-        }
-
-
+        let raw_dir_lights = dir_light.get_view_and_proj_matrices(&camera,State::CASCADE_DISTS.0,State::CASCADE_DISTS.1,&projection);
 
         let shadow_cascade_buffer = binding_resource_container.buffers[BufferTypes::ShadowCascade].as_ref().unwrap();
-        state.queue.write_buffer(shadow_cascade_buffer,0,bytemuck::cast_slice(raw_dir_lights.as_slice()));
+        let cascade_lengths_buffer = binding_resource_container.buffers[BufferTypes::ShadowCascadeLengths].as_ref().unwrap();
+        state.queue.write_buffer(cascade_lengths_buffer,0,bytemuck::cast_slice(raw_dir_lights.iter().map(|v|v.0).collect::<Vec<_>>().as_slice()));
+        state.queue.write_buffer(shadow_cascade_buffer,0,bytemuck::cast_slice(raw_dir_lights.iter().map(|v| v.1.data.0).collect::<Vec<_>>().as_slice()));
 
         for (index,cascade) in binding_resource_container.texture_array_views[TextureArrayViewTypes::Shadow].iter().enumerate() {
             let format = format!("shadow pass for cascade: #{}",index);

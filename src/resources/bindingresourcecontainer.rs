@@ -1,6 +1,7 @@
-use std::collections::HashMap;
+
 use enum_map::{EnumMap, Enum};
 
+#[derive(Default)]
 pub struct BindingResourceContainer {
     pub buffers: EnumMap<BufferTypes, Option<wgpu::Buffer>>,
     pub textures: EnumMap<TextureTypes, Option< wgpu::Texture>>,
@@ -9,17 +10,6 @@ pub struct BindingResourceContainer {
     pub texture_array_views:EnumMap<TextureArrayViewTypes,Vec<wgpu::TextureView>>,
 }
 
-impl Default for BindingResourceContainer {
-    fn default() -> Self {
-        Self {
-            buffers: EnumMap::default(),
-            textures: EnumMap::default(),
-            texture_views: EnumMap::default(),
-            samplers: EnumMap::default(),
-            texture_array_views:EnumMap::default(),
-        }
-    }
-}
 
 #[derive(Enum)]
 pub enum BufferTypes {
@@ -34,7 +24,9 @@ pub enum BufferTypes {
     SpotLight,
     Tiling,
     Skybox,
-    DebugTextureVertex
+    DebugTextureVertex,
+    ShadowCascade,
+    ShadowCascadeLengths
 }
 
 #[derive(Enum)]

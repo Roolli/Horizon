@@ -19,6 +19,8 @@ impl<'a> HorizonBindGroup<'a> for UniformBindGroup {
         &'a wgpu::Buffer,
         &'a wgpu::Buffer,
         &'a wgpu::Buffer,
+        &'a wgpu::Buffer,
+        &'a wgpu::Buffer,
     );
     fn get_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
         device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -72,6 +74,26 @@ impl<'a> HorizonBindGroup<'a> for UniformBindGroup {
                     count: None,
                     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Comparison), // might not work if filtering not enabled
                 },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 5,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    count: None,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 6,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    count: None,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                },
             ],
         })
     }
@@ -80,7 +102,7 @@ impl<'a> HorizonBindGroup<'a> for UniformBindGroup {
         device: &wgpu::Device,
         binding_resources: Self::BindingResources,
     ) -> crate::renderer::bindgroupcontainer::BindGroupContainer {
-        let (sampler, texture_view, uniform_buffer, normal_buffer, instance_buffer) =
+        let (sampler, texture_view, uniform_buffer, normal_buffer, instance_buffer,shadow_cascade_buffer,cascade_lengths) =
             binding_resources;
 
         let uniform_bind_group_layout = UniformBindGroup::get_layout(device);
@@ -107,6 +129,14 @@ impl<'a> HorizonBindGroup<'a> for UniformBindGroup {
                     binding: 4,
                     resource: wgpu::BindingResource::Sampler(sampler),
                 },
+                wgpu::BindGroupEntry{
+                    binding:5,
+                    resource:shadow_cascade_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry{
+                    binding:6,
+                    resource:cascade_lengths.as_entire_binding(),
+                }
             ],
             layout: &uniform_bind_group_layout,
         });

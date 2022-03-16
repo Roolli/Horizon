@@ -10,10 +10,11 @@ use crate::{BufferTypes, Camera, components::transform::{Transform}, Directional
 }, resources::{
     bindingresourcecontainer::BindingResourceContainer, commandencoder::HorizonCommandEncoder,
 }, ShadowUniform};
-use crate::components::gltfmodel::DrawModel;
+
 use crate::components::transform::TransformRaw;
+use crate::renderer::primitives::uniforms::ShadowUniforms;
 use crate::resources::bindingresourcecontainer::*;
-use crate::resources::bindingresourcecontainer::TextureViewTypes;
+
 
 pub struct RenderShadowPass;
 impl<'a> System<'a> for RenderShadowPass {
@@ -53,24 +54,44 @@ impl<'a> System<'a> for RenderShadowPass {
         // get a new frustum for every cascade texture
         let shadow_uniform_buf = binding_resource_container
             .buffers[ShadowUniform].as_ref().unwrap();
-        // cmd_encoder.copy_buffer_to_buffer(dir_light_buf, 0, shadow_uniform_buf, 0, 64);
-        for cascade in &binding_resource_container.texture_array_views[TextureArrayViewTypes::Shadow] {
-            let raw_dir_light = &dir_light.to_raw(&camera,&projection).projection;
-           state.queue.write_buffer(shadow_uniform_buf, 0, bytemuck::cast_slice(raw_dir_light));
+        let mut raw_dir_lights = Vec::new();
+        for v in 0..State::SHADOW_CASCADES.len()+1
+        {
+            // if v == 0 {
+            //     raw_dir_lights.push(dir_light.get_view_and_proj_matrix(&camera,State::CASCADE_DISTS.0,State::SHADOW_CASCADES[v],projection.fov_y,projection.aspect_ratio).data.0);
+            // }
+          //  else
+            if v < State::SHADOW_CASCADES.len()
+            {
+                raw_dir_lights.push(dir_light.get_view_and_proj_matrix(&camera,State::CASCADE_DISTS.0,State::SHADOW_CASCADES[v],projection.fov_y,projection.aspect_ratio).data.0);
+            }
+            else {
+                raw_dir_lights.push(dir_light.get_view_and_proj_matrix(&camera,State::CASCADE_DISTS.0,State::CASCADE_DISTS.1,projection.fov_y,projection.aspect_ratio).data.0);
+            }
+        }
 
-            cmd_encoder.insert_debug_marker("render_entities");
+
+
+        let shadow_cascade_buffer = binding_resource_container.buffers[BufferTypes::ShadowCascade].as_ref().unwrap();
+        state.queue.write_buffer(shadow_cascade_buffer,0,bytemuck::cast_slice(raw_dir_lights.as_slice()));
+
+        for (index,cascade) in binding_resource_container.texture_array_views[TextureArrayViewTypes::Shadow].iter().enumerate() {
+            let format = format!("shadow pass for cascade: #{}",index);
+            cmd_encoder.copy_buffer_to_buffer(shadow_cascade_buffer, (index * std::mem::size_of::<ShadowUniforms>()) as wgpu::BufferAddress, shadow_uniform_buf, 0, 64);
             let mut pass = cmd_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("shadow pass descriptor"),
+                label: Some(format.as_str()),
                 color_attachments: &[],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                     view: cascade,
                     depth_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(0.0f32),
+                    load: wgpu::LoadOp::Clear(1.0f32),
                     store: true,
                 }),
                 stencil_ops: None,
             }),
         });
+            pass.insert_debug_marker("render_entities");
+
         pass.set_pipeline(&shadow_pipeline.0);
         let (_, sh_pass_bind_group) = (&shadow_bind_group, &bind_group_container)
             .join()

@@ -53,7 +53,7 @@ impl<'a> System<'a> for UpdateBuffers {
             binding_resource_container
                 .buffers[BufferTypes::DirectionalLight].as_ref().unwrap(),
             0,
-            bytemuck::bytes_of(&dir_light.to_raw(&cam,&proj)),
+            bytemuck::bytes_of(&dir_light.to_raw()),
         );
         //TODO: optimize to minimize copying
         let point_light_raw = point_lights
@@ -78,6 +78,5 @@ impl<'a> System<'a> for UpdateBuffers {
             0,
             bytemuck::cast_slice(&point_light_raw),
         );
-        //TODO: move to a system which handles resizing to reduce unneeded copies.
     }
 }

@@ -6,6 +6,7 @@ use specs::*;
 use crate::{SamplerTypes, ShadowUniform, State, TextureTypes, TextureViewTypes};
 use crate::resources::bindingresourcecontainer::TextureArrayViewTypes;
 use std::default::Default;
+use wgpu::util::DeviceExt;
 
 #[derive(Component, Default)]
 #[storage(NullStorage)]
@@ -71,10 +72,16 @@ impl<'a> HorizonBindGroup<'a> for ShadowBindGroup {
     ) {
         let shadow_uniforms_size = std::mem::size_of::<ShadowUniforms>() as wgpu::BufferAddress;
         let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: None,
+            label: Some("Shadow uniform buffer"),
             mapped_at_creation: false,
             size: shadow_uniforms_size,
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
+        });
+        let shadow_cascade_buffer = device.create_buffer(&wgpu::BufferDescriptor{
+            label:Some("Cascade buffer"),
+            usage: wgpu::BufferUsages::COPY_DST |wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::STORAGE,
+            size: shadow_uniforms_size * State::SHADOW_SIZE.depth_or_array_layers as wgpu::BufferAddress,
+            mapped_at_creation:false,
         });
         let shadow_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("shadow_sampler"),
@@ -111,11 +118,17 @@ impl<'a> HorizonBindGroup<'a> for ShadowBindGroup {
             resource_container
                 .texture_array_views[TextureArrayViewTypes::Shadow].push(shadow_view);
         });
+        let shadow_cascade_lengths =device.create_buffer_init(&wgpu::util::BufferInitDescriptor{
+            label:Some("Shadow cascade lengths"),
+            contents: bytemuck::cast_slice(State::SHADOW_CASCADES.as_slice()),
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::STORAGE
+        });
         let shadow_view = shadow_texture.create_view(&wgpu::TextureViewDescriptor::default());
+        resource_container.buffers[crate::BufferTypes::ShadowCascadeLengths] = Some(shadow_cascade_lengths);
         resource_container
             .buffers[ShadowUniform]=Some(uniform_buffer);
-
-
+        resource_container
+            .buffers[crate::BufferTypes::ShadowCascade] = Some(shadow_cascade_buffer);
         resource_container
             .samplers[SamplerTypes::Shadow] = Some(shadow_sampler);
         resource_container

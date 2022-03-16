@@ -130,6 +130,7 @@ impl<'a> HorizonBindGroup<'a> for DeferredBindGroup {
                     binding: 5,
                     resource: canvas_size_buffer.as_entire_binding(),
                 },
+
             ],
             label: Some("deferred_bind_group"),
         });

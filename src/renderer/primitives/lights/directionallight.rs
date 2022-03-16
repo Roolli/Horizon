@@ -1,7 +1,7 @@
 use __core::ops::Range;
 use std::ops::{Add, Div, DivAssign};
 use bytemuck::*;
-use rapier3d::na::{Matrix4, Point3, Vector3, Vector4};
+use rapier3d::na::{Matrix4, Perspective3, Point3, Vector3, Vector4};
 
 use wgpu::BindGroup;
 
@@ -19,10 +19,7 @@ impl DirectionalLight {
         Self { direction, color }
     }
 
-    pub fn to_raw(&self, cam: &Camera,proj: &Projection) -> DirectionalLightRaw {
-        let view_proj = Self::get_view_and_proj_matrix(self, cam, proj);
-        let wgpu_view_proj =
-           Matrix4::from(State::OPENGL_TO_WGPU_MATRIX) * view_proj;
+    pub fn to_raw(&self) -> DirectionalLightRaw {
         DirectionalLightRaw {
             direction: [self.direction.x, self.direction.y, self.direction.z, 1.0],
             color: [
@@ -31,19 +28,33 @@ impl DirectionalLight {
                 self.color.b as f32,
                 1.0,
             ],
-            projection: wgpu_view_proj.into(),
         }
     }
-    fn get_view_and_proj_matrix(
+   pub fn get_view_and_proj_matrix(
         &self,
         cam: &Camera,
-        proj:&Projection
+        z_near:f32,
+        z_far:f32,
+        fov_y:f32,
+        aspect_ratio:f32,
     ) -> Matrix4<f32> {
 
+       // let clip_range = z_far - z_near;
+       // let min_z = z_near;
+       // let max_z = z_near + clip_range;
+       // let range = max_z  - min_z;
+       // let ratio = max_z / min_z;
+       // for  i in 0..State::SHADOW_CASCADES.len()
+       // {
+       //      let p = (i as f32 + 1.0) / State::SHADOW_CASCADES.len() as f32;
+       //     let log = min_z * powf32(ratio,p);
+       //     let uniform = min_z + range *p;
+       //     let d = cascade_split_lambda  * (log-uniform) + uniform;
+       //
+       // }
 
-        //TODO: get a regular projection matrix
-        let view_proj_inverse = (cam.get_view_matrix()*proj.calc_proj_matrix()).try_inverse().unwrap();
-
+        let proj  = Perspective3::new(aspect_ratio,fov_y,z_near,z_far);
+        let view_proj_inverse = (proj.as_matrix()*cam.get_view_matrix()).try_inverse().unwrap();
         let mut corners = Vec::new();
         for x in 0..2
         {
@@ -56,16 +67,17 @@ impl DirectionalLight {
                 }
             }
         }
-        let mut center = Point3::origin();
+
+        let mut center = Vector3::zeros();
         for c in &corners {
             center += c.xyz();
         }
         let len = corners.len() as f32;
-
         center.div_assign(len);
 
-        let light_view = Matrix4::look_at_rh(&Point3::new(center.x + self.direction.x,center.y + self.direction.y,center.z + self.direction.z), &self.direction,&Vector3::y());
-
+        //&Point3::from(center)
+        let light_view = Matrix4::look_at_rh(&Point3::origin()  ,&self.direction ,&Vector3::y_axis());
+       //&self.direction.add(center)
         let mut min_x = f32::MAX;
         let mut min_y = f32::MAX;
         let mut min_z = f32::MAX;
@@ -82,7 +94,7 @@ impl DirectionalLight {
             max_z = max_z.max(transform.z);
 
         }
-        const ZMULT:f32 = 10.0;
+        const ZMULT:f32 = 100.0;
         if min_z < 0.0
         {
             min_z *=ZMULT;
@@ -97,15 +109,14 @@ impl DirectionalLight {
         else {
             max_z *=ZMULT;
         }
-
-        Matrix4::new_orthographic(min_x, max_x, min_y, max_y, min_z, max_z) * light_view
+        let ortho = Matrix4::new_orthographic(min_x, max_x, min_y, max_y, min_z, max_z);
+        Matrix4::from(State::OPENGL_TO_WGPU_MATRIX) *  ortho * light_view
     }
 }
 
 #[repr(C)]
 #[derive(Clone, Copy, Zeroable, Pod)]
 pub struct DirectionalLightRaw {
-    pub projection: [[f32; 4]; 4],
     pub direction: [f32; 4],
     pub color: [f32; 4],
 }

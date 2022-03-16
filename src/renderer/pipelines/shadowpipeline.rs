@@ -32,10 +32,10 @@ impl<'a> HorizonPipeline<'a> for ShadowPipeline {
             format: wgpu::TextureFormat::Depth32Float,
             bias: wgpu::DepthBiasState {
                 clamp: 0.0,
-                constant: -2, // bilinear filtering
-                slope_scale: -2.0,
+                constant: 2, // bi-linear filtering
+                slope_scale: 2.0,
             },
-            depth_compare: wgpu::CompareFunction::GreaterEqual,
+            depth_compare: wgpu::CompareFunction::LessEqual,
             depth_write_enabled: true,
             stencil: wgpu::StencilState::default(),
         };
@@ -55,6 +55,7 @@ impl<'a> HorizonPipeline<'a> for ShadowPipeline {
             cull_mode: Some(wgpu::Face::Front),
             strip_index_format: None,
             polygon_mode: wgpu::PolygonMode::Fill,
+            unclipped_depth: device.features().contains(wgpu::Features::DEPTH_CLIP_CONTROL),
             ..Default::default()
         };
         RenderPipelineBuilder::create_pipeline(

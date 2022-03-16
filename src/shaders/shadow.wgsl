@@ -4,7 +4,7 @@ struct ViewProj {
 };
 
 struct Transforms {
- elements: array<mat4x4<f32> >;
+ elements: array<mat4x4<f32>>;
 }; 
 [[group(0)
 ,binding(1)]]

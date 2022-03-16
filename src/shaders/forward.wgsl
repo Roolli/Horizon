@@ -18,9 +18,7 @@ struct PointLight {
     attenuation: vec4<f32>; // x constant, y linear, z quadratic 
 };
 
-
 struct DirectionalLight {
-    dl_projection: mat4x4<f32>;
     direction: vec4<f32>;
     color: vec4<f32>;
 };
@@ -37,6 +35,7 @@ struct Globals {
     u_view_proj: mat4x4<f32>;
     lights_num: vec4<u32>;
 };
+
 
 [[group(0)
 ,binding(0)]]
@@ -73,13 +72,26 @@ var t_shadow: texture_depth_2d_array;
 ,binding(4)]]
 var s_shadow: sampler_comparison;
 
+struct CascadeTransforms{
+    elements: array<mat4x4<f32>>;
+};
+
+struct CascadeLengths {
+    elements: array<f32>;
+};
+
+[[group(1),binding(5)]]
+var<storage,read> cascade_transforms: CascadeTransforms;
+[[group(1),binding(6)]]
+var<storage,read> cascade_lengths: CascadeLengths;
+
 [[group(2)
 ,binding(0)]]
 var<uniform> dirLight: DirectionalLight;
 
 [[group(2)
 ,binding(1)]]
-var<storage,read>pointLights: PointLightContainer;
+var<storage,read> pointLights: PointLightContainer;
 
 [[group(2),
 binding(2)]]
@@ -90,17 +102,34 @@ struct FragmentInput {
 };
 
 
-fn get_shadow_value(coords:vec4<f32>,cascade:i32) -> f32
+fn get_shadow_value(coords:vec4<f32>) -> f32
 {
-    if(coords.w <= 0.0)
+    let depth:f32 = abs(coords.z); 
+    let length:i32 = i32(arrayLength(&cascade_lengths.elements));
+    var layer = -1;
+    for(var i:i32 =0; i < length;i = i + 1)
+    {
+        if(depth < cascade_lengths.elements[i])
+        {
+            layer = i;
+            break;
+        }
+    }
+    if(layer == -1)
+    {
+        layer = length - 1;
+    }
+    let light_coords = cascade_transforms.elements[layer] * coords;
+
+    if(light_coords.w <= 0.0)
     {
         return 1.0;
     }
     let flip = vec2<f32>(0.5,-0.5);
-    let proj_correction = 1.0 / coords.w;
-    let light_local = coords.xy * flip * proj_correction + vec2<f32>(0.5,0.5);
+    let proj_correction = 1.0 / light_coords.w;
+    let light_local = light_coords.xy * flip * proj_correction + vec2<f32>(0.5,0.5);
 
-    return 1.0- textureSampleCompareLevel(t_shadow,s_shadow,light_local,cascade,coords.z*proj_correction);
+    return textureSampleCompareLevel(t_shadow,s_shadow,light_local,layer,light_coords.z*proj_correction);
 }
 
 let ambient_strength:f32 = 0.1;
@@ -123,7 +152,7 @@ fn calcPointLightContribution(light: PointLight, position: vec3<f32>, normal: ve
 
 }
 
-fn calcDirLightContribution(normal: vec3<f32>, view_direction: vec3<f32>, object_color: vec3<f32>) -> vec3<f32> {
+fn calcDirLightContribution(normal: vec3<f32>, view_direction: vec3<f32>, object_color: vec3<f32>,shadow:f32) -> vec3<f32> {
 
     let ambient = ambient_strength * object_color;
     let norm = normalize(normal);
@@ -136,7 +165,7 @@ fn calcDirLightContribution(normal: vec3<f32>, view_direction: vec3<f32>, object
     let specular_strength = pow(max(dot(normal,half_dir),0.0),32.0);
     let specular_color = specular_strength * dirLight.color.xyz * object_color;
   
-    return (ambient + specular_color + diffuse_color);
+    return (ambient + ((specular_color + diffuse_color) * shadow));
     
 }
 
@@ -149,9 +178,8 @@ fn fs_main(in: FragmentInput) -> [[location(0)]] vec4<f32> {
     let object_normal = textureSample(normals,texture_sampler,coordinates);
     let object_color = textureSample(albedo,texture_sampler,coordinates);
     let view_direction = normalize(-position);
-    let shadow = get_shadow_value(dirLight.dl_projection * vec4<f32>(position,1.0),0); // TODO: calculate cascade from frag_depth maybe?
-    result = result * shadow;
-    result = result + calcDirLightContribution(object_normal.xyz,view_direction,object_color.xyz);
+    let shadow = get_shadow_value(vec4<f32>(position,1.0)); 
+    result = result + calcDirLightContribution(object_normal.xyz,view_direction,object_color.xyz,shadow);
     for(var i:u32 =0u; i < arrayLength(&pointLights.elements) && i < u32(globals.lights_num.x) ;i = i+1u)
     {   
        result = result + calcPointLightContribution(pointLights.elements[i],position,object_normal.xyz,view_direction,object_color.xyz);

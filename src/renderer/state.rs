@@ -23,15 +23,18 @@ impl State {
         [0.0, 0.0, 0.5, 0.0],
         [0.0, 0.0, 0.5, 1.0],
     ];
+    pub const CASCADE_DISTS:(f32,f32) = (0.1,250.0);
+
     pub const MAX_ENTITY_COUNT: wgpu::BufferAddress =
         (std::mem::size_of::<TransformRaw>() * 2048) as wgpu::BufferAddress;
     pub const MAX_POINT_LIGHTS: usize = 1024;
     pub const MAX_SPOT_LIGHTS: usize = 1024;
     pub const SHADOW_SIZE: wgpu::Extent3d = wgpu::Extent3d {
         depth_or_array_layers: 4,
-        height: 512,
-        width: 512,
+        height: 1024,
+        width: 1024,
     };
+    pub const SHADOW_CASCADES:[f32;(Self::SHADOW_SIZE.depth_or_array_layers-1) as usize] = [Self::CASCADE_DISTS.1 / 50.0, Self::CASCADE_DISTS.1 / 25.0,  Self::CASCADE_DISTS.1 / 10.0];
     pub async fn new(window: &Window) -> Self {
         let size = window.inner_size();
 

@@ -199,11 +199,10 @@ pub fn setup() {
     #[cfg(not(target_arch = "wasm32"))]
         {
             env_logger::init();
-
             {
                 let mut ecs = ECSContainer::global_mut();
+
                 let state = futures::executor::block_on(State::new(&window));
-                // ! for now block
                 let platform = Platform::new(PlatformDescriptor {
                     physical_height: state.sc_descriptor.height,
                     physical_width: state.sc_descriptor.width,
@@ -225,8 +224,9 @@ pub fn setup() {
 fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
     //TODO: Might move to state
     let mut ecs = ECSContainer::global_mut();
+    let normalized_dir = Vector3::new(60.0_f32,50.0,60.0).normalize();
     ecs.world.insert(DirectionalLight::new(
-        Point3::new(1.0, 0.6, 1.0),
+        Point3::new(normalized_dir.x,normalized_dir.y,normalized_dir.z),
         wgpu::Color {
             r: 0.1,
             g: 0.1,
@@ -237,7 +237,7 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
 
     let state = ecs.world.write_resource::<State>();
     let cam = Camera::new(Point3::new(-2.0, 1.9, 0.5), f32::to_radians(-2.0), f32::to_radians(-16.0));
-    let proj = Projection::new(state.sc_descriptor.width, state.sc_descriptor.height, f32::to_radians(45.0), 0.001, 50.0);
+    let proj = Projection::new(state.sc_descriptor.width, state.sc_descriptor.height, f32::to_radians(45.0), 0.01, 500.0);
     let cam_controller = CameraController::new(10.0, 2.0);
 
     drop(state);
@@ -556,6 +556,8 @@ fn setup_pipelines(world: &mut World) {
                 .buffers[Normals].as_ref().unwrap(),
             binding_resource_container
                 .buffers[Instances].as_ref().unwrap(),
+            binding_resource_container.buffers[BufferTypes::ShadowCascade].as_ref().unwrap(),
+            binding_resource_container.buffers[BufferTypes::ShadowCascadeLengths].as_ref().unwrap(),
         ),
     );
 

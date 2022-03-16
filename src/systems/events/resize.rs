@@ -35,6 +35,11 @@ impl<'a> System<'a> for Resize {
         if resize_event.handled {
             return;
         }
+        // don't process 0,0 events as textures produce errors (happens on windows when minimized )
+        if resize_event.new_size.height == 0 && resize_event.new_size.width == 0
+        {
+            return;
+        }
 
         state.size = resize_event.new_size;
         state.sc_descriptor.height = resize_event.new_size.height;

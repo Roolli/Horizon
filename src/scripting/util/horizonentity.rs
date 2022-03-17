@@ -1,4 +1,4 @@
-use crate::components::componenttypes::ComponentTypes;
+use crate::components::componenttypes::{ComponentData, ComponentTypes};
 use crate::scripting::scriptingfunctions::ScriptingFunctions;
 use crate::scripting::util::entityinfo::EntityInfo;
 use serde::Deserialize;
@@ -30,7 +30,14 @@ impl HorizonEntity {
     #[cfg(target_arch = "wasm32")]
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "getComponent"))]
     pub fn get_component(&self, component_type: ComponentTypes) -> JsValue {
-        ScriptingFunctions::get_component(component_type, self.entity_id)
+        let component_type = ScriptingFunctions::get_component(component_type, self.entity_id);
+        match component_type {
+            ComponentData::Transform(d) => JsValue::from_serde(&d).unwrap(),
+            ComponentData::PointLight(d) => JsValue::from_serde(&d).unwrap(),
+            ComponentData::AssetIdentifier(name) => JsValue::from_serde(&name).unwrap(),
+            ComponentData::Physics(physics) => JsValue::from_serde(&physics).unwrap(),
+            ComponentData::Empty=> JsValue::NULL
+        }
     }
     #[cfg(target_arch = "wasm32")]
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "setComponent"))]

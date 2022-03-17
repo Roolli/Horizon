@@ -93,7 +93,6 @@ impl ScriptingFunctions {
         component_parser.parse(data, entity, world)
     }
     /// Gets the component's data based on it's type for the given entity.
-    // TODO: return some boxed stuff instead of JsValue with trait or something
     pub fn get_component(component_type: ComponentTypes, entity_id: Index) -> ComponentData{
         let container = ECSContainer::global();
         match component_type {
@@ -210,14 +209,13 @@ impl ScriptingFunctions {
         physics_world.body_set.get_mut(physics_handle.rigid_body_handle).unwrap().set_angvel(vel,true);
         Ok(())
     }
-    //TODO: create function to return a rigid body mutable ref instead of copying 5 lines
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "registerCallback"))]
 #[cfg(target_arch = "wasm32")]
 pub fn register_callback(event_type: ScriptEvent, callback: js_sys::Function) {
-    let mut ecs = ECSContainer::global_mut();
-    let builder = ecs.world.create_entity();
+    let  ecs = ECSContainer::global();
+    let builder = ecs.world.create_entity_unchecked();
     builder
         .with(ScriptingCallback::new(callback))
         .with(event_type)
@@ -229,22 +227,6 @@ pub async fn load_model(object_name: JsValue) -> Result<JsValue, JsValue> {
     if let Some(obj) = object_name.as_string() {
         log::info!(target: "model_load","loading model {}",obj);
         let importer = Importer::default();
-        //let file_contents = importer.import_obj_model(obj.as_str()).await.unwrap();
-        //
-        // let mut mats = Vec::new();
-        // for mat in file_contents.1.unwrap() {
-        //     let diffuse_texture_raw = if !mat.diffuse_texture.is_empty() {
-        //         importer.import_file(mat.diffuse_texture.as_str()).await
-        //     } else {
-        //         Vec::new()
-        //     };
-        //     let normal_texture_raw = if !mat.normal_texture.is_empty() {
-        //         importer.import_file(mat.normal_texture.as_str()).await
-        //     } else {
-        //         Vec::new()
-        //     };
-        //     mats.push((diffuse_texture_raw, normal_texture_raw, mat.name));
-        // }
 
         let gltf_contents = importer.import_gltf_model(obj.as_str()).await.unwrap();
        let model =  ModelBuilder::create_gltf_model(gltf_contents).map_err(|e|JsValue::from_str(format!("error during model load: {:?}",e).as_str()))?;

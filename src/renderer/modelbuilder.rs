@@ -1,13 +1,9 @@
 use crate::components::gltfmodel::{GltfModel, GltfPrimitive};
-use crate::renderer::primitives::vertex::MeshVertexData;
-use mesh::Mesh;
 use rapier3d::na::{Vector2, Vector3};
 use std::collections::{HashMap, HashSet};
 use gltf::Document;
-use tobj::{Material, Model};
-use wgpu::util::DeviceExt;
+use image::{DynamicImage, load};
 
-use crate::filesystem::modelimporter::Importer;
 use crate::renderer::primitives::material::GltfMaterial;
 use crate::renderer::primitives::mesh::{GltfMesh, VertexAttributeType, VertexAttribValues};
 use crate::renderer::primitives::texture::ImageLoadError;
@@ -200,27 +196,11 @@ impl ModelBuilder {
         data: (Document,Vec<gltf::buffer::Data>,Vec<gltf::image::Data>)
     ) -> Result<HorizonModel,GltfLoadError> {
         let mut materials = HashMap::new();
-       // let mut named_materials = HashMap::default();
-        let mut linear_textures = HashSet::default();
+        let mut loaded_textures:HashMap<usize,DynamicImage> = HashMap::new();
 
         for material in data.0.materials() {
-            let loaded_mat = Self::load_gltf_material(&material,&data.1,&data.2,&linear_textures).map_err(|e|GltfLoadError::InnerError(format!("Error occurred while loading gltf model: Inner Error: {:?}",e)))?;
+            let loaded_mat = Self::load_gltf_material(&material,&data.1,&mut loaded_textures).map_err(|e|GltfLoadError::InnerError(format!("Error occurred while loading gltf model: Inner Error: {:?}",e)))?;
             materials.insert(material.index().unwrap_or(0),loaded_mat);
-            // if let Some(name) = material.name() {
-            //     named_materials.insert(name.to_string(), loaded_mat);
-            // }
-            if let Some(normal_texture) = material.normal_texture() {
-                linear_textures.insert(normal_texture.texture().index());
-            }
-            if let Some(occlusion_texture) = material.occlusion_texture() {
-                linear_textures.insert(occlusion_texture.texture().index());
-            }
-            if let Some(roughness_texture) = material
-                .pbr_metallic_roughness()
-                .metallic_roughness_texture()
-            {
-                linear_textures.insert(roughness_texture.texture().index());
-            }
         }
         let mut meshes = Vec::new();
         for mesh in data.0.meshes() {
@@ -269,6 +249,7 @@ impl ModelBuilder {
         Ok(HorizonModel{
             meshes,
             materials,
+            textures: loaded_textures,
         })
     }
 
@@ -285,69 +266,74 @@ impl ModelBuilder {
         max_extent.y = f32::max(max_extent.y, coords[1]);
         max_extent.z = f32::max(max_extent.x, coords[2]);
     }
-    fn load_gltf_material(material: &gltf::material::Material,buffer_data:&[gltf::buffer::Data],image_data:&[gltf::image::Data],linear_textures: &HashSet<usize>) -> Result<GltfMaterial,ImageLoadError> {
+    fn load_gltf_material(material: &gltf::material::Material,buffer_data:&[gltf::buffer::Data],loaded_textures:&mut HashMap<usize,DynamicImage>) -> Result<GltfMaterial,ImageLoadError> {
         let pbr = material.pbr_metallic_roughness();
-
         let color = pbr.base_color_factor();
-        let base_color_texture = if let Some(tex_info) = pbr.base_color_texture()  {
-            let data = &image_data[tex_info.texture().index()];
-            // if linear_textures.contains(&tex_info.texture().index())
-            // {
-            //  None // TODO: filter out duplicate assets
-            // }
-            //else {
-                let res = Texture::create_image_from_gltf_texture(tex_info.texture(),buffer_data)?;
-                Some(res)
-            //}
+        let base_color_texture = if let Some(ref tex_info) = pbr.base_color_texture() {
+            let res =  Self::load_texture(buffer_data,&tex_info.texture(),loaded_textures)?;
+            Some(res)
         }else {
             None
         };
-        let normal_map_texture = if let Some(normal_tex) = material.normal_texture() {
-            let res = Texture::create_image_from_gltf_texture(normal_tex.texture(),buffer_data)?;
+        let normal_map_texture = if let Some(ref normal_tex) = material.normal_texture() {
+            let res =  Self::load_texture(buffer_data,&normal_tex.texture(),loaded_textures)?;
             Some(res)
-        }else {None};
+        } else { None };
 
         let metallic_roughness_texture =
             if let Some(metallic_roughness) = pbr.metallic_roughness_texture() {
-                let res = Texture::create_image_from_gltf_texture(metallic_roughness.texture(),buffer_data)?;
+                let res = Self::load_texture(buffer_data,&metallic_roughness.texture(),loaded_textures)?;
                 Some(res)
-            }else {
+            } else {
                 None
             };
         let occlusion_texture = if let Some(occulsion_texture) = material.occlusion_texture() {
-            let res = Texture::create_image_from_gltf_texture(occulsion_texture.texture(),buffer_data)?;
+            let res = Self::load_texture(buffer_data,&occulsion_texture.texture(),loaded_textures)?;
             Some(res)
-        }else {
-            None
-        };
+            } else {
+                None
+            };
         let emissive = material.emissive_factor();
         let emissive_texture = if let Some(emissive_info) = material.emissive_texture() {
-            let res = Texture::create_image_from_gltf_texture(emissive_info.texture(),buffer_data)?;
-            Some(res)
-        }else {
-            None
-        };
+            let res = Self::load_texture(buffer_data,&emissive_info.texture(),loaded_textures)?;
+                Some(res)
+            } else {
+                None
+            };
         let name = if let Some(mat_name) = material.name()
-        {
-            mat_name.to_string()
+            {
+                mat_name.to_string()
+            } else {
+                "unnamed".to_string()
+            };
+            Ok(GltfMaterial {
+                base_color_texture,
+                emissive_texture,
+                normal_map_texture,
+                occlusion_texture,
+                roughness_texture: metallic_roughness_texture,
+                base_color: color,
+                double_sided: material.double_sided(),
+                pbr_roughness: pbr.roughness_factor(),
+                unlit: material.unlit(),
+                emissive_color: emissive,
+                metallic_factor: pbr.metallic_factor(),
+                alpha_mode: material.alpha_mode(),
+                name,
+            })
         }
-        else {
-            "unnamed".to_string()
-        };
-        Ok(GltfMaterial{
-            base_color_texture,
-            emissive_texture,
-            normal_map_texture,
-            occlusion_texture,
-            roughness_texture:metallic_roughness_texture,
-            base_color:color,
-            double_sided:material.double_sided(),
-            pbr_roughness:pbr.roughness_factor(),
-            unlit:material.unlit(),
-            emissive_color:emissive,
-            metallic_factor:pbr.metallic_factor(),
-            name,
-        })
+
+    fn load_texture(buffer_data:&[gltf::buffer::Data],texture:&gltf::Texture,loaded_textures:&mut HashMap<usize,DynamicImage>) -> Result<usize,ImageLoadError>
+    {
+        let index = texture.index();
+        if let std::collections::hash_map::Entry::Vacant(e) = loaded_textures.entry(index) {
+
+            let img = Texture::create_image_from_gltf_texture(buffer_data,texture)?;
+            e.insert(img);
+            Ok(index)
+        } else {
+            Ok(index)
+        }
     }
 }
 #[derive(Clone,Debug)]

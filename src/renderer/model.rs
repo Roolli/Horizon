@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::ops::Range;
+use image::DynamicImage;
 
 use super::primitives::{material::Material};
 use super::primitives::{mesh::Mesh};
@@ -12,4 +13,5 @@ use crate::renderer::primitives::material::GltfMaterial;
 pub struct HorizonModel {
    pub meshes: Vec<GltfModel>,
    pub materials: HashMap<usize,GltfMaterial>,
+   pub textures: HashMap<usize,DynamicImage>,
 }

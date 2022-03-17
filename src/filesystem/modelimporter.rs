@@ -7,33 +7,12 @@ use fileloader::FileLoader;
 
 use gltf::{Buffer, Gltf, Image};
 
-use tobj::LoadResult;
-
-
 pub struct Importer {
     file_loader: Box<dyn FileLoader>,
 }
 impl Importer {
     pub fn new(file_loader: Box<dyn FileLoader>) -> Self {
         Self { file_loader }
-    }
-    pub async fn import_obj_model(&self, obj_file_path: &str) -> LoadResult {
-        let obj_file = self.file_loader.load_file(obj_file_path).await;
-        tobj::load_obj_buf_async(
-            &mut obj_file.as_slice(),
-            &tobj::LoadOptions {
-                triangulate: true,
-                ignore_points: false,
-                ignore_lines: false,
-                single_index: true,
-            },
-            move |path| async move {
-                let contents = self.file_loader.load_file(path.as_str()).await;
-                let buff = tobj::load_mtl_buf(&mut contents.as_slice());
-                buff
-            },
-        )
-        .await
     }
 
     pub async fn import_file(&self, file_path: &str) -> Vec<u8> {

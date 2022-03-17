@@ -27,12 +27,6 @@ pub struct RawMesh {
 pub struct RawMaterial
 {
     pub bind_group_container:BindGroupContainer,
-    pub base_color_texture: crate::Texture,
-    pub emissive_texture: crate::Texture,
-    pub occlusion_texture: crate::Texture,
-    pub roughness_texture: crate::Texture,
-    pub normal_map: crate::Texture,
-    pub uniform_buffer: wgpu::Buffer,
 }
 #[derive(Component)]
 #[storage(VecStorage)]

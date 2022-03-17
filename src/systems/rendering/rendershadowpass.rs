@@ -30,7 +30,6 @@ impl<'a> System<'a> for RenderShadowPass {
         ReadExpect<'a, ShadowPipeline>,
         ReadExpect<'a, DirectionalLight>,
         ReadExpect<'a, Camera>,
-        ReadExpect<'a,Projection>
     );
 
     fn run(
@@ -47,14 +46,13 @@ impl<'a> System<'a> for RenderShadowPass {
             shadow_pipeline,
             dir_light,
             camera,
-            projection,
         ): Self::SystemData,
     ) {
         let cmd_encoder = encoder.get_encoder();
         // get a new frustum for every cascade texture
         let shadow_uniform_buf = binding_resource_container
             .buffers[ShadowUniform].as_ref().unwrap();
-        let raw_dir_lights = dir_light.get_view_and_proj_matrices(&camera,State::CASCADE_DISTS.0,State::CASCADE_DISTS.1,&projection);
+        let raw_dir_lights = dir_light.get_view_and_proj_matrices(&camera,State::CASCADE_DISTS.0,State::CASCADE_DISTS.1);
 
         let shadow_cascade_buffer = binding_resource_container.buffers[BufferTypes::ShadowCascade].as_ref().unwrap();
         let cascade_lengths_buffer = binding_resource_container.buffers[BufferTypes::ShadowCascadeLengths].as_ref().unwrap();
@@ -76,8 +74,7 @@ impl<'a> System<'a> for RenderShadowPass {
                 stencil_ops: None,
             }),
         });
-            pass.insert_debug_marker("render_entities");
-
+        pass.insert_debug_marker("render_entities");
         pass.set_pipeline(&shadow_pipeline.0);
         let (_, sh_pass_bind_group) = (&shadow_bind_group, &bind_group_container)
             .join()

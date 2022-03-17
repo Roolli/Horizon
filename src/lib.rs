@@ -72,20 +72,19 @@ use wgpu::{BlendFactor, ColorWrites};
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen_futures::spawn_local;
+
 use wgpu::util::DeviceExt;
-use winit::platform::windows::WindowExtWindows;
 use ecscontainer::ECSContainer;
 use crate::components::gltfmodel::{RawMaterial, RawMesh, RawModel};
 use crate::filesystem::modelimporter::Importer;
 use crate::renderer::bindgroupcontainer::BindGroupContainer;
 use crate::renderer::bindgroups::debugtexture::DebugTextureBindGroup;
+use crate::renderer::bindgroups::material::MaterialBindGroup;
 use crate::renderer::bindgroups::skybox::SkyboxBindGroup;
 use crate::renderer::model::HorizonModel;
 use crate::renderer::pipelines::debugtexturepipeline::DebugTexturePipeline;
 use crate::renderer::pipelines::skyboxpipeline::SkyboxPipeline;
-use crate::renderer::primitives::material::MaterialUniform;
+use crate::renderer::primitives::material::{GltfMaterial, MaterialUniform};
 use crate::renderer::primitives::mesh::{VertexAttributeType, VertexAttribValues};
 use crate::renderer::primitives::texture::Texture;
 use crate::renderer::primitives::vertex::MeshVertexData;
@@ -94,19 +93,18 @@ use crate::resources::bindingresourcecontainer::BufferTypes::{CanvasSize, Instan
 use crate::resources::bindingresourcecontainer::SamplerTypes::{DeferredTexture, Shadow};
 use crate::resources::bindingresourcecontainer::TextureViewTypes::{DeferredAlbedo, DeferredNormals, DeferredPosition};
 use crate::resources::camera::CameraController;
+use crate::resources::defaulttexturecontainer::{DefaultTextureContainer, DefaultTextureTypes};
 use crate::resources::deltatime::DeltaTime;
 use crate::resources::eguicontainer::EguiContainer;
 use crate::resources::projection::Projection;
 use crate::scripting::ScriptingError;
 use crate::systems::events::handlelifecycleevents::HandleInitCallbacks;
 use crate::TextureViewTypes::DeferredSpecular;
-use crate::ui::debugstats::DebugStats;
 
-#[cfg_attr(target_arch="wasm32",wasm_bindgen)]
+#[wasm_bindgen]
 extern "C" {
-    #[cfg_attr(target_arch="wasm32",wasm_bindgen(catch, js_namespace = Function, js_name = "prototype.call.call"))]
-    #[cfg(target_arch = "wasm32")]
-    fn call_catch(this: &JsValue) -> Result<(), JsValue>;
+    #[wasm_bindgen(catch, js_namespace = Function, js_name = "prototype.call.call")]
+    fn call_catch(this: &wasm_bindgen::JsValue) -> Result<(), wasm_bindgen::JsValue>;
 }
 
 // TODO: convert sender to result<T> and return proper errors
@@ -171,7 +169,6 @@ pub fn setup() {
                     scale_factor: window.scale_factor(),
                     ..Default::default()
                 });
-                let _demo_app = egui_demo_lib::WrapApp::default();
                 ecs.world.insert(EguiContainer {
                     render_pass: RenderPass::new(&state.device, state.sc_descriptor.format, 1),
                     platform,
@@ -222,41 +219,17 @@ pub fn setup() {
 }
 
 fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
-    //TODO: Might move to state
-    let mut ecs = ECSContainer::global_mut();
-    let normalized_dir = Vector3::new(60.0_f32,50.0,60.0).normalize();
-    ecs.world.insert(DirectionalLight::new(
-        Point3::new(normalized_dir.x,normalized_dir.y,normalized_dir.z),
-        wgpu::Color {
-            r: 0.9,
-            g: 0.7,
-            b: 0.5,
-            a: 1.0,
-        },
-    ));
-
-    let state = ecs.world.write_resource::<State>();
-    let cam = Camera::new(Point3::new(-2.0, 1.9, 0.5), f32::to_radians(-2.0), f32::to_radians(-16.0));
-    let proj = Projection::new(state.sc_descriptor.width, state.sc_descriptor.height, f32::to_radians(45.0), 0.01);
-    let cam_controller = CameraController::new(10.0, 2.0);
-
-    drop(state);
-    let mut globals = Globals::new(0, 0);
-    globals.update_view_proj_matrix(&cam, &proj);
-    ecs.world.insert(cam_controller);
-    ecs.world.insert(proj);
-    ecs.world.insert(globals);
-    ecs.world.insert(cam);
+    let  ecs = ECSContainer::global();
     let mut run_init = HandleInitCallbacks {};
     run_init.run_now(&ecs.world); // Very nice code... really....
     drop(ecs);
     let mut cursor_state = false;
     event_loop.run(move |event, _, control_flow| {
-        let container = ECSContainer::global();
-        let mut egui_container = container.world.write_resource::<EguiContainer>();
-        egui_container.platform.handle_event(&event);
-        drop(egui_container);
-        drop(container);
+        {
+            let container = ECSContainer::global();
+            let mut egui_container = container.world.write_resource::<EguiContainer>();
+            egui_container.platform.handle_event(&event);
+        }
         match event {
             Event::WindowEvent {
                 window_id,
@@ -286,9 +259,7 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                             virtual_keycode:Some(VirtualKeyCode::M),
                             ..
                         } = input {
-                            log::info!("cursor state before:{}",cursor_state);
                             cursor_state = !cursor_state;
-                            log::info!("cursor state:{}",cursor_state);
                             window.set_cursor_grab(cursor_state).unwrap();
                             window.set_cursor_visible(!cursor_state);
                         }
@@ -333,17 +304,23 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                 }
             }
             Event::RedrawRequested(_) => {
+                // callbacks can't have mutable access to this as it's causing a borrowMutError (rightly so.)
+
                 let ecs = ECSContainer::global();
                 let mut render_callbacks = crate::systems::events::handlelifecycleevents::HandleOnRenderCallbacks{};
                 render_callbacks.run_now(&ecs.world);
                 drop(ecs);
+                log::info!("asd");
                 let mut container = ECSContainer::global_mut();
+                log::info!("asd2");
                 let mut state = container.world.write_resource::<EguiContainer>();
                 let delta_time = container.world.read_resource::<DeltaTime>();
                 state.platform.update_time((chrono::offset::Utc::now().timestamp_millis() - delta_time.app_start_time).to_f64() / 1000.0);
-                drop(delta_time);
                 drop(state);
+                drop(delta_time);
                 container.dispatch();
+                drop(container);
+                let container = ECSContainer::global();
                 let render_result = container.world.read_resource::<RenderResult>();
                 match render_result.result {
                     Some(wgpu::SurfaceError::Lost) => {
@@ -384,29 +361,15 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                     CustomEvent::RequestModelLoad(data, sender) => {
                         let container = ECSContainer::global();
                         let state = container.world.read_resource::<State>();
+                        let default_texture_container = container.world.read_resource::<DefaultTextureContainer>();
                         let mut gpu_mats = HashMap::new();
+                        let mut loaded_gpu_textures:HashMap<usize,Texture> = HashMap::new();
                         for (index,material_data) in &data.materials
                         {
-                            let material_uniforms = &material_data.to_raw_material();
-                            let diffuse_texture = load_texture_from_image(format!("diffuse-{}",material_data.name).as_str(),&state.device,&state.queue,&material_data.base_color_texture,None,false);
-                            let normal_map = load_texture_from_image(format!("normal-{}",material_data.name).as_str(),&state.device,&state.queue,&material_data.normal_map_texture,Some([0u8,0u8,255u8]),true);
-                            let roughness_texture = load_texture_from_image(format!("roughness-{}",material_data.name).as_str(),&state.device,&state.queue,&material_data.roughness_texture,None,false);
-                            let emissive_texture = load_texture_from_image(format!("emissive-{}",material_data.name).as_str(),&state.device,&state.queue,&material_data.emissive_texture,None,false);
-                            let occlusion_texture = load_texture_from_image(format!("occlusion-{}",material_data.name).as_str(),&state.device,&state.queue,&material_data.occlusion_texture,None,false);
-                            let material_uniform = state.device.create_buffer_init(&wgpu::util::BufferInitDescriptor{
-                                label:Some(format!("uniform-{}",material_data.name).as_str()),
-                                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-                                contents: bytemuck::bytes_of(material_uniforms)
-                            });
-                            let bind_group = crate::renderer::bindgroups::material::MaterialBindGroup::create_container(&state.device,(&diffuse_texture,&roughness_texture,&normal_map,&occlusion_texture,&emissive_texture,&material_uniform));
+                           material_data.upload_material_textures_to_gpu(&state.device,&state.queue,&data.textures,&mut loaded_gpu_textures);
+                           let bind_group =  material_data.register_bind_group(&state.device,&loaded_gpu_textures,&default_texture_container.elements);
                             gpu_mats.insert(*index,RawMaterial{
-                                normal_map,
-                                occlusion_texture,
-                                uniform_buffer:material_uniform,
-                                roughness_texture,
-                                emissive_texture,
                                 bind_group_container:bind_group,
-                                base_color_texture:diffuse_texture
                             });
                         }
                         let mut meshes = Vec::new();
@@ -464,7 +427,6 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                                             joint_weight:weights[i],
                                         });
                                     }
-                                    //TODO: compute AABB
                                     let vertex_buffer = state.device.create_buffer_init(&wgpu::util::BufferInitDescriptor{
                                         label:Some(format!("{}-vertex_buffer",primitive.mesh.name).as_str()),
                                         usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
@@ -505,13 +467,16 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                             .with(data)
                         //   .with(crate::components::modelcollider::ModelCollider(collision_builder))
                             .build();
-                        let mut rng = rand::thread_rng();
+                        let rng = rand::thread_rng();
                         // for i in 0..200 {
                             //container.world.create_entity_unchecked().with(crate::components::transform::Transform{position: Vector3::new(rng.gen_range(-100.0..100.0),0.0,rng.gen_range(-100.0..100.0)),rotation:UnitQuaternion::from_euler_angles(0.0,90.0_f32.to_radians(),90.0_f32.to_radians()),scale:Vector3::new(1.0,1.0,1.0),model:Some(model_entity)}).build();
                         //}
-                        container.world.create_entity_unchecked().with(crate::components::transform::Transform{position: Vector3::new(0.0,0.0,0.0),rotation:UnitQuaternion::from_euler_angles(0.0,0.0,0.0),scale:Vector3::new(1.0,1.0,1.0),model:Some(model_entity)}).build();
+                        container.world.create_entity_unchecked().with(crate::components::transform::Transform{position: Vector3::new(0.0,0.0,0.0),rotation:UnitQuaternion::from_euler_angles(0.0,0.0,0.0),scale:Vector3::new(0.1,0.1,0.1),model:Some(model_entity)}).build();
+                        if cfg!(target_arch="wasm32")
+                        {
+                            sender.send(Ok(model_entity)).unwrap();
+                        }
 
-                        //sender.send(Ok(model_entity)).unwrap();
                     }
                 };
             }
@@ -520,22 +485,8 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
     });
 }
 
-fn load_texture_from_image(name: &str, device:&wgpu::Device,queue:&wgpu::Queue,image:&Option<DynamicImage>,default_color:Option<[u8;3]>,is_normal:bool) -> Texture
-{
-     if let Some(ref texture) = image
-    {
-        Texture::from_image(device,queue,texture,Some(name.to_string().as_str()),is_normal).unwrap()
-    }
-    else {
-        let def_color = if let Some(color) =default_color {
-            color
-        }
-        else {
-            [255,255,255]
-        };
-        Texture::create_default_texture_with_color(device,queue,def_color,Some(format!("default-{}",name).as_str()),is_normal).unwrap()
-    }
-}
+
+
 
 /// Initializes a new ECS container (World) and registers the components, creates the dependency tree for the system and sets up resources.
 

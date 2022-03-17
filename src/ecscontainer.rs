@@ -1,12 +1,12 @@
 use std::borrow::{Borrow, BorrowMut};
-use rapier3d::na::Vector3;
+use rapier3d::na::{Point3, Vector3};
 use ref_thread_local::{Ref, RefMut, RefThreadLocal};
 use specs::{DispatcherBuilder, RunNow, System, World, WorldExt};
 
 use crate::components::assetidentifier::AssetIdentifier;
 use crate::components::modelcollider::ModelCollider;
 use crate::scripting::scriptevent::ScriptEvent;
-use crate::{components::scriptingcallback::ScriptingCallback, DebugTextureBindGroup, ECS_CONTAINER, filesystem::modelimporter::Importer, HorizonModel, RawModel, renderer::{
+use crate::{Camera, CameraController, components::scriptingcallback::ScriptingCallback, DebugTextureBindGroup, DefaultTextureContainer, DirectionalLight, ECS_CONTAINER, filesystem::modelimporter::Importer, Globals, HorizonModel, Projection, RawModel, renderer::{
     bindgroupcontainer::BindGroupContainer,
     bindgroups::{
         deferred::DeferredBindGroup, lighting::LightBindGroup, shadow::ShadowBindGroup,
@@ -76,6 +76,7 @@ impl ECSContainer {
     }
     fn register_resources(world: &mut specs::World) {
         let state = world.read_resource::<State>();
+        let normalized_dir = Vector3::new(-0.6,-0.4,0.0).normalize();
         let size = state.size;
         let encoder = state
             .device
@@ -84,8 +85,28 @@ impl ECSContainer {
             });
         let egui_render_pass =
             egui_wgpu_backend::RenderPass::new(&state.device, state.sc_descriptor.format, 1);
-
+        let default_texture_container = DefaultTextureContainer::create(&state.device,&state.queue);
+        let mut globals = Globals::new(0, 0);
+        let cam = Camera::new(Point3::new(-2.0, 1.9, 0.5), f32::to_radians(-2.0), f32::to_radians(-16.0));
+        let proj = Projection::new(state.sc_descriptor.width, state.sc_descriptor.height, f32::to_radians(45.0), 0.01);
+        let cam_controller = CameraController::new(10.0, 2.0);
+        globals.update_view_proj_matrix(&cam, &proj);
         drop(state);
+
+        world.insert(cam_controller);
+        world.insert(proj);
+        world.insert(globals);
+        world.insert(cam);
+        world.insert(DirectionalLight::new(
+            Point3::new(normalized_dir.x,normalized_dir.y,normalized_dir.z),
+            wgpu::Color {
+                r: 0.9,
+                g: 0.7,
+                b: 0.5,
+                a: 1.0,
+            },
+        ));
+        world.insert(default_texture_container);
         world.insert(egui_render_pass);
         world.insert(ResizeEvent {
             new_size: size,
@@ -113,7 +134,6 @@ impl ECSContainer {
         world.insert(MouseInputEvent::default());
         world.insert(PhysicsWorld::new(Vector3::y() * -9.81));
         world.insert(BindingResourceContainer::default());
-
         world.insert(HorizonCommandEncoder::new(encoder));
     }
 

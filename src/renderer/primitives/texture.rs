@@ -152,7 +152,6 @@ impl Texture {
     pub fn load_skybox_texture(device:&wgpu::Device,queue:&wgpu::Queue,buffer:&[u8]) -> (wgpu::Texture,wgpu::TextureView)
     {
         // Use DDS formats for skybox only!
-
         let img = ddsfile::Dds::read(buffer).unwrap();
         let texture = device.create_texture_with_data(queue,&wgpu::TextureDescriptor{
             label: Some("skybox_texture"),
@@ -175,18 +174,18 @@ impl Texture {
         (texture,texture_view)
 
     }
-    pub fn create_image_from_gltf_texture(gltf_texture:gltf::Texture,buffer_data:&[gltf::buffer::Data]) -> Result<DynamicImage,ImageLoadError>
+    pub fn create_image_from_gltf_texture(buffer_data:&[gltf::buffer::Data],texture:&gltf::Texture) -> Result<DynamicImage,ImageLoadError>
     {
-        let image =  if let gltf::image::Source::View {view,mime_type}  =  gltf_texture.source().source() {
+        let image =  if let gltf::image::Source::View {view,mime_type}  =  texture.source().source() {
             let data = &buffer_data[view.buffer().index()];
-
-                image::load_from_memory(&data.0[view.offset()..view.offset()+view.length()]).map_err(|e| ImageParseError(format!("error while parsing image: Inner error: {:?}",e)))
+            image::load_from_memory(&data.0[view.offset()..view.offset()+view.length()]).map_err(|e| ImageParseError(format!("error while parsing image: Inner error: {:?}",e)))
         }else {
             Err(ImageLoadError::InvalidSource)
         };
         image
     }
 }
+
 #[derive(Clone,Debug)]
 pub enum ImageLoadError {
     InvalidSource,

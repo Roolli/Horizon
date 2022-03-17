@@ -35,7 +35,6 @@ impl DirectionalLight {
         cam: &Camera,
         z_near:f32,
         z_far:f32,
-       projection:&Projection
     ) -> Vec<(f32,Matrix4<f32>)> {
 
        let mut cascade_splits = Vec::new();
@@ -59,9 +58,8 @@ impl DirectionalLight {
        let mut last_split_dist = 0.0;
         for split in cascade_splits
         {
+            let proj  = Perspective3::new(1.0,90.0_f32.to_radians(),z_near,z_far);
 
-
-            let proj  = Perspective3::new(projection.aspect_ratio,projection.fov_y,z_near,z_far);
             let view_proj_inverse = (proj.as_matrix()*cam.get_view_matrix()).try_inverse().unwrap();
             let mut corners = vec![
                 Vector3::new(-1.0, 1.0,-1.0),
@@ -74,17 +72,17 @@ impl DirectionalLight {
                 Vector3::new(-1.0,-1.0, 1.0),
             ];
 
-          for i in 0..corners.len()
+          for corner in &mut corners
           {
-              let point = view_proj_inverse * Vector4::new(corners[i].x,corners[i].y,corners[i].z,1.0);
-              corners[i] = point.component_div(&Vector4::new(1.0,1.0,1.0,1.0)).xyz();
+              let inv_corner = view_proj_inverse * Vector4::new(corner.x,corner.y,corner.z,1.0);
+              *corner = (inv_corner.component_div(&Vector4::new(inv_corner.w,inv_corner.w,inv_corner.w,inv_corner.w))).xyz();
           }
 
 
             for i in 0..4 {
                 let dist = corners[i+4] - corners[i];
-                corners[i+4] = corners[i] + (dist * split);
-                corners[i] = corners[i] + (dist * last_split_dist);
+                corners[i+4] = corners[i] +(dist * split) ;
+                corners[i] = corners[i] + (dist *last_split_dist);
             }
             // Calculate center
             let mut center = Vector3::zeros();
@@ -95,21 +93,20 @@ impl DirectionalLight {
             center.div_assign(len);
 
             let mut radius = 0.0_f32;
-            for i in 0..corners.len()
+            for corner in corners
             {
-               // let dist = rapier3d::na::distance(&Point3::from(corners[i].xyz()),&Point3::from(center));
-                let dist = (corners[i].xyz() - center).magnitude();
+               let dist = (corner.xyz() -center).magnitude();
                 radius = radius.max(dist);
             }
-            radius = (radius * 16.0).ceil() / 16.0;
+            let ceil = (radius * 16.0).ceil();
+            radius = ceil  / 16.0;
             let max_extent = Vector3::new(radius,radius,radius);
             let min_extent = -max_extent;
-            let offset = 15.0;
             let light_dir = -self.direction;
-            let light_view = Matrix4::look_at_rh(&Point3::from(center + light_dir.coords * -min_extent.z),&Point3::from(center) ,&Vector3::y_axis());
-            let ortho:Matrix4<f32> = Matrix4::new_orthographic(min_extent.x, max_extent.x, min_extent.y, max_extent.y, -offset,split * z_far + offset);
+            let light_view = Matrix4::look_at_rh(&Point3::from(center - light_dir.coords * -min_extent.z),&Point3::from(center) ,&Vector3::y_axis());
+            let ortho:Matrix4<f32> = Matrix4::new_orthographic(min_extent.x, max_extent.x, min_extent.y, max_extent.y, 0.0_f32,max_extent.z-min_extent.z);
             let split_depth = (z_near + split * clip_range ) * -1.0;
-            let view_proj =  * ortho * light_view;
+            let view_proj =  ortho * light_view;
             cascades.push((split_depth,view_proj));
 
             last_split_dist = split;

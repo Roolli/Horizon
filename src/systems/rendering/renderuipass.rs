@@ -21,7 +21,6 @@ impl<'a> System<'a> for RenderUIPass {
                        WriteExpect<'a,HorizonCommandEncoder>,
                        WriteExpect<'a,DebugStats>,
                        ReadExpect<'a,BindingResourceContainer>,
-                       ReadStorage<'a,RawModel>,
                         ReadStorage<'a,DebugTextureBindGroup>,
                         WriteStorage<'a,BindGroupContainer>,
                         ReadExpect<'a, DebugTexturePipeline>
@@ -31,10 +30,10 @@ impl<'a> System<'a> for RenderUIPass {
         mut egui_container,
         state,mut command_encoder,
         mut debug_ui,binding_resource_container,
-        models,debug_texture_bind_group,
+        debug_texture_bind_group,
         mut bind_group_container,
         debug_texture_pipeline): Self::SystemData) {
-
+        //TODO: move egui begin to separate system... maybe.
         egui_container.platform.begin_frame();
         
         if debug_ui.debug_texture.is_none()
@@ -66,44 +65,29 @@ impl<'a> System<'a> for RenderUIPass {
         let mut texture_view = None;
         let encoder = command_encoder.get_encoder();
         {
-           let view = if let Some(entity) = debug_ui.selected_entity
-            {
+          // if let Some(entity) = debug_ui.selected_entity
+          //   {
+          // 
+          //       //   let model =   models.get(entity).unwrap();
+          //       // egui::Window::new("material visualizer").show(&egui_container.platform.context(),|ui|{
+          //       //     egui::ComboBox::from_label("material").selected_text(format!("material-{}",debug_ui.selected_material)).show_ui(ui,|ui|{
+          //       //         for index in  model.materials.keys() {
+          //       //             ui.selectable_value(&mut debug_ui.selected_material,*index, format!("material-{}",index));
+          //       //         }
+          //       //     });
+          //           // egui::ComboBox::from_label("texture").selected_text(format!("texture-{}",debug_ui.selected_texture)).show_ui(ui,|ui|{
+          //           //     ui.selectable_value(&mut debug_ui.selected_texture,0,"base color texture");
+          //           //     ui.selectable_value(&mut debug_ui.selected_texture,1,"occlusion texture");
+          //           //     ui.selectable_value(&mut debug_ui.selected_texture,2,"normal map");
+          //           //     ui.selectable_value(&mut debug_ui.selected_texture,3,"emissive texture");
+          //           //     ui.selectable_value(&mut debug_ui.selected_texture,4,"roughness texture");
+          //           // 
+          //           // });
+          //       });
+          //   }
 
-                  let model =   models.get(entity).unwrap();
-                egui::Window::new("material visualizer").show(&egui_container.platform.context(),|ui|{
-                    egui::ComboBox::from_label("material").selected_text(format!("material-{}",debug_ui.selected_material)).show_ui(ui,|ui|{
-                        for index in  model.materials.keys() {
-                            ui.selectable_value(&mut debug_ui.selected_material,*index, format!("material-{}",index));
-                        }
-                    });
-                    egui::ComboBox::from_label("texture").selected_text(format!("texture-{}",debug_ui.selected_texture)).show_ui(ui,|ui|{
-                        ui.selectable_value(&mut debug_ui.selected_texture,0,"base color texture");
-                        ui.selectable_value(&mut debug_ui.selected_texture,1,"occlusion texture");
-                        ui.selectable_value(&mut debug_ui.selected_texture,2,"normal map");
-                        ui.selectable_value(&mut debug_ui.selected_texture,3,"emissive texture");
-                        ui.selectable_value(&mut debug_ui.selected_texture,4,"roughness texture");
+            let texture = binding_resource_container.texture_views[debug_ui.selected_texture_name].as_ref().unwrap();
 
-                    });
-                });
-                   match debug_ui.selected_texture {
-                    0 => Some(&model.materials[&debug_ui.selected_material].base_color_texture.view),
-                    1 => Some(&model.materials[&debug_ui.selected_material].occlusion_texture.view),
-                    2 => Some(&model.materials[&debug_ui.selected_material].normal_map.view),
-                    3 => Some(&model.materials[&debug_ui.selected_material].emissive_texture.view),
-                    4 => Some(&model.materials[&debug_ui.selected_material].roughness_texture.view),
-                    _ => None,
-                }
-            }
-           else {
-               None
-           };
-            //TODO: add debug renderer for depth aswell
-            let texture = if let Some(tex_view) = view {
-                tex_view
-            }
-            else {
-                binding_resource_container.texture_views[debug_ui.selected_texture_name].as_ref().unwrap()
-            };
                 let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                     color_attachments: &[wgpu::RenderPassColorAttachment {
                         view: debug_ui.debug_texture_view.as_ref().unwrap(),
@@ -132,7 +116,7 @@ impl<'a> System<'a> for RenderUIPass {
 
 
         }
-        //TODO: move egui begin to separate system... maybe.
+
 
         if debug_ui.texture_id.is_some() {
             let id = *debug_ui.texture_id.as_ref().unwrap();

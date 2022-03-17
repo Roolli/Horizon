@@ -7,3 +7,4 @@ pub mod windowevents;
 pub mod projection;
 pub mod eguicontainer;
 pub mod surfacetexture;
+pub mod defaulttexturecontainer;

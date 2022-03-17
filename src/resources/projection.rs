@@ -26,8 +26,8 @@ impl Projection {
         // Infinite zfar value  https://discourse.nphysics.org/t/reversed-z-and-infinite-zfar-in-projections/341
         let mut mat = Matrix4::zeros();
         mat[(0,0)] = f / self.aspect_ratio;
-        mat[(2,3)]= self.z_near;
         mat[(1,1)] = f;
+        mat[(2,3)]= self.z_near;
         mat[(3,2)] = -1.0;
         mat
 

@@ -58,6 +58,7 @@ impl<'a> HorizonBindGroup<'a> for UniformBindGroup {
                         min_binding_size: None,
                     },
                 },
+                //TODO: handle as individual texture on web or create a texture atlas
                 wgpu::BindGroupLayoutEntry {
                     binding: 3,
                     visibility: wgpu::ShaderStages::FRAGMENT,

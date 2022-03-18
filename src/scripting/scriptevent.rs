@@ -1,10 +1,13 @@
 use specs::Component;
 use specs::DenseVecStorage;
+#[cfg(not(target_arch = "wasm32"))]
+use v8::Script;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
-#[derive(PartialEq, Eq, Hash, Component,Debug)]
+#[repr(i32)]
+#[derive(PartialEq, Eq, Hash, Component, Debug)]
 pub enum ScriptEvent {
     Init = 0,
     OnResourceStart = 1,
@@ -16,4 +19,10 @@ pub enum ScriptEvent {
     Cleanup = 64,
     OnMouseMove = 128,
     OnKeyDown = 256,
+}
+impl ScriptEvent {
+    pub fn from_number(val: i32) -> Self {
+        let enum_val: ScriptEvent = unsafe { std::mem::transmute(val) };
+        enum_val
+    }
 }

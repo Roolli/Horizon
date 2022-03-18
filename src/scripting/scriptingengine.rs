@@ -1,15 +1,17 @@
-use std::{sync::Once};
 use std::collections::HashMap;
+use std::sync::Once;
 
+use crate::components::scriptingcallback::ScriptingCallback;
+use crate::scripting::scriptevent::ScriptEvent;
+use crate::ECSContainer;
+use specs::{Builder, WorldExt};
 #[cfg(not(target_arch = "wasm32"))]
-use rusty_v8 as v8;
+use v8;
 #[cfg(not(target_arch = "wasm32"))]
 use v8::{
     Context, ContextScope, CreateParams, HandleScope, Local, OwnedIsolate, Platform, UniquePtr,
     UniqueRef,
 };
-
-
 
 static PLATFORM_INIT: Once = Once::new();
 #[cfg(not(target_arch = "wasm32"))]
@@ -20,7 +22,7 @@ pub struct V8ScriptingEngine {
 #[cfg(not(target_arch = "wasm32"))]
 fn platform_init() {
     PLATFORM_INIT.call_once(|| {
-        let platform = v8::new_default_platform().unwrap();
+        let platform = v8::new_default_platform(0, false).make_shared();
         v8::V8::initialize_platform(platform);
         v8::V8::initialize();
     });
@@ -37,10 +39,12 @@ impl V8ScriptingEngine {
 
             global_context = v8::Global::new(handle_scope, context);
         }
-        isolate.set_slot(std::rc::Rc::new(std::cell::RefCell::new(ScriptingEngineState {
-            callbacks: HashMap::new(),
-            global_context: Some(global_context),
-        })));
+        isolate.set_slot(std::rc::Rc::new(std::cell::RefCell::new(
+            ScriptingEngineState {
+                callbacks: HashMap::new(),
+                global_context: Some(global_context),
+            },
+        )));
         Self { isolate }
     }
     pub fn setup_global_functions<'s>(
@@ -155,7 +159,6 @@ pub struct ScriptingEngineState {
     pub callbacks: HashMap<String, v8::Global<v8::Function>>,
 }
 
-
 #[cfg(not(target_arch = "wasm32"))]
 impl crate::scripting::scriptingfunctions::ScriptingFunctions {
     pub fn print(
@@ -168,30 +171,28 @@ impl crate::scripting::scriptingfunctions::ScriptingFunctions {
         let string = obj.to_string(try_catch_scope).unwrap();
 
         log::info!("{}", string.to_rust_string_lossy(try_catch_scope));
-       // std::io::stdout().flush().unwrap();
+        // std::io::stdout().flush().unwrap();
     }
-    // TODO: Expose the world object and add methods for adding
+
     // https://github.com/denoland/deno/blob/main/core/bindings.rs#L463
     pub fn register_callback(
         scope: &mut v8::HandleScope,
         args: v8::FunctionCallbackArguments,
         _rv: v8::ReturnValue,
     ) {
-        let mut state_rc = V8ScriptingEngine::state(scope);
-        let mut state = state_rc.borrow_mut();
-        let string = args.get(0).to_rust_string_lossy(scope);
+        let ecs = ECSContainer::global();
         let function = match v8::Local::<v8::Function>::try_from(args.get(1)) {
             Ok(callback) => callback,
             Err(err) => {
                 return;
             }
         };
-        log::info!("added callback:{}", string);
-        // state
-        //     .callbacks
-        //     .insert(string, v8::Global::new(scope, function));
+        let global_func: v8::Global<v8::Function> = v8::Global::new(scope, function);
+        let builder = ecs.world.create_entity_unchecked();
+        let event_type = ScriptEvent::from_number(args.get(0).int32_value(scope).unwrap());
+        builder
+            .with(ScriptingCallback::new(global_func))
+            .with(event_type)
+            .build();
     }
 }
-
-
-

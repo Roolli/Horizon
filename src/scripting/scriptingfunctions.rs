@@ -5,7 +5,7 @@ use crate::components::transform::Transform;
 use crate::ecscontainer::{ECSContainer, ECSError};
 use crate::renderer::primitives::lights::pointlight::PointLight;
 use crate::systems::physics::PhysicsWorld;
-use crate::{CustomEvent, EVENT_LOOP_PROXY, HorizonModel, ModelBuilder};
+use crate::{CustomEvent, HorizonModel, ModelBuilder, EVENT_LOOP_PROXY};
 
 use std::iter::Once;
 use std::mem::size_of_val;
@@ -16,9 +16,9 @@ use super::scriptingengine::V8ScriptingEngine;
 use super::util::entityinfo::EntityInfo;
 use rapier3d::dynamics::{RigidBodyBuilder, RigidBodyHandle};
 use rapier3d::geometry::{ColliderBuilder, ColliderHandle};
-#[cfg(not(target_arch = "wasm32"))]
-use rusty_v8 as v8;
 use specs::prelude::*;
+#[cfg(not(target_arch = "wasm32"))]
+use v8;
 
 use rapier3d::na::{Point3, UnitQuaternion, Vector3};
 use rapier3d::prelude::{Isometry, RigidBody};
@@ -33,10 +33,9 @@ use crate::components::componenttypes::{ComponentData, ComponentTypes};
 use crate::filesystem::modelimporter::Importer;
 use crate::scripting::util::componentconversions::{PointLightComponent, TransformComponent};
 use crate::scripting::util::horizonentity::HorizonEntity;
+use crate::scripting::ScriptingError;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
-use crate::scripting::ScriptingError;
-
 
 ref_thread_local::ref_thread_local! {
      static managed COMPONENT_PARSER: ComponentParser = ComponentParser::default();
@@ -93,7 +92,7 @@ impl ScriptingFunctions {
         component_parser.parse(data, entity, world)
     }
     /// Gets the component's data based on it's type for the given entity.
-    pub fn get_component(component_type: ComponentTypes, entity_id: Index) -> ComponentData{
+    pub fn get_component(component_type: ComponentTypes, entity_id: Index) -> ComponentData {
         let container = ECSContainer::global();
         match component_type {
             ComponentTypes::Transform => {
@@ -102,7 +101,7 @@ impl ScriptingFunctions {
                     .read_component::<Transform>()
                     .get(container.world.entities().entity(entity_id))
                 {
-                    ComponentData::Transform( TransformComponent::from(*transform))
+                    ComponentData::Transform(TransformComponent::from(*transform))
                 } else {
                     ComponentData::Empty
                 }
@@ -114,9 +113,12 @@ impl ScriptingFunctions {
                     .get(container.world.entities().entity(entity_id))
                 {
                     // all transforms (pos, rot etc.. are not returned as they are part of the transform struct and the physics system has authority over those values for entities which have physics.
-                   let physics_world =  container.world.read_resource::<PhysicsWorld>();
-                    let rigid_body = physics_world.body_set.get(physics_handle.rigid_body_handle).unwrap();
-                  ComponentData::Physics( PhysicsValues {
+                    let physics_world = container.world.read_resource::<PhysicsWorld>();
+                    let rigid_body = physics_world
+                        .body_set
+                        .get(physics_handle.rigid_body_handle)
+                        .unwrap();
+                    ComponentData::Physics(PhysicsValues {
                         angular_damping: rigid_body.angular_damping(),
                         linear_damping: rigid_body.linear_damping(),
                         linear_velocity: rigid_body.linvel().xyz().into(),
@@ -133,7 +135,7 @@ impl ScriptingFunctions {
                     .read_component::<AssetIdentifier>()
                     .get(container.world.entities().entity(entity_id))
                 {
-                    ComponentData::AssetIdentifier( identifier.0.clone())
+                    ComponentData::AssetIdentifier(identifier.0.clone())
                 } else {
                     ComponentData::Empty
                 }
@@ -151,62 +153,100 @@ impl ScriptingFunctions {
             }
         }
     }
-    pub fn apply_force_to_entity(force: Vector3<f32>,entity_id: Index) -> Result<(), ScriptingError>
-    {
+    pub fn apply_force_to_entity(
+        force: Vector3<f32>,
+        entity_id: Index,
+    ) -> Result<(), ScriptingError> {
         let ecs = ECSContainer::global();
         let handle_storage = ecs.world.read_storage::<PhysicsHandle>();
-        let physics_handle = handle_storage.get(ecs.world.entities().entity(entity_id)).ok_or(ScriptingError::MissingComponent("Physics"))?;
-       let mut physics_world =  ecs.world.write_resource::<PhysicsWorld>();
-       let body =  physics_world.body_set.get_mut(physics_handle.rigid_body_handle).unwrap();
-        body.apply_force(force,true);
+        let physics_handle = handle_storage
+            .get(ecs.world.entities().entity(entity_id))
+            .ok_or(ScriptingError::MissingComponent("Physics"))?;
+        let mut physics_world = ecs.world.write_resource::<PhysicsWorld>();
+        let body = physics_world
+            .body_set
+            .get_mut(physics_handle.rigid_body_handle)
+            .unwrap();
+        body.apply_force(force, true);
         Ok(())
     }
-    pub fn apply_torque_to_entity(torque: Vector3<f32>, entity_id: Index) -> Result<(), ScriptingError>
-    {
-
+    pub fn apply_torque_to_entity(
+        torque: Vector3<f32>,
+        entity_id: Index,
+    ) -> Result<(), ScriptingError> {
         let ecs = ECSContainer::global();
         let handle_storage = ecs.world.read_storage::<PhysicsHandle>();
-        let physics_handle = handle_storage.get(ecs.world.entities().entity(entity_id)).ok_or(ScriptingError::MissingComponent("Physics"))?;
-        let mut physics_world =  ecs.world.write_resource::<PhysicsWorld>();
-        let body =  physics_world.body_set.get_mut(physics_handle.rigid_body_handle).unwrap();
+        let physics_handle = handle_storage
+            .get(ecs.world.entities().entity(entity_id))
+            .ok_or(ScriptingError::MissingComponent("Physics"))?;
+        let mut physics_world = ecs.world.write_resource::<PhysicsWorld>();
+        let body = physics_world
+            .body_set
+            .get_mut(physics_handle.rigid_body_handle)
+            .unwrap();
         body.apply_torque(torque, true);
         Ok(())
     }
-    pub fn apply_impulse_to_entity(impulse:Vector3<f32>,entity_id: Index) ->Result<(), ScriptingError>
-    {
+    pub fn apply_impulse_to_entity(
+        impulse: Vector3<f32>,
+        entity_id: Index,
+    ) -> Result<(), ScriptingError> {
         let ecs = ECSContainer::global();
         let handle_storage = ecs.world.read_storage::<PhysicsHandle>();
-        let physics_handle = handle_storage.get(ecs.world.entities().entity(entity_id)).ok_or(ScriptingError::MissingComponent("Physics"))?;
-        let mut physics_world =  ecs.world.write_resource::<PhysicsWorld>();
-        let body =  physics_world.body_set.get_mut(physics_handle.rigid_body_handle).unwrap();
+        let physics_handle = handle_storage
+            .get(ecs.world.entities().entity(entity_id))
+            .ok_or(ScriptingError::MissingComponent("Physics"))?;
+        let mut physics_world = ecs.world.write_resource::<PhysicsWorld>();
+        let body = physics_world
+            .body_set
+            .get_mut(physics_handle.rigid_body_handle)
+            .unwrap();
         body.apply_impulse(impulse, true);
         Ok(())
     }
-    pub fn apply_torque_impulse(torque: Vector3<f32>,entity_id: Index) -> Result<(),ScriptingError>
-    {
+    pub fn apply_torque_impulse(
+        torque: Vector3<f32>,
+        entity_id: Index,
+    ) -> Result<(), ScriptingError> {
         let ecs = ECSContainer::global();
         let handle_storage = ecs.world.read_storage::<PhysicsHandle>();
-        let physics_handle = handle_storage.get(ecs.world.entities().entity(entity_id)).ok_or(ScriptingError::MissingComponent("Physics"))?;
-        let mut physics_world =  ecs.world.write_resource::<PhysicsWorld>();
-          physics_world.body_set.get_mut(physics_handle.rigid_body_handle).unwrap().apply_torque_impulse(torque,true);
+        let physics_handle = handle_storage
+            .get(ecs.world.entities().entity(entity_id))
+            .ok_or(ScriptingError::MissingComponent("Physics"))?;
+        let mut physics_world = ecs.world.write_resource::<PhysicsWorld>();
+        physics_world
+            .body_set
+            .get_mut(physics_handle.rigid_body_handle)
+            .unwrap()
+            .apply_torque_impulse(torque, true);
         Ok(())
     }
-    pub fn set_linear_velocity(vel:Vector3<f32>,entity_id:Index) ->Result<(),ScriptingError>
-    {
+    pub fn set_linear_velocity(vel: Vector3<f32>, entity_id: Index) -> Result<(), ScriptingError> {
         let ecs = ECSContainer::global();
         let handle_storage = ecs.world.read_storage::<PhysicsHandle>();
-        let physics_handle = handle_storage.get(ecs.world.entities().entity(entity_id)).ok_or(ScriptingError::MissingComponent("Physics"))?;
-        let mut physics_world =  ecs.world.write_resource::<PhysicsWorld>();
-        physics_world.body_set.get_mut(physics_handle.rigid_body_handle).unwrap().set_linvel(vel,true);
+        let physics_handle = handle_storage
+            .get(ecs.world.entities().entity(entity_id))
+            .ok_or(ScriptingError::MissingComponent("Physics"))?;
+        let mut physics_world = ecs.world.write_resource::<PhysicsWorld>();
+        physics_world
+            .body_set
+            .get_mut(physics_handle.rigid_body_handle)
+            .unwrap()
+            .set_linvel(vel, true);
         Ok(())
     }
-    pub fn set_angular_velocity(vel:Vector3<f32>,entity_id:Index) -> Result<(),ScriptingError>
-    {
+    pub fn set_angular_velocity(vel: Vector3<f32>, entity_id: Index) -> Result<(), ScriptingError> {
         let ecs = ECSContainer::global();
         let handle_storage = ecs.world.read_storage::<PhysicsHandle>();
-        let physics_handle = handle_storage.get(ecs.world.entities().entity(entity_id)).ok_or(ScriptingError::MissingComponent("Physics"))?;
-        let mut physics_world =  ecs.world.write_resource::<PhysicsWorld>();
-        physics_world.body_set.get_mut(physics_handle.rigid_body_handle).unwrap().set_angvel(vel,true);
+        let physics_handle = handle_storage
+            .get(ecs.world.entities().entity(entity_id))
+            .ok_or(ScriptingError::MissingComponent("Physics"))?;
+        let mut physics_world = ecs.world.write_resource::<PhysicsWorld>();
+        physics_world
+            .body_set
+            .get_mut(physics_handle.rigid_body_handle)
+            .unwrap()
+            .set_angvel(vel, true);
         Ok(())
     }
 }
@@ -214,7 +254,7 @@ impl ScriptingFunctions {
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "registerCallback"))]
 #[cfg(target_arch = "wasm32")]
 pub fn register_callback(event_type: ScriptEvent, callback: js_sys::Function) {
-    let  ecs = ECSContainer::global();
+    let ecs = ECSContainer::global();
     let builder = ecs.world.create_entity_unchecked();
     builder
         .with(ScriptingCallback::new(callback))
@@ -229,27 +269,25 @@ pub async fn load_model(object_name: JsValue) -> Result<JsValue, JsValue> {
         let importer = Importer::default();
 
         let gltf_contents = importer.import_gltf_model(obj.as_str()).await.unwrap();
-       let model =  ModelBuilder::create_gltf_model(gltf_contents).map_err(|e|JsValue::from_str(format!("error during model load: {:?}",e).as_str()))?;
+        let model = ModelBuilder::create_gltf_model(gltf_contents)
+            .map_err(|e| JsValue::from_str(format!("error during model load: {:?}", e).as_str()))?;
 
         let val = ref_thread_local::RefThreadLocal::borrow(&EVENT_LOOP_PROXY);
-        let (sender, receiver) = futures::channel::oneshot::channel::<Result<Entity,ScriptingError>>();
+        let (sender, receiver) =
+            futures::channel::oneshot::channel::<Result<Entity, ScriptingError>>();
         val.as_ref()
             .unwrap()
-            .send_event(CustomEvent::RequestModelLoad(
-                model,
-                sender,
-            ))
+            .send_event(CustomEvent::RequestModelLoad(model, sender))
             .unwrap();
 
         if let Ok(res) = receiver.await {
-            if let Ok(res) = res
-            {
+            if let Ok(res) = res {
                 Ok(JsValue::from_f64(res.id().into()))
+            } else {
+                Err(JsValue::from_str(
+                    format!("{:?}", res.err().unwrap()).as_str(),
+                ))
             }
-            else {
-                Err(JsValue::from_str(format!("{:?}",res.err().unwrap()).as_str()))
-            }
-
         } else {
             Err(JsValue::from_str("failed to load model!"))
         }

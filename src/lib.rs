@@ -1,7 +1,6 @@
 use core::panic;
 use egui::emath::Numeric;
 use egui_wgpu_backend::RenderPass;
-use egui_winit_platform::{Platform, PlatformDescriptor};
 use gltf::{buffer, Document};
 use image::DynamicImage;
 use rand::{random, Rng};
@@ -177,7 +176,7 @@ pub fn setup() {
             });
             ecs.world.insert(EguiContainer {
                 render_pass: RenderPass::new(&state.device, state.sc_descriptor.format, 1),
-                platform,
+                state: platform,
             });
             ecs.setup(state);
             setup_pipelines(&mut ecs.world);
@@ -206,15 +205,11 @@ pub fn setup() {
             let mut ecs = ECSContainer::global_mut();
 
             let state = futures::executor::block_on(State::new(&window));
-            let platform = Platform::new(PlatformDescriptor {
-                physical_height: state.sc_descriptor.height,
-                physical_width: state.sc_descriptor.width,
-                scale_factor: window.scale_factor(),
-                ..Default::default()
-            });
+            let platform = egui_winit::State::new(4096, &window);
             ecs.world.insert(EguiContainer {
                 render_pass: RenderPass::new(&state.device, state.sc_descriptor.format, 1),
-                platform,
+                state: platform,
+                context: egui::Context::default(),
             });
             ecs.setup(state);
             setup_pipelines(&mut ecs.world);
@@ -231,16 +226,17 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
     drop(ecs);
     let mut cursor_state = false;
     event_loop.run(move |event, _, control_flow| {
-        {
-            let container = ECSContainer::global();
-            let mut egui_container = container.world.write_resource::<EguiContainer>();
-            egui_container.platform.handle_event(&event);
-        }
         match event {
             Event::WindowEvent {
                 window_id,
                 ref event,
             } if window_id == window.id() => {
+                {
+                    let container = ECSContainer::global();
+                    let mut egui = container.world.write_resource::<EguiContainer>();
+                    // TODO: check return value
+                    egui.handle_events(event);
+                }
                 match event {
                     WindowEvent::MouseInput { button, state, .. } => {
                         let container = ECSContainer::global();
@@ -310,19 +306,12 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                 let mut render_callbacks =
                     crate::systems::events::handlelifecycleevents::HandleOnRenderCallbacks {};
                 render_callbacks.run_now(&ecs.world);
+                let mut egui_container = ecs.world.write_resource::<EguiContainer>();
+                let inputs = egui_container.state.take_egui_input(&window);
+                egui_container.context.begin_frame(inputs);
+                drop(egui_container);
                 drop(ecs);
-                log::info!("asd");
                 let mut container = ECSContainer::global_mut();
-                log::info!("asd2");
-                let mut state = container.world.write_resource::<EguiContainer>();
-                let delta_time = container.world.read_resource::<DeltaTime>();
-                state.platform.update_time(
-                    (chrono::offset::Utc::now().timestamp_millis() - delta_time.app_start_time)
-                        .to_f64()
-                        / 1000.0,
-                );
-                drop(state);
-                drop(delta_time);
                 container.dispatch();
                 drop(container);
                 let container = ECSContainer::global();
@@ -391,6 +380,7 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                             container.world.read_resource::<DefaultTextureContainer>();
                         let mut gpu_mats = HashMap::new();
                         let mut loaded_gpu_textures: HashMap<usize, Texture> = HashMap::new();
+
                         for (index, material_data) in &data.materials {
                             material_data.upload_material_textures_to_gpu(
                                 &state.device,

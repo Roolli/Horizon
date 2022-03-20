@@ -1,10 +1,7 @@
-
-use crate::{
-    renderer::primitives::{texture::Texture},
-};
+use crate::renderer::primitives::texture::Texture;
 
 use crate::components::transform::*;
-use specs::{WorldExt};
+use specs::WorldExt;
 use winit::{event::*, window::Window};
 
 pub struct State {
@@ -23,14 +20,14 @@ impl State {
         [0.0, 0.0, 0.5, 0.0],
         [0.0, 0.0, 0.5, 1.0],
     ];
-    pub const CASCADE_DISTS:(f32,f32) = (0.1,500.0);
+    pub const CASCADE_DISTS: (f32, f32) = (0.1, 500.0);
 
     pub const MAX_ENTITY_COUNT: wgpu::BufferAddress =
         (std::mem::size_of::<TransformRaw>() * 2048) as wgpu::BufferAddress;
     pub const MAX_POINT_LIGHTS: usize = 1024;
     pub const MAX_SPOT_LIGHTS: usize = 1024;
     pub const SHADOW_SIZE: wgpu::Extent3d = wgpu::Extent3d {
-        depth_or_array_layers: 4,
+        depth_or_array_layers: if !cfg!(target_arch = "wasm32") { 4 } else { 1 },
         height: 1024,
         width: 1024,
     };
@@ -51,7 +48,7 @@ impl State {
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
-                    features: wgpu::Features::TEXTURE_COMPRESSION_BC | wgpu::Features::TEXTURE_BINDING_ARRAY,
+                    features: wgpu::Features::TEXTURE_COMPRESSION_BC,
                     limits: wgpu::Limits::default(),
                     label: Some("Device descriptor"),
                 },
@@ -71,7 +68,7 @@ impl State {
             present_mode: wgpu::PresentMode::Mailbox,
         };
         surface.configure(&device, &sc_desc);
-        
+
         Self {
             depth_texture: Texture::create_depth_texture(&device, &sc_desc, "depth_texture"),
             device,
@@ -82,6 +79,4 @@ impl State {
             scale_factor: window.scale_factor(),
         }
     }
-
-
 }

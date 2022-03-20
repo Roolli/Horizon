@@ -271,7 +271,7 @@ pub async fn load_model(object_name: JsValue) -> Result<JsValue, JsValue> {
         let gltf_contents = importer.import_gltf_model(obj.as_str()).await.unwrap();
         let model = ModelBuilder::create_gltf_model(gltf_contents)
             .map_err(|e| JsValue::from_str(format!("error during model load: {:?}", e).as_str()))?;
-
+        log::info!("imported model");
         let val = ref_thread_local::RefThreadLocal::borrow(&EVENT_LOOP_PROXY);
         let (sender, receiver) =
             futures::channel::oneshot::channel::<Result<Entity, ScriptingError>>();

@@ -68,6 +68,8 @@ var<uniform> globals: Globals;
 [[group(1)
 ,binding(3)]]
 var t_shadow: texture_depth_2d_array;
+[[group(1),binding(3)]]
+var t_shadow_single: texture_depth_2d;
 [[group(1)
 ,binding(4)]]
 var s_shadow: sampler_comparison;
@@ -132,6 +134,18 @@ fn get_shadow_value(coords:vec4<f32>) -> f32
     return textureSampleCompareLevel(t_shadow,s_shadow,light_local,layer,light_coords.z*proj_correction);
 }
 
+fn get_shadow_value_web(light_coords:vec4<f32>) -> f32
+{
+    if(light_coords.w <= 0.0)
+    {
+        return 1.0;
+    }  
+    let flip_correction = vec2<f32>(0.5, -0.5);
+    let proj_correction = 1.0 / light_coords.w;
+    let light_local = light_coords.xy * flip_correction * proj_correction + vec2<f32>(0.5, 0.5);
+    return textureSampleCompareLevel(t_shadow_single,s_shadow,light_local,light_coords.z*proj_correction);
+}
+
 let ambient_strength:f32 = 0.1;
 
 fn calcPointLightContribution(light: PointLight, position: vec3<f32>, normal: vec3<f32>, view_dir: vec3<f32>, object_color: vec3<f32>) -> vec3<f32> {
@@ -179,6 +193,24 @@ fn fs_main(in: FragmentInput) -> [[location(0)]] vec4<f32> {
     let object_color = textureSample(albedo,texture_sampler,coordinates);
     let view_direction = normalize(-position);
     let shadow = get_shadow_value(vec4<f32>(position,1.0)); 
+    result = result + calcDirLightContribution(object_normal.xyz,view_direction,object_color.xyz,shadow);
+    for(var i:u32 =0u; i < arrayLength(&pointLights.elements) && i < u32(globals.lights_num.x) ;i = i+1u)
+    {   
+       result = result + calcPointLightContribution(pointLights.elements[i],position,object_normal.xyz,view_direction,object_color.xyz);
+    }
+    
+    return vec4<f32>(result,1.0);
+}
+[[stage(fragment)]]
+fn fs_main_web(in:FragmentInput) -> [[location(0)]] vec4<f32>{
+     var result = vec3<f32>(0.0);
+    let coordinates = in.fragPos.xy / canvasSize.canvasConstants;
+    let position = textureSample(positions,texture_sampler,coordinates).xyz;
+    // TODO: get occlusion factor & roughness from their respective channels
+    let object_normal = textureSample(normals,texture_sampler,coordinates);
+    let object_color = textureSample(albedo,texture_sampler,coordinates);
+    let view_direction = normalize(-position);
+    let shadow = get_shadow_value_web(cascade_transforms.elements[0]* vec4<f32>(position,1.0));
     result = result + calcDirLightContribution(object_normal.xyz,view_direction,object_color.xyz,shadow);
     for(var i:u32 =0u; i < arrayLength(&pointLights.elements) && i < u32(globals.lights_num.x) ;i = i+1u)
     {   

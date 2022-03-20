@@ -1,12 +1,11 @@
-use std::num::NonZeroU32;
 use super::HorizonBindGroup;
 use crate::renderer::{
     bindgroups::BindGroupContainer, primitives::uniforms::Globals, state::State,
 };
 
-use specs::*;
-use crate::{Instances, Normals, Shadow, Uniform};
 use crate::resources::bindingresourcecontainer::{TextureTypes, TextureViewTypes};
+use crate::{Instances, Normals, Shadow, Uniform};
+use specs::*;
 
 #[derive(Component, Default)]
 #[storage(NullStorage)]
@@ -58,16 +57,29 @@ impl<'a> HorizonBindGroup<'a> for UniformBindGroup {
                         min_binding_size: None,
                     },
                 },
-                //TODO: handle as individual texture on web or create a texture atlas
-                wgpu::BindGroupLayoutEntry {
-                    binding: 3,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    count: None,
-                    ty: wgpu::BindingType::Texture {
-                        multisampled: false,
-                        sample_type: wgpu::TextureSampleType::Depth,
-                        view_dimension: wgpu::TextureViewDimension::D2Array,
-                    },
+                // Currently web doesn't allow for single texture view to be sent as a 2DArray
+                if !cfg!(target_arch = "wasm32") {
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 3,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        count: None,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            sample_type: wgpu::TextureSampleType::Depth,
+                            view_dimension: wgpu::TextureViewDimension::D2Array,
+                        },
+                    }
+                } else {
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 3,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        count: None,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            sample_type: wgpu::TextureSampleType::Depth,
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                        },
+                    }
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 4,
@@ -103,8 +115,15 @@ impl<'a> HorizonBindGroup<'a> for UniformBindGroup {
         device: &wgpu::Device,
         binding_resources: Self::BindingResources,
     ) -> crate::renderer::bindgroupcontainer::BindGroupContainer {
-        let (sampler, texture_view, uniform_buffer, normal_buffer, instance_buffer,shadow_cascade_buffer,cascade_lengths) =
-            binding_resources;
+        let (
+            sampler,
+            texture_view,
+            uniform_buffer,
+            normal_buffer,
+            instance_buffer,
+            shadow_cascade_buffer,
+            cascade_lengths,
+        ) = binding_resources;
 
         let uniform_bind_group_layout = UniformBindGroup::get_layout(device);
         let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -130,14 +149,14 @@ impl<'a> HorizonBindGroup<'a> for UniformBindGroup {
                     binding: 4,
                     resource: wgpu::BindingResource::Sampler(sampler),
                 },
-                wgpu::BindGroupEntry{
-                    binding:5,
-                    resource:shadow_cascade_buffer.as_entire_binding(),
+                wgpu::BindGroupEntry {
+                    binding: 5,
+                    resource: shadow_cascade_buffer.as_entire_binding(),
                 },
-                wgpu::BindGroupEntry{
-                    binding:6,
-                    resource:cascade_lengths.as_entire_binding(),
-                }
+                wgpu::BindGroupEntry {
+                    binding: 6,
+                    resource: cascade_lengths.as_entire_binding(),
+                },
             ],
             layout: &uniform_bind_group_layout,
         });
@@ -149,8 +168,6 @@ impl<'a> HorizonBindGroup<'a> for UniformBindGroup {
         device: &wgpu::Device,
         resource_container: &mut crate::resources::bindingresourcecontainer::BindingResourceContainer,
     ) {
-
-
         let normal_matrix_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             mapped_at_creation: false,
             label: Some("model_matrix_buffer"),
@@ -173,11 +190,8 @@ impl<'a> HorizonBindGroup<'a> for UniformBindGroup {
             mapped_at_creation: false,
         });
 
-        resource_container
-            .buffers[Normals] = Some(normal_matrix_buffer);
-        resource_container
-            .buffers[Instances] = Some(instance_buffer);
-        resource_container
-            .buffers[Uniform] = Some(uniform_buffer);
+        resource_container.buffers[Normals] = Some(normal_matrix_buffer);
+        resource_container.buffers[Instances] = Some(instance_buffer);
+        resource_container.buffers[Uniform] = Some(uniform_buffer);
     }
 }

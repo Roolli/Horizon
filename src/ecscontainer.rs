@@ -81,6 +81,7 @@ impl ECSContainer {
         self.initialize_scripting();
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn initialize_scripting(&mut self) {
         let js = crate::V8ScriptingEngine::new();
         self.world.insert(js);

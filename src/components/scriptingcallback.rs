@@ -1,7 +1,9 @@
 use specs::*;
 use std::borrow::Borrow;
 
+#[cfg(not(target_arch = "wasm32"))]
 use crate::scripting::scriptingengine::ScriptingEngineState;
+#[cfg(not(target_arch = "wasm32"))]
 use crate::V8ScriptingEngine;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -51,7 +53,7 @@ impl ExecuteFunction for ScriptingCallback {
         todo!()
     }
 }
-
+#[cfg(not(target_arch = "wasm32"))]
 impl ScriptingCallback {
     pub fn new(callback: v8::Global<v8::Function>) -> Self {
         Self { callback }

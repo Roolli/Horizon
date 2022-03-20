@@ -50,9 +50,13 @@ impl<'a> HorizonPipeline<'a> for ForwardPipeline {
         let fragment_state = Some(wgpu::FragmentState {
             targets,
             module: &module,
-            entry_point: "fs_main",
+            entry_point: if cfg!(target_arch = "wasm32") {
+                "fs_main_web"
+            } else {
+                "fs_main"
+            },
         });
-        
+
         let primitive = wgpu::PrimitiveState {
             front_face: wgpu::FrontFace::Ccw,
             topology: wgpu::PrimitiveTopology::TriangleList,

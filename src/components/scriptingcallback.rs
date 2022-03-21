@@ -1,10 +1,9 @@
 use specs::*;
-use std::borrow::Borrow;
 
-#[cfg(not(target_arch = "wasm32"))]
-use crate::scripting::scriptingengine::ScriptingEngineState;
-#[cfg(not(target_arch = "wasm32"))]
-use crate::V8ScriptingEngine;
+// #[cfg(not(target_arch = "wasm32"))]
+// use crate::scripting::scriptingengine::ScriptingEngineState;
+// #[cfg(not(target_arch = "wasm32"))]
+// use crate::V8ScriptingEngine;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
@@ -41,7 +40,7 @@ impl ExecuteFunction for ScriptingCallback {
 #[derive(Component)]
 #[storage(VecStorage)]
 pub struct ScriptingCallback {
-    callback: v8::Global<v8::Function>,
+    callback: deno_core::v8::Global<deno_core::v8::Function>,
 }
 #[cfg(not(target_arch = "wasm32"))]
 impl ExecuteFunction for ScriptingCallback {
@@ -55,10 +54,10 @@ impl ExecuteFunction for ScriptingCallback {
 }
 #[cfg(not(target_arch = "wasm32"))]
 impl ScriptingCallback {
-    pub fn new(callback: v8::Global<v8::Function>) -> Self {
+    pub fn new(callback: deno_core::v8::Global<deno_core::v8::Function>) -> Self {
         Self { callback }
     }
-    pub fn get_callback(&self) -> &v8::Global<v8::Function> {
+    pub fn get_callback(&self) -> &deno_core::v8::Global<deno_core::v8::Function> {
         &self.callback
     }
 }

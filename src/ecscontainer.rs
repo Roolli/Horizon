@@ -1,3 +1,4 @@
+use deno_core::{v8, JsRuntime, RuntimeOptions};
 use rapier3d::na::{Point3, Vector3};
 use ref_thread_local::{Ref, RefMut, RefThreadLocal};
 use specs::{DispatcherBuilder, RunNow, System, World, WorldExt};
@@ -7,6 +8,7 @@ use crate::components::assetidentifier::AssetIdentifier;
 use crate::components::modelcollider::ModelCollider;
 use crate::resources::surfacetexture::SurfaceTexture;
 use crate::scripting::scriptevent::ScriptEvent;
+use crate::scripting::scriptingengine::HorizonScriptingEngine;
 use crate::{
     components::scriptingcallback::ScriptingCallback,
     filesystem::modelimporter::Importer,
@@ -83,8 +85,30 @@ impl ECSContainer {
 
     #[cfg(not(target_arch = "wasm32"))]
     fn initialize_scripting(&mut self) {
-        let js = crate::V8ScriptingEngine::new();
-        self.world.insert(js);
+        use deno_core::v8;
+        let mut js = JsRuntime::new(RuntimeOptions::default());
+        {
+            let scope = &mut js.handle_scope();
+            let global_context = scope.get_current_context().global(scope);
+            let horizon_key = v8::String::new(scope, "Horizon").unwrap();
+            let horizon_val = v8::Object::new(scope);
+            let isolate = global_context.set(scope, horizon_key.into(), horizon_val.into());
+
+            let callback_key = v8::String::new(scope, "registerCallback").unwrap();
+            let template = v8::FunctionTemplate::new(scope, Self::register_callback_cb);
+            let val = template.get_function(scope).unwrap();
+            horizon_val.set(scope, callback_key.into(), val.into());
+            //scope.escape(context);
+        }
+        self.world.insert(HorizonScriptingEngine { js_runtime: js });
+        // let js = crate::V8ScriptingEngine::new();
+    }
+    fn register_callback_cb(
+        scope: &mut deno_core::v8::HandleScope,
+        args: v8::FunctionCallbackArguments,
+        _rv: v8::ReturnValue,
+    ) {
+        log::info!("this works!!");
     }
     fn register_resources(world: &mut specs::World) {
         let state = world.read_resource::<State>();

@@ -32,8 +32,8 @@ use renderer::{
 use resources::{
     bindingresourcecontainer::BindingResourceContainer, camera::Camera, windowevents::ResizeEvent,
 };
-#[cfg(not(target_arch = "wasm32"))]
-use scripting::scriptingengine::V8ScriptingEngine;
+// #[cfg(not(target_arch = "wasm32"))]
+// use scripting::scriptingengine::V8ScriptingEngine;
 use specs::{Builder, Entity, EntityBuilder, Join, RunNow, World, WorldExt};
 
 mod filesystem;
@@ -95,6 +95,7 @@ use crate::resources::defaulttexturecontainer::{DefaultTextureContainer, Default
 use crate::resources::deltatime::DeltaTime;
 use crate::resources::eguicontainer::EguiContainer;
 use crate::resources::projection::Projection;
+use crate::scripting::scriptingengine::HorizonScriptingEngine;
 use crate::scripting::ScriptingError;
 use crate::systems::events::handlelifecycleevents::HandleInitCallbacks;
 use crate::TextureViewTypes::DeferredSpecular;
@@ -213,8 +214,23 @@ pub fn setup() {
             });
             ecs.setup(state);
             setup_pipelines(&mut ecs.world);
-            create_debug_scene();
+            //create_debug_scene();
         }
+        let fut = async move {
+            let ecs = ECSContainer::global();
+            let mut scripting = ecs.world.write_resource::<HorizonScriptingEngine>();
+            scripting
+                .js_runtime
+                .execute_script(
+                    "<test>",
+                    r#"
+        Horizon.registerCallback();
+        "#,
+                )
+                .unwrap();
+            scripting.js_runtime.run_event_loop(false).await.unwrap();
+        };
+        futures::executor::block_on(fut);
         run(event_loop, window);
     }
 }
@@ -226,6 +242,15 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
     drop(ecs);
     let mut cursor_state = false;
     event_loop.run(move |event, _, control_flow| {
+        {
+            let fut = async move {
+                let ecs = ECSContainer::global();
+                let mut scripting = ecs.world.write_resource::<HorizonScriptingEngine>();
+                scripting.js_runtime.run_event_loop(false).await.unwrap();
+            };
+            futures::executor::block_on(fut);
+            log::info!("ran event loop of deno");
+        }
         match event {
             Event::WindowEvent {
                 window_id,

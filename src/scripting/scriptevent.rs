@@ -1,7 +1,5 @@
 use specs::Component;
 use specs::DenseVecStorage;
-#[cfg(not(target_arch = "wasm32"))]
-use v8::Script;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 

@@ -11,21 +11,21 @@ use std::iter::Once;
 use std::mem::size_of_val;
 
 use super::scriptevent::ScriptEvent;
-#[cfg(not(target_arch = "wasm32"))]
-use super::scriptingengine::V8ScriptingEngine;
+// #[cfg(not(target_arch = "wasm32"))]
+// use super::scriptingengine::V8ScriptingEngine;
 use super::util::entityinfo::EntityInfo;
 use rapier3d::dynamics::{RigidBodyBuilder, RigidBodyHandle};
 use rapier3d::geometry::{ColliderBuilder, ColliderHandle};
 use specs::prelude::*;
-#[cfg(not(target_arch = "wasm32"))]
-use v8;
+// #[cfg(not(target_arch = "wasm32"))]
+// use v8;
 
 use rapier3d::na::{Point3, UnitQuaternion, Vector3};
 use rapier3d::prelude::{Isometry, RigidBody};
 use specs::world::Index;
 
-#[cfg(not(target_arch = "wasm32"))]
-use v8::{Function, Global};
+// #[cfg(not(target_arch = "wasm32"))]
+// use v8::{Function, Global};
 
 use crate::components::assetidentifier::AssetIdentifier;
 use crate::components::componentparser::{ComponentParser, ComponentParserError, ParseComponent};

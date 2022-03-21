@@ -20,7 +20,7 @@ impl State {
         [0.0, 0.0, 0.5, 0.0],
         [0.0, 0.0, 0.5, 1.0],
     ];
-    pub const CASCADE_DISTS: (f32, f32) = (0.1, 500.0);
+    pub const CASCADE_DISTS: (f32, f32) = (0.1, 250.0);
 
     pub const MAX_ENTITY_COUNT: wgpu::BufferAddress =
         (std::mem::size_of::<TransformRaw>() * 2048) as wgpu::BufferAddress;
@@ -48,7 +48,8 @@ impl State {
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
-                    features: wgpu::Features::TEXTURE_COMPRESSION_BC,
+                    features: wgpu::Features::TEXTURE_COMPRESSION_BC
+                        | wgpu::Features::DEPTH_CLIP_CONTROL,
                     limits: wgpu::Limits::default(),
                     label: Some("Device descriptor"),
                 },

@@ -106,12 +106,12 @@ struct FragmentInput {
 
 fn get_shadow_value(coords:vec4<f32>) -> f32
 {
-    let depth:f32 = abs(coords.z); 
+    let depth:f32 = coords.z; 
     let length:i32 = i32(arrayLength(&cascade_lengths.elements));
     var layer = -1;
     for(var i:i32 =0; i < length;i = i + 1)
     {
-        if(depth < cascade_lengths.elements[i])
+        if(depth > cascade_lengths.elements[i])
         {
             layer = i;
             break;

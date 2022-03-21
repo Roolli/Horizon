@@ -21,7 +21,7 @@ impl<'a> HorizonPipeline<'a> for GBufferPipeline {
 
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                bind_group_layouts: &[global_uniforms_bind_group,material_bind_group],
+                bind_group_layouts: &[global_uniforms_bind_group, material_bind_group],
                 label: Some("GBuffer pipeline layout"),
                 push_constant_ranges: &[],
             });
@@ -60,9 +60,7 @@ impl<'a> HorizonPipeline<'a> for GBufferPipeline {
             cull_mode: None,
             strip_index_format: None,
             polygon_mode: wgpu::PolygonMode::Fill,
-            unclipped_depth: device
-                .features()
-                .contains(wgpu::Features::DEPTH_CLIP_CONTROL),
+            unclipped_depth: false,
             ..Default::default()
         };
 

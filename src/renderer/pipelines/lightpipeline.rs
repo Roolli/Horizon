@@ -27,7 +27,7 @@ impl<'a> HorizonPipeline<'a> for LightPipeline {
             source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(include_str!(
                 "../../shaders/light.wgsl"
             ))),
-            label: Some("shadow shader"),
+            label: Some("light shader"),
         };
         let module = device.create_shader_module(&module_descriptor);
         let vertex_state = wgpu::VertexState {

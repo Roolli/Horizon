@@ -12,18 +12,22 @@ use crate::{
 };
 
 pub struct DirectionalLight {
-    pub direction: Point3<f32>,
+    pub yaw: f32,
+    pub pitch: f32,
     pub color: wgpu::Color,
 }
 
 impl DirectionalLight {
-    pub fn new(direction: Point3<f32>, color: wgpu::Color) -> Self {
-        Self { direction, color }
+    pub fn new(yaw: f32, pitch: f32, color: wgpu::Color) -> Self {
+        Self { yaw, pitch, color }
     }
 
     pub fn to_raw(&self) -> DirectionalLightRaw {
         DirectionalLightRaw {
-            direction: [self.direction.x, self.direction.y, self.direction.z, 1.0],
+            direction: Vector3::new(self.yaw.cos(), self.pitch.sin(), self.yaw.sin())
+                .normalize()
+                .to_homogeneous()
+                .into(),
             color: [
                 self.color.r as f32,
                 self.color.g as f32,
@@ -31,6 +35,9 @@ impl DirectionalLight {
                 1.0,
             ],
         }
+    }
+    fn get_direction(&self) -> Vector3<f32> {
+        Vector3::new(self.yaw.cos(), self.pitch.sin(), self.yaw.sin()).normalize()
     }
     pub fn get_view_and_proj_matrices(
         &self,
@@ -111,9 +118,9 @@ impl DirectionalLight {
             radius = ceil / 16.0;
             let max_extent = Vector3::new(radius, radius, radius);
             let min_extent = -max_extent;
-            let light_dir = -self.direction;
+            let light_dir = -self.get_direction();
             let light_view = Matrix4::look_at_rh(
-                &Point3::from(center - light_dir.coords * -min_extent.z),
+                &Point3::from(center - light_dir * -min_extent.z),
                 &Point3::from(center),
                 &Vector3::y_axis(),
             );

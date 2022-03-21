@@ -88,7 +88,6 @@ impl ECSContainer {
     }
     fn register_resources(world: &mut specs::World) {
         let state = world.read_resource::<State>();
-        let normalized_dir = Vector3::new(-0.6, -0.4, 0.0).normalize();
         let size = state.size;
         let encoder = state
             .device
@@ -120,7 +119,8 @@ impl ECSContainer {
         world.insert(globals);
         world.insert(cam);
         world.insert(DirectionalLight::new(
-            Point3::new(normalized_dir.x, normalized_dir.y, normalized_dir.z),
+            0.0,
+            45.0_f32.to_radians(),
             wgpu::Color {
                 r: 0.9,
                 g: 0.7,

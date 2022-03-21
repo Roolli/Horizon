@@ -1,10 +1,10 @@
-use std::num::NonZeroU32;
 use super::HorizonBindGroup;
 use crate::renderer::{bindgroups::BindGroupContainer, primitives::uniforms::ShadowUniforms};
+use std::num::NonZeroU32;
 
-use specs::*;
-use crate::{SamplerTypes, ShadowUniform, State, TextureTypes, TextureViewTypes};
 use crate::resources::bindingresourcecontainer::TextureArrayViewTypes;
+use crate::{SamplerTypes, ShadowUniform, State, TextureTypes, TextureViewTypes};
+use specs::*;
 use std::default::Default;
 use wgpu::util::DeviceExt;
 
@@ -77,11 +77,14 @@ impl<'a> HorizonBindGroup<'a> for ShadowBindGroup {
             size: shadow_uniforms_size,
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
         });
-        let shadow_cascade_buffer = device.create_buffer(&wgpu::BufferDescriptor{
-            label:Some("Cascade buffer"),
-            usage: wgpu::BufferUsages::COPY_DST |wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::STORAGE,
-            size: shadow_uniforms_size * State::SHADOW_SIZE.depth_or_array_layers as wgpu::BufferAddress,
-            mapped_at_creation:false,
+        let shadow_cascade_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Cascade buffer"),
+            usage: wgpu::BufferUsages::COPY_DST
+                | wgpu::BufferUsages::COPY_SRC
+                | wgpu::BufferUsages::STORAGE,
+            size: shadow_uniforms_size
+                * State::SHADOW_SIZE.depth_or_array_layers as wgpu::BufferAddress,
+            mapped_at_creation: false,
         });
         let shadow_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("shadow_sampler"),
@@ -91,7 +94,7 @@ impl<'a> HorizonBindGroup<'a> for ShadowBindGroup {
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
             mipmap_filter: wgpu::FilterMode::Nearest,
-            compare: Some(wgpu::CompareFunction::GreaterEqual),
+            compare: Some(wgpu::CompareFunction::LessEqual),
             ..Default::default()
         });
 
@@ -104,37 +107,33 @@ impl<'a> HorizonBindGroup<'a> for ShadowBindGroup {
             mip_level_count: 1,
             sample_count: 1,
         });
-        (0..State::SHADOW_SIZE.depth_or_array_layers).for_each(|i|{
+        (0..State::SHADOW_SIZE.depth_or_array_layers).for_each(|i| {
             let shadow_view = shadow_texture.create_view(&wgpu::TextureViewDescriptor {
-                dimension:Some(wgpu::TextureViewDimension::D2),
-                base_mip_level:0,
+                dimension: Some(wgpu::TextureViewDimension::D2),
+                base_mip_level: 0,
                 base_array_layer: i,
-                aspect:wgpu::TextureAspect::All,
-                mip_level_count:None,
-                label:Some(format!("Shadow cascade {}",i).as_str()),
+                aspect: wgpu::TextureAspect::All,
+                mip_level_count: None,
+                label: Some(format!("Shadow cascade {}", i).as_str()),
                 array_layer_count: NonZeroU32::new(1),
-                format:None,
+                format: None,
             });
-            resource_container
-                .texture_array_views[TextureArrayViewTypes::Shadow].push(shadow_view);
+            resource_container.texture_array_views[TextureArrayViewTypes::Shadow].push(shadow_view);
         });
-        let shadow_cascade_lengths =device.create_buffer(&wgpu::BufferDescriptor{
-            label:Some("Shadow cascade lengths"),
+        let shadow_cascade_lengths = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Shadow cascade lengths"),
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::STORAGE,
-            size: (std::mem::size_of::<f32>() * State::SHADOW_SIZE.depth_or_array_layers as usize) as wgpu::BufferAddress,
-            mapped_at_creation:false,
+            size: (std::mem::size_of::<f32>() * State::SHADOW_SIZE.depth_or_array_layers as usize)
+                as wgpu::BufferAddress,
+            mapped_at_creation: false,
         });
         let shadow_view = shadow_texture.create_view(&wgpu::TextureViewDescriptor::default());
-        resource_container.buffers[crate::BufferTypes::ShadowCascadeLengths] = Some(shadow_cascade_lengths);
-        resource_container
-            .buffers[ShadowUniform]=Some(uniform_buffer);
-        resource_container
-            .buffers[crate::BufferTypes::ShadowCascade] = Some(shadow_cascade_buffer);
-        resource_container
-            .samplers[SamplerTypes::Shadow] = Some(shadow_sampler);
-        resource_container
-            .textures[TextureTypes::Shadow] = Some(shadow_texture);
+        resource_container.buffers[crate::BufferTypes::ShadowCascadeLengths] =
+            Some(shadow_cascade_lengths);
+        resource_container.buffers[ShadowUniform] = Some(uniform_buffer);
+        resource_container.buffers[crate::BufferTypes::ShadowCascade] = Some(shadow_cascade_buffer);
+        resource_container.samplers[SamplerTypes::Shadow] = Some(shadow_sampler);
+        resource_container.textures[TextureTypes::Shadow] = Some(shadow_texture);
         resource_container.texture_views[TextureViewTypes::Shadow] = Some(shadow_view);
-
     }
 }

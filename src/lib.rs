@@ -214,20 +214,49 @@ pub fn setup() {
             });
             ecs.setup(state);
             setup_pipelines(&mut ecs.world);
-            //create_debug_scene();
+            create_debug_scene();
         }
         let fut = async move {
             let ecs = ECSContainer::global();
             let mut scripting = ecs.world.write_resource::<HorizonScriptingEngine>();
-            scripting
+            let horizon_module = scripting
                 .js_runtime
-                .execute_script(
-                    "<test>",
-                    r#"
-        Horizon.registerCallback();
-        "#,
+                .load_side_module(
+                    &deno_core::resolve_url("file:///Horizon.js").unwrap(),
+                    Some(
+                        r#"
+                        export function registerCallback(callback,callbackType)
+                        {
+                            HorizonInternal.registerCallback(callback,callbackType);
+                        }
+                        export function log(message)
+                        {
+                            HorizonInternal.log(message);
+                        }
+                        "#
+                        .to_string(),
+                    ),
                 )
+                .await
                 .unwrap();
+            let _ = scripting.js_runtime.mod_evaluate(horizon_module);
+            scripting.js_runtime.run_event_loop(false).await.unwrap();
+            let module_id = scripting
+                .js_runtime
+                .load_main_module(
+                    &deno_core::resolve_url("file:///main.js").unwrap(),
+                    Some(
+                        r#"
+                        import { registerCallback,log } from './Horizon.js';
+                        //const callback = () => log("callbacks also work!");       
+                        //registerCallback(callback,2);           
+                        "#
+                        .to_string(),
+                    ),
+                )
+                .await
+                .unwrap();
+            let _ = scripting.js_runtime.mod_evaluate(module_id);
             scripting.js_runtime.run_event_loop(false).await.unwrap();
         };
         futures::executor::block_on(fut);
@@ -249,7 +278,7 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                 scripting.js_runtime.run_event_loop(false).await.unwrap();
             };
             futures::executor::block_on(fut);
-            log::info!("ran event loop of deno");
+            // log::info!("ran event loop of deno");
         }
         match event {
             Event::WindowEvent {
@@ -816,30 +845,6 @@ fn setup_pipelines(world: &mut World) {
 }
 
 fn create_debug_scene() {
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        // TODO: load all the scripts and execute them before the first frame is rendered. maybe do modules and whatnot.
-        // js.execute(
-        //     "test.js",
-        //     String::from_utf8(Importer::default().import_file("./test.js").await)
-        //         .unwrap()
-        //         .as_str(),
-        // );
-        //
-        // {
-        //     let global_context = js.global_context();
-        //     let isolate = &mut js.isolate;
-        //
-        //     let state_rc = V8ScriptingEngine::state(isolate);
-        //     let js_state = state_rc.borrow();
-        //     let handle_scope = &mut rusty_v8::HandleScope::with_context(isolate, global_context);
-        //     for (_k, v) in js_state.callbacks.iter() {
-        //         let func = v.get(handle_scope);
-        //         let recv = rusty_v8::Integer::new(handle_scope, 1).into();
-        //         func.call(handle_scope, recv, &[]);
-        //     }
-        // }
-    }
     let importer = Importer::default();
     let gltf_contents =
         futures::executor::block_on(importer.import_gltf_model("Sponza.glb")).unwrap();

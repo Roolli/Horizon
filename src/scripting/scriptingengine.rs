@@ -1,4 +1,10 @@
-use deno_core::JsRuntime;
+use anyhow::Error;
+use deno_core::error::generic_error;
+use deno_core::{
+    JsRuntime, ModuleLoader, ModuleSource, ModuleSourceFuture, ModuleSpecifier, ModuleType,
+    RuntimeOptions,
+};
+use std::pin::Pin;
 
 // use std::collections::HashMap;
 // use std::sync::Once;
@@ -163,18 +169,7 @@ use deno_core::JsRuntime;
 //
 // #[cfg(not(target_arch = "wasm32"))]
 // impl crate::scripting::scriptingfunctions::ScriptingFunctions {
-//     pub fn print(
-//         scope: &mut v8::HandleScope,
-//         args: v8::FunctionCallbackArguments,
-//         _rv: v8::ReturnValue,
-//     ) {
-//         let obj = args.get(0);
-//         let try_catch_scope = &mut v8::TryCatch::new(scope);
-//         let string = obj.to_string(try_catch_scope).unwrap();
 //
-//         log::info!("{}", string.to_rust_string_lossy(try_catch_scope));
-//         // std::io::stdout().flush().unwrap();
-//     }
 //
 //     // https://github.com/denoland/deno/blob/main/core/bindings.rs#L463
 //     pub fn register_callback(
@@ -182,22 +177,121 @@ use deno_core::JsRuntime;
 //         args: v8::FunctionCallbackArguments,
 //         _rv: v8::ReturnValue,
 //     ) {
-//         let ecs = ECSContainer::global();
-//         let function = match v8::Local::<v8::Function>::try_from(args.get(1)) {
-//             Ok(callback) => callback,
-//             Err(err) => {
-//                 return;
-//             }
-//         };
-//         let global_func: v8::Global<v8::Function> = v8::Global::new(scope, function);
-//         let builder = ecs.world.create_entity_unchecked();
-//         let event_type = ScriptEvent::from_number(args.get(0).int32_value(scope).unwrap());
-//         builder
-//             .with(ScriptingCallback::new(global_func))
-//             .with(event_type)
-//             .build();
-//     }
+//
 // }
+#[derive(Default)]
+struct ModLoader;
+
+impl ModuleLoader for ModLoader {
+    fn resolve(
+        &self,
+        specifier: &str,
+        referrer: &str,
+        _is_main: bool,
+    ) -> Result<ModuleSpecifier, Error> {
+        let s = deno_core::resolve_import(specifier, referrer).unwrap();
+        Ok(s)
+    }
+
+    fn load(
+        &self,
+        module_specifier: &ModuleSpecifier,
+        maybe_referrer: Option<ModuleSpecifier>,
+        is_dyn_import: bool,
+    ) -> Pin<Box<ModuleSourceFuture>> {
+        let module_specifier = module_specifier.clone();
+        async move {
+            log::info!("{:?}", module_specifier);
+            let module = ModuleSource {
+                code: String::from(""),
+                module_url_found: String::from(""),
+                module_url_specified: String::from(""),
+                module_type: ModuleType::JavaScript,
+            };
+            Ok(module)
+        }
+        .boxed_local()
+    }
+}
+
+use crate::components::scriptingcallback::ScriptingCallback;
+use crate::scripting::scriptevent::ScriptEvent;
+use crate::ECSContainer;
+use deno_core::v8;
+use futures::{FutureExt, StreamExt};
+use specs::{Builder, WorldExt};
+
+#[cfg(target_arch = "wasm32")]
+#[derive(Default)]
+pub struct HorizonScriptingEngine;
+
+#[cfg(not(target_arch = "wasm32"))]
 pub struct HorizonScriptingEngine {
     pub js_runtime: JsRuntime,
+}
+#[cfg(not(target_arch = "wasm32"))]
+impl Default for HorizonScriptingEngine {
+    fn default() -> Self {
+        let loader = std::rc::Rc::new(ModLoader::default());
+        let js_runtime = JsRuntime::new(RuntimeOptions {
+            module_loader: Some(loader),
+            ..Default::default()
+        });
+        let mut runtime = Self { js_runtime };
+        runtime.create_default_module();
+        runtime
+    }
+}
+
+impl HorizonScriptingEngine {
+    fn create_default_module(&mut self) {
+        let scope = &mut self.js_runtime.handle_scope();
+        let global_context = scope.get_current_context().global(scope);
+        let horizon_key = v8::String::new(scope, "HorizonInternal").unwrap();
+        let horizon_val = v8::Object::new(scope);
+        let callback_key = v8::String::new(scope, "registerCallback").unwrap();
+        let print_key = v8::String::new(scope, "log").unwrap();
+        let print_val = v8::Function::new(scope, Self::print_cb).unwrap();
+        let func = v8::Function::new(scope, Self::register_callback_cb).unwrap();
+        func.set_name(callback_key);
+        global_context.set(scope, horizon_key.into(), horizon_val.into());
+        horizon_val.set(scope, callback_key.into(), func.into());
+        horizon_val.set(scope, print_key.into(), print_val.into());
+    }
+    pub fn print_cb(
+        scope: &mut v8::HandleScope,
+        args: v8::FunctionCallbackArguments,
+        _rv: v8::ReturnValue,
+    ) {
+        let obj = args.get(0);
+        let try_catch_scope = &mut v8::TryCatch::new(scope);
+        let string = obj.to_string(try_catch_scope).unwrap();
+
+        log::info!("{}", string.to_rust_string_lossy(try_catch_scope));
+    }
+
+    fn register_callback_cb(
+        scope: &mut deno_core::v8::HandleScope,
+        args: v8::FunctionCallbackArguments,
+        _rv: v8::ReturnValue,
+    ) {
+        let ecs = ECSContainer::global();
+        let function = match v8::Local::<v8::Function>::try_from(args.get(0)) {
+            Ok(callback) => callback,
+            Err(err) => {
+                log::info!("{:?}", err);
+                return;
+            }
+        };
+
+        let global_func: v8::Global<v8::Function> = v8::Global::new(scope, function);
+
+        let builder = ecs.world.create_entity_unchecked();
+
+        let event_type = ScriptEvent::from_number(args.get(1).int32_value(scope).unwrap());
+        builder
+            .with(ScriptingCallback::new(global_func))
+            .with(event_type)
+            .build();
+    }
 }

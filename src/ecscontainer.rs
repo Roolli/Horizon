@@ -79,37 +79,12 @@ impl ECSContainer {
     pub fn setup(&mut self, state: State) {
         self.world.insert(state);
         Self::register_resources(&mut self.world);
-        #[cfg(not(target_arch = "wasm32"))]
         self.initialize_scripting();
     }
-
-    #[cfg(not(target_arch = "wasm32"))]
     fn initialize_scripting(&mut self) {
-        use deno_core::v8;
-        let mut js = JsRuntime::new(RuntimeOptions::default());
-        {
-            let scope = &mut js.handle_scope();
-            let global_context = scope.get_current_context().global(scope);
-            let horizon_key = v8::String::new(scope, "Horizon").unwrap();
-            let horizon_val = v8::Object::new(scope);
-            let isolate = global_context.set(scope, horizon_key.into(), horizon_val.into());
+        self.world.insert(HorizonScriptingEngine::default());
+    }
 
-            let callback_key = v8::String::new(scope, "registerCallback").unwrap();
-            let template = v8::FunctionTemplate::new(scope, Self::register_callback_cb);
-            let val = template.get_function(scope).unwrap();
-            horizon_val.set(scope, callback_key.into(), val.into());
-            //scope.escape(context);
-        }
-        self.world.insert(HorizonScriptingEngine { js_runtime: js });
-        // let js = crate::V8ScriptingEngine::new();
-    }
-    fn register_callback_cb(
-        scope: &mut deno_core::v8::HandleScope,
-        args: v8::FunctionCallbackArguments,
-        _rv: v8::ReturnValue,
-    ) {
-        log::info!("this works!!");
-    }
     fn register_resources(world: &mut specs::World) {
         let state = world.read_resource::<State>();
         let size = state.size;

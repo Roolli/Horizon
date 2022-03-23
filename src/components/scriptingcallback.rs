@@ -1,9 +1,12 @@
+use deno_core::v8;
+use deno_core::v8::Handle;
 use specs::*;
 
 // #[cfg(not(target_arch = "wasm32"))]
 // use crate::scripting::scriptingengine::ScriptingEngineState;
 // #[cfg(not(target_arch = "wasm32"))]
 // use crate::V8ScriptingEngine;
+use crate::HorizonScriptingEngine;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
@@ -29,7 +32,7 @@ impl ExecuteFunction for ScriptingCallback {
         self.get_callback().call0(&JsValue::UNDEFINED).unwrap();
     }
 
-    fn execute_with_args(&self, args: Vec<f32>) {
+    fn execute_with_args(&self, args: CallbackArgs) {
         self.get_callback()
             .call1(&JsValue::NULL, &JsValue::from(args[0]))
             .unwrap();
@@ -43,13 +46,22 @@ pub struct ScriptingCallback {
     callback: deno_core::v8::Global<deno_core::v8::Function>,
 }
 #[cfg(not(target_arch = "wasm32"))]
-impl ExecuteFunction for ScriptingCallback {
-    fn execute_with_no_args(&self) {
-        //self.callback.borrow().call()
+impl<'s> ExecuteFunction<'s> for ScriptingCallback {
+    type InvokeParameters = (&'s mut HorizonScriptingEngine);
+    fn execute_with_no_args(&self, additional_args: Self::InvokeParameters) {
+        let engine = additional_args;
+        let js = &mut engine.js_runtime;
+        let scope = &mut js.handle_scope();
+        let recv = v8::Integer::new(scope, 1).into();
+        self.callback.open(scope).call(scope, recv, &[]);
     }
 
-    fn execute_with_args(&self, args: Vec<f32>) {
-        todo!()
+    fn execute_with_args(&self, additional_args: Self::InvokeParameters, args: CallbackArgs) {
+        let engine = additional_args;
+        let js = &mut engine.js_runtime;
+        let scope = &mut js.handle_scope();
+        let recv = v8::Integer::new(scope, 1).into();
+        self.callback.open(scope).call(scope, recv, &[]);
     }
 }
 #[cfg(not(target_arch = "wasm32"))]
@@ -62,9 +74,15 @@ impl ScriptingCallback {
     }
 }
 
-pub trait ExecuteFunction {
-    fn execute_with_no_args(&self);
+pub trait ExecuteFunction<'s> {
+    type InvokeParameters;
+    fn execute_with_no_args(&self, additional_args: Self::InvokeParameters);
 
     // use numbers for now might change to a boxed value
-    fn execute_with_args(&self, args: Vec<f32>);
+    fn execute_with_args(&self, additional_args: Self::InvokeParameters, args: CallbackArgs);
+}
+#[derive(Debug)]
+pub enum CallbackArgs {
+    None,
+    Tick(f32),
 }

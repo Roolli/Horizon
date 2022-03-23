@@ -1,8 +1,8 @@
 use anyhow::Error;
 use deno_core::error::generic_error;
 use deno_core::{
-    JsRuntime, ModuleLoader, ModuleSource, ModuleSourceFuture, ModuleSpecifier, ModuleType,
-    RuntimeOptions,
+    Extension, JsRuntime, ModuleLoader, ModuleSource, ModuleSourceFuture, ModuleSpecifier,
+    ModuleType, OpState, RuntimeOptions,
 };
 use std::pin::Pin;
 
@@ -179,6 +179,17 @@ use std::pin::Pin;
 //     ) {
 //
 // }
+
+struct TimerPermission;
+
+impl deno_web::TimersPermission for TimerPermission {
+    fn allow_hrtime(&mut self) -> bool {
+        true
+    }
+
+    fn check_unstable(&self, state: &OpState, api_name: &'static str) {}
+}
+
 #[derive(Default)]
 struct ModLoader;
 
@@ -216,10 +227,11 @@ impl ModuleLoader for ModLoader {
 
 use crate::components::scriptingcallback::ScriptingCallback;
 use crate::scripting::scriptevent::ScriptEvent;
+use crate::scripting::util::horizonentity::HorizonEntity;
 use crate::ECSContainer;
 use deno_core::v8;
-use futures::{FutureExt, StreamExt};
-use specs::{Builder, WorldExt};
+use futures::{FutureExt, Stream, StreamExt, TryFutureExt};
+use specs::{Builder, Join, WorldExt};
 
 #[cfg(target_arch = "wasm32")]
 #[derive(Default)]
@@ -233,8 +245,19 @@ pub struct HorizonScriptingEngine {
 impl Default for HorizonScriptingEngine {
     fn default() -> Self {
         let loader = std::rc::Rc::new(ModLoader::default());
+        let extensions = Extension::builder()
+            .ops(vec![op_load_model::decl(), op_model_exists::decl()])
+            .build();
         let js_runtime = JsRuntime::new(RuntimeOptions {
             module_loader: Some(loader),
+            extensions: vec![
+                deno_console::init(),
+                deno_webidl::init(),
+                deno_url::init(),
+                deno_web::init::<TimerPermission>(BlobStore::default(), None),
+                extensions,
+            ],
+
             ..Default::default()
         });
         let mut runtime = Self { js_runtime };
@@ -294,4 +317,26 @@ impl HorizonScriptingEngine {
             .with(event_type)
             .build();
     }
+}
+use crate::components::assetidentifier::AssetIdentifier;
+use crate::scripting::scriptingfunctions::ScriptingFunctions;
+use deno_core::op;
+use deno_web::BlobStore;
+
+#[op]
+async fn op_load_model(model_name: String) -> Result<(), deno_core::anyhow::Error> {
+    ScriptingFunctions::load_model(model_name).await;
+    Ok(())
+}
+#[op]
+fn op_model_exists(model_name: String) -> Result<Option<HorizonEntity>, deno_core::anyhow::Error> {
+    let ecs = ECSContainer::global();
+    let identifiers = ecs.world.read_component::<AssetIdentifier>();
+    let ents = ecs.world.entities();
+    for (ent, identifier) in (&ents, &identifiers).join() {
+        if identifier.0 == model_name {
+            return Ok(Some(HorizonEntity::from_entity_id(ent.id())));
+        }
+    }
+    Ok(None)
 }

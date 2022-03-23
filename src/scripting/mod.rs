@@ -5,16 +5,16 @@ pub mod util;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub enum ScriptingError {
     MissingComponent(&'static str),
-    ModelLoadFailed
+    ModelLoadFailed(String),
 }
 
-#[cfg_attr(target_arch = "wasm32",wasm_bindgen)]
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 #[derive(Copy, Clone)]
 pub enum ResourceType {
     Camera,
     DirectionalLight,
-    CamController
+    CamController,
 }

@@ -30,7 +30,6 @@ use specs::world::Index;
 use crate::components::assetidentifier::AssetIdentifier;
 use crate::components::componentparser::{ComponentParser, ComponentParserError, ParseComponent};
 use crate::components::componenttypes::{ComponentData, ComponentTypes};
-use crate::filesystem::modelimporter::Importer;
 use crate::scripting::util::componentconversions::{PointLightComponent, TransformComponent};
 use crate::scripting::util::horizonentity::HorizonEntity;
 use crate::scripting::ScriptingError;
@@ -249,6 +248,44 @@ impl ScriptingFunctions {
             .set_angvel(vel, true);
         Ok(())
     }
+    // -> Result<HorizonEntity, ScriptingError>
+    pub async fn load_model(model_name: String) {
+        log::info!(target: "model_load","loading model {}",model_name);
+        let importer = crate::Importer::default();
+
+        let gltf_contents = importer
+            .import_gltf_model(model_name.as_str())
+            .await
+            .unwrap();
+        let model = ModelBuilder::create_gltf_model(gltf_contents)
+            .map_err(|e| {
+                ScriptingError::ModelLoadFailed(format!("error during model load: {:?}", e))
+            })
+            .unwrap();
+        log::info!("imported model");
+        let val = ref_thread_local::RefThreadLocal::borrow(&EVENT_LOOP_PROXY);
+        let (sender, receiver) =
+            futures::channel::oneshot::channel::<Result<Entity, ScriptingError>>();
+        val.as_ref()
+            .unwrap()
+            .send_event(CustomEvent::RequestModelLoad(model, sender))
+            .unwrap();
+        log::info!("awaiting receiver!");
+        // if let Ok(res) = receiver.await {
+        //     if let Ok(res) = res {
+        //         Ok(HorizonEntity::from_entity_id(res.id()))
+        //     } else {
+        //         Err(ScriptingError::ModelLoadFailed(format!(
+        //             "{:?}",
+        //             res.err().unwrap()
+        //         )))
+        //     }
+        // } else {
+        //     Err(ScriptingError::ModelLoadFailed(
+        //         "failed to load model!".to_string(),
+        //     ))
+        // }
+    }
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "registerCallback"))]
@@ -265,32 +302,6 @@ pub fn register_callback(event_type: ScriptEvent, callback: js_sys::Function) {
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "loadModel"))]
 pub async fn load_model(object_name: JsValue) -> Result<JsValue, JsValue> {
     if let Some(obj) = object_name.as_string() {
-        log::info!(target: "model_load","loading model {}",obj);
-        let importer = Importer::default();
-
-        let gltf_contents = importer.import_gltf_model(obj.as_str()).await.unwrap();
-        let model = ModelBuilder::create_gltf_model(gltf_contents)
-            .map_err(|e| JsValue::from_str(format!("error during model load: {:?}", e).as_str()))?;
-        log::info!("imported model");
-        let val = ref_thread_local::RefThreadLocal::borrow(&EVENT_LOOP_PROXY);
-        let (sender, receiver) =
-            futures::channel::oneshot::channel::<Result<Entity, ScriptingError>>();
-        val.as_ref()
-            .unwrap()
-            .send_event(CustomEvent::RequestModelLoad(model, sender))
-            .unwrap();
-
-        if let Ok(res) = receiver.await {
-            if let Ok(res) = res {
-                Ok(JsValue::from_f64(res.id().into()))
-            } else {
-                Err(JsValue::from_str(
-                    format!("{:?}", res.err().unwrap()).as_str(),
-                ))
-            }
-        } else {
-            Err(JsValue::from_str("failed to load model!"))
-        }
     } else {
         Err(JsValue::from_str("Invalid model name!"))
     }

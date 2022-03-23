@@ -214,7 +214,7 @@ pub fn setup() {
             });
             ecs.setup(state);
             setup_pipelines(&mut ecs.world);
-            create_debug_scene();
+            // create_debug_scene();
         }
         let fut = async move {
             let ecs = ECSContainer::global();
@@ -225,6 +225,12 @@ pub fn setup() {
                     &deno_core::resolve_url("file:///Horizon.js").unwrap(),
                     Some(
                         r#"
+                        const { opNow,clearTimeout, setTimeout,setInterval,clearInterval, handleTimerMacrotask } = globalThis.__bootstrap.timers;                
+                        Deno.core.setMacrotaskCallback(handleTimerMacrotask);
+                        
+                        const {Console} = globalThis.__bootstrap.console;
+                         globalThis.console = new Console((msg,level)=>Deno.core.print(msg,level > 1)); 
+                        
                         export function registerCallback(callback,callbackType)
                         {
                             HorizonInternal.registerCallback(callback,callbackType);
@@ -232,6 +238,23 @@ pub fn setup() {
                         export function log(message)
                         {
                             HorizonInternal.log(message);
+                        }
+                        export function loadModel(modelName)
+                        {                        
+                          return new Promise(async (resolve,reject)=>{
+                              await Deno.core.opAsync('op_load_model',modelName);
+                               let model =undefined;
+                               
+                             let interval =  setInterval(()=>{                              
+                                model = Deno.core.opSync('op_model_exists',modelName);
+                                if(model !== undefined)
+                                {
+                                clearInterval(interval);                              
+                                    resolve(model);                                    
+                                }                               
+                                },250);                                                         
+                          });
+                          
                         }
                         "#
                         .to_string(),
@@ -247,9 +270,24 @@ pub fn setup() {
                     &deno_core::resolve_url("file:///main.js").unwrap(),
                     Some(
                         r#"
-                        import { registerCallback,log } from './Horizon.js';
-                        //const callback = () => log("callbacks also work!");       
-                        //registerCallback(callback,2);           
+                        import { registerCallback,loadModel } from './Horizon.js';
+                          
+                        //const callback = () => log("callbacks also work!");                       
+                        try {
+                                                 
+                         console.log("asd");   
+                        registerCallback(async ()=>{
+                        log("loading model");
+                          let entity = await loadModel("280z.glb");
+                         
+                         let sponza = await loadModel("Sponza.glb"); 
+                         
+                        },0);  
+                        }                             
+                        catch(e)
+                        {
+                        log(e);
+                        }
                         "#
                         .to_string(),
                     ),
@@ -265,21 +303,16 @@ pub fn setup() {
 }
 
 fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
     let ecs = ECSContainer::global();
     let mut run_init = HandleInitCallbacks {};
     run_init.run_now(&ecs.world); // Very nice code... really....
     drop(ecs);
     let mut cursor_state = false;
     event_loop.run(move |event, _, control_flow| {
-        {
-            let fut = async move {
-                let ecs = ECSContainer::global();
-                let mut scripting = ecs.world.write_resource::<HorizonScriptingEngine>();
-                scripting.js_runtime.run_event_loop(false).await.unwrap();
-            };
-            futures::executor::block_on(fut);
-            // log::info!("ran event loop of deno");
-        }
         match event {
             Event::WindowEvent {
                 window_id,
@@ -428,6 +461,7 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                         sender.send(()).unwrap();
                     }
                     CustomEvent::RequestModelLoad(data, sender) => {
+                        log::info!("got data from model load");
                         let container = ECSContainer::global();
                         let state = container.world.read_resource::<State>();
                         let default_texture_container =
@@ -567,7 +601,11 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                                         index_buffer_len: indices.len() as u32,
                                     });
                                 } else {
-                                    sender.send(Err(ScriptingError::ModelLoadFailed)).unwrap();
+                                    sender
+                                        .send(Err(ScriptingError::ModelLoadFailed(
+                                            "Error while parsing model data".to_string(),
+                                        )))
+                                        .unwrap();
                                     return;
                                 }
                             }
@@ -600,13 +638,20 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                                 model: Some(model_entity),
                             })
                             .build();
-                        if cfg!(target_arch = "wasm32") {
-                            sender.send(Ok(model_entity)).unwrap();
-                        }
+                        // sender.send(Ok(model_entity)).unwrap();
                     }
                 };
             }
-            _ => {}
+            _ => {
+                let fut = async move {
+                    let ecs = ECSContainer::global();
+                    let mut scripting = ecs.world.write_resource::<HorizonScriptingEngine>();
+                    scripting.js_runtime.run_event_loop(false).await.unwrap();
+                };
+                rt.block_on(fut);
+                //futures::executor::block_on(fut);
+                // log::info!("ran event loop of deno");
+            }
         }
     });
 }

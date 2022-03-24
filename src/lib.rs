@@ -227,65 +227,11 @@ pub async fn setup() -> (EventLoop<CustomEvent>, Window) {
     let fut = async move {
         let ecs = ECSContainer::global();
         let mut scripting = ecs.world.write_resource::<HorizonScriptingEngine>();
-        let horizon_module = scripting
-            .js_runtime
-            .load_side_module(
-                &deno_core::resolve_url("file:///Horizon.js").unwrap(),
-                Some(
-                    r#"
-                        const { opNow,clearTimeout, setTimeout,setInterval,clearInterval, handleTimerMacrotask } = globalThis.__bootstrap.timers;                
-                        Deno.core.setMacrotaskCallback(handleTimerMacrotask);
-                        
-                        const {Console} = globalThis.__bootstrap.console;
-                         globalThis.console = new Console((msg,level)=>Deno.core.print(msg,level > 1)); 
-                        
-                        export function registerCallback(callbackType,callback)
-                        {
-                            HorizonInternal.registerCallback(callback,callbackType);
-                        }
-                        export function loadModel(modelName)
-                        {  
-                          return Deno.core.opAsync('op_load_model',modelName);
-                        }
-                        "#
-                        .to_string(),
-                ),
-            )
-            .await
-            .unwrap();
-        let _ = scripting.js_runtime.mod_evaluate(horizon_module);
-        scripting.js_runtime.run_event_loop(false).await.unwrap();
         let module_id = scripting
             .js_runtime
             .load_main_module(
-                &deno_core::resolve_url("file:///main.js").unwrap(),
-                Some(
-                    r#"
-                        import { registerCallback,loadModel } from './Horizon.js';
-                        const { opNow,clearTimeout, setTimeout,setInterval,clearInterval, handleTimerMacrotask } = globalThis.__bootstrap.timers;                     
-                        try {
-                        //loadModel("Sponza.glb"),
-                        registerCallback(0,async ()=>{                        
-                         let models =  await Promise.all([ loadModel("280z.glb")])
-                         for (const model of models)
-                         {
-                         console.log(model);                         
-                         }
-                         console.log("loaded models");
-                         setInterval(()=>{console.log("asd")},500);
-                        });  
-                        // registerCallback(2,async ()=>{
-                        //  console.log("random words");                       
-                        // });  
-                        
-                        }                             
-                        catch(e)
-                        {
-                        console.log(e);
-                        }
-                        "#
-                        .to_string(),
-                ),
+                &deno_core::resolve_path("./scripts/index.js").unwrap(),
+                None,
             )
             .await
             .unwrap();
@@ -614,28 +560,34 @@ pub fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window, ru
                             .build();
 
                         sender.send(Ok(model_entity)).unwrap();
-                        let fut = async move {
-                            let ecs = ECSContainer::global();
-                            let mut scripting =
-                                ecs.world.write_resource::<HorizonScriptingEngine>();
-                            scripting.js_runtime.run_event_loop(false).await.unwrap();
-                        };
-
-                        // nice code v2
-                        let local = tokio::task::LocalSet::new();
-                        local.block_on(&runtime, async move {
-                            // event loop needs to timeout (or just need to be polled ) inorder to give control back to the event loop so that other events can be processed
-                            task::spawn_local(fut).await.unwrap();
-                            // if tokio::time::timeout(Duration::from_nanos(1), )
-                            //     .await
-                            //     .is_err()
-                            // {}
-                        });
                     }
                 };
             }
-            _ => {}
+            _ => {
+                #[cfg(not(target_arch = "wasm32"))]
+                run_deno_event_loop(&runtime);
+                // run once a frame maybe?
+            }
         }
+    });
+}
+fn run_deno_event_loop(runtime: &Runtime) {
+    let fut = async move {
+        let ecs = ECSContainer::global();
+        let mut dt = ecs.world.write_resource::<DeltaTime>();
+        //     // 1s - 1000/60
+        if dt.total_frame_time >= chrono::Duration::milliseconds(983) && !dt.ran_event_loop_this_sec
+        {
+            let mut scripting = ecs.world.write_resource::<HorizonScriptingEngine>();
+            dt.ran_event_loop_this_sec = true;
+            scripting.js_runtime.run_event_loop(false).await.unwrap();
+            log::info!("ran event loop!");
+        }
+    };
+
+    let local = tokio::task::LocalSet::new();
+    local.block_on(runtime, async move {
+        task::spawn_local(fut).await.unwrap();
     });
 }
 

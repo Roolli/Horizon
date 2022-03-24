@@ -286,6 +286,22 @@ impl ScriptingFunctions {
             ))
         }
     }
+    pub async fn set_skybox_texture(texture_path: String) -> Result<(), ScriptingError> {
+        let file_contents = crate::Importer::default()
+            .import_file(texture_path.as_str())
+            .await;
+
+        let event_loop_proxy = ref_thread_local::RefThreadLocal::borrow(&EVENT_LOOP_PROXY);
+        // MAYBE unit type is not the greatest return value...
+        let (sender, receiver) = futures::channel::oneshot::channel::<()>();
+        event_loop_proxy
+            .as_ref()
+            .unwrap()
+            .send_event(CustomEvent::SkyboxTextureLoad(file_contents, sender))
+            .unwrap();
+        let res = receiver.await;
+        Ok(())
+    }
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "registerCallback"))]
@@ -310,18 +326,11 @@ pub async fn load_model(object_name: JsValue) -> Result<JsValue, JsValue> {
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "setSkyboxTexture"))]
 pub async fn set_skybox_texture(texture_path: JsValue) -> Result<JsValue, JsValue> {
     if let Some(path) = texture_path.as_string() {
-        let file_contents = Importer::default().import_file(path.as_str()).await;
-
-        let event_loop_proxy = ref_thread_local::RefThreadLocal::borrow(&EVENT_LOOP_PROXY);
-        // MAYBE unit type is not the greatest return value...
-        let (sender, receiver) = futures::channel::oneshot::channel::<()>();
-        event_loop_proxy
-            .as_ref()
-            .unwrap()
-            .send_event(CustomEvent::SkyboxTextureLoad(file_contents, sender))
-            .unwrap();
-        let res = receiver.await;
-        Ok(JsValue::TRUE)
+        ScriptingFunctions::set_skybox_texture(path)
+            .await
+            .map_err(|e| {
+                JsValue::from_str(format!("failed to override texture inner error: {:?}", e))
+            })?
     } else {
         Err(JsValue::from_str("Invalid argument!"))
     }

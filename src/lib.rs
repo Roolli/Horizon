@@ -5,7 +5,6 @@ use gltf::{buffer, Document};
 use image::DynamicImage;
 use rand::{random, Rng};
 use std::collections::HashMap;
-use std::sync::Mutex;
 
 use crate::{
     renderer::bindgroups::gbuffer::GBuffer,
@@ -62,11 +61,14 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 use rapier3d::na::{Point3, Quaternion, UnitQuaternion, Vector3};
 use ref_thread_local::RefThreadLocal;
+use tokio::runtime::Runtime;
+use tokio::task;
 use wgpu::{BlendFactor, ColorWrites};
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
+use crate::components::assetidentifier::AssetIdentifier;
 use crate::components::gltfmodel::{RawMaterial, RawMesh, RawModel};
 use crate::filesystem::modelimporter::Importer;
 use crate::renderer::bindgroupcontainer::BindGroupContainer;
@@ -101,6 +103,7 @@ use crate::systems::events::handlelifecycleevents::HandleInitCallbacks;
 use crate::TextureViewTypes::DeferredSpecular;
 use ecscontainer::ECSContainer;
 use wgpu::util::DeviceExt;
+use winit::window::Window;
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 
@@ -112,7 +115,7 @@ extern "C" {
 
 // TODO: convert sender to result<T> and return proper errors
 #[derive(Debug)]
-enum CustomEvent {
+pub enum CustomEvent {
     RequestModelLoad(
         HorizonModel,
         futures::channel::oneshot::Sender<Result<Entity, ScriptingError>>,
@@ -125,16 +128,8 @@ ref_thread_local::ref_thread_local! {
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
-pub fn setup() {
-    let event_loop = EventLoop::<CustomEvent>::with_user_event();
-    let proxy = event_loop.create_proxy();
-    *EVENT_LOOP_PROXY.borrow_mut() = Some(proxy);
-
-    let window = WindowBuilder::new()
-        .with_title("horizon")
-        .build(&event_loop)
-        .unwrap();
-
+#[cfg(target_arch = "wasm32")]
+pub async fn setup() -> (EventLoop<CustomEvent>, Window) {
     #[cfg(target_arch = "wasm32")]
     {
         use web_sys::Window;
@@ -198,115 +193,110 @@ pub fn setup() {
             }
         });
     }
+}
 
-    #[cfg(not(target_arch = "wasm32"))]
+fn get_winit_resources() -> (EventLoop<CustomEvent>, Window) {
+    let event_loop = EventLoop::<CustomEvent>::with_user_event();
+    let proxy = event_loop.create_proxy();
+    *EVENT_LOOP_PROXY.borrow_mut() = Some(proxy);
+
+    let window = WindowBuilder::new()
+        .with_title("horizon")
+        .build(&event_loop)
+        .unwrap();
+    (event_loop, window)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn setup() -> (EventLoop<CustomEvent>, Window) {
+    let winit_resources = get_winit_resources();
+    env_logger::init();
     {
-        env_logger::init();
-        {
-            let mut ecs = ECSContainer::global_mut();
+        let mut ecs = ECSContainer::global_mut();
 
-            let state = futures::executor::block_on(State::new(&window));
-            let platform = egui_winit::State::new(4096, &window);
-            ecs.world.insert(EguiContainer {
-                render_pass: RenderPass::new(&state.device, state.sc_descriptor.format, 1),
-                state: platform,
-                context: egui::Context::default(),
-            });
-            ecs.setup(state);
-            setup_pipelines(&mut ecs.world);
-            // create_debug_scene();
-        }
-        let fut = async move {
-            let ecs = ECSContainer::global();
-            let mut scripting = ecs.world.write_resource::<HorizonScriptingEngine>();
-            let horizon_module = scripting
-                .js_runtime
-                .load_side_module(
-                    &deno_core::resolve_url("file:///Horizon.js").unwrap(),
-                    Some(
-                        r#"
+        let state = State::new(&winit_resources.1).await;
+        let platform = egui_winit::State::new(4096, &winit_resources.1);
+        ecs.world.insert(EguiContainer {
+            render_pass: RenderPass::new(&state.device, state.sc_descriptor.format, 1),
+            state: platform,
+            context: egui::Context::default(),
+        });
+        ecs.setup(state);
+        setup_pipelines(&mut ecs.world);
+    }
+    let fut = async move {
+        let ecs = ECSContainer::global();
+        let mut scripting = ecs.world.write_resource::<HorizonScriptingEngine>();
+        let horizon_module = scripting
+            .js_runtime
+            .load_side_module(
+                &deno_core::resolve_url("file:///Horizon.js").unwrap(),
+                Some(
+                    r#"
                         const { opNow,clearTimeout, setTimeout,setInterval,clearInterval, handleTimerMacrotask } = globalThis.__bootstrap.timers;                
                         Deno.core.setMacrotaskCallback(handleTimerMacrotask);
                         
                         const {Console} = globalThis.__bootstrap.console;
                          globalThis.console = new Console((msg,level)=>Deno.core.print(msg,level > 1)); 
                         
-                        export function registerCallback(callback,callbackType)
+                        export function registerCallback(callbackType,callback)
                         {
                             HorizonInternal.registerCallback(callback,callbackType);
                         }
-                        export function log(message)
-                        {
-                            HorizonInternal.log(message);
-                        }
                         export function loadModel(modelName)
-                        {                        
-                          return new Promise(async (resolve,reject)=>{
-                              await Deno.core.opAsync('op_load_model',modelName);
-                               let model =undefined;
-                               
-                             let interval =  setInterval(()=>{                              
-                                model = Deno.core.opSync('op_model_exists',modelName);
-                                if(model !== undefined)
-                                {
-                                clearInterval(interval);                              
-                                    resolve(model);                                    
-                                }                               
-                                },250);                                                         
-                          });
-                          
+                        {  
+                          return Deno.core.opAsync('op_load_model',modelName);
                         }
                         "#
                         .to_string(),
-                    ),
-                )
-                .await
-                .unwrap();
-            let _ = scripting.js_runtime.mod_evaluate(horizon_module);
-            scripting.js_runtime.run_event_loop(false).await.unwrap();
-            let module_id = scripting
-                .js_runtime
-                .load_main_module(
-                    &deno_core::resolve_url("file:///main.js").unwrap(),
-                    Some(
-                        r#"
+                ),
+            )
+            .await
+            .unwrap();
+        let _ = scripting.js_runtime.mod_evaluate(horizon_module);
+        scripting.js_runtime.run_event_loop(false).await.unwrap();
+        let module_id = scripting
+            .js_runtime
+            .load_main_module(
+                &deno_core::resolve_url("file:///main.js").unwrap(),
+                Some(
+                    r#"
                         import { registerCallback,loadModel } from './Horizon.js';
-                          
-                        //const callback = () => log("callbacks also work!");                       
+                        const { opNow,clearTimeout, setTimeout,setInterval,clearInterval, handleTimerMacrotask } = globalThis.__bootstrap.timers;                     
                         try {
-                                                 
-                         console.log("asd");   
-                        registerCallback(async ()=>{
-                        log("loading model");
-                          let entity = await loadModel("280z.glb");
-                         
-                         let sponza = await loadModel("Sponza.glb"); 
-                         
-                        },0);  
+                        //loadModel("Sponza.glb"),
+                        registerCallback(0,async ()=>{                        
+                         let models =  await Promise.all([ loadModel("280z.glb")])
+                         for (const model of models)
+                         {
+                         console.log(model);                         
+                         }
+                         console.log("loaded models");
+                         setInterval(()=>{console.log("asd")},500);
+                        });  
+                        // registerCallback(2,async ()=>{
+                        //  console.log("random words");                       
+                        // });  
+                        
                         }                             
                         catch(e)
                         {
-                        log(e);
+                        console.log(e);
                         }
                         "#
                         .to_string(),
-                    ),
-                )
-                .await
-                .unwrap();
-            let _ = scripting.js_runtime.mod_evaluate(module_id);
-            scripting.js_runtime.run_event_loop(false).await.unwrap();
-        };
-        futures::executor::block_on(fut);
-        run(event_loop, window);
-    }
+                ),
+            )
+            .await
+            .unwrap();
+        let _ = scripting.js_runtime.mod_evaluate(module_id);
+    };
+    fut.await;
+    winit_resources
 }
 
-fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .unwrap();
+#[cfg(not(target_arch = "wasm32"))]
+pub fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window, runtime: Runtime) {
     let ecs = ECSContainer::global();
     let mut run_init = HandleInitCallbacks {};
     run_init.run_now(&ecs.world); // Very nice code... really....
@@ -387,8 +377,6 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                 }
             }
             Event::RedrawRequested(_) => {
-                // callbacks can't have mutable access to this as it's causing a borrowMutError (rightly so.)
-
                 let ecs = ECSContainer::global();
                 let mut render_callbacks =
                     crate::systems::events::handlelifecycleevents::HandleOnRenderCallbacks {};
@@ -468,7 +456,6 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                             container.world.read_resource::<DefaultTextureContainer>();
                         let mut gpu_mats = HashMap::new();
                         let mut loaded_gpu_textures: HashMap<usize, Texture> = HashMap::new();
-
                         for (index, material_data) in &data.materials {
                             material_data.upload_material_textures_to_gpu(
                                 &state.device,
@@ -617,41 +604,37 @@ fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
                             meshes,
                             materials: gpu_mats,
                         };
+                        let identifier = data.name.as_ref().unwrap().clone();
                         let model_entity = container
                             .world
                             .create_entity_unchecked()
                             .with(raw_model)
                             .with(data)
-                            //   .with(crate::components::modelcollider::ModelCollider(collision_builder))
+                            .with(AssetIdentifier(identifier))
                             .build();
-                        let rng = rand::thread_rng();
-                        // for i in 0..200 {
-                        //container.world.create_entity_unchecked().with(crate::components::transform::Transform{position: Vector3::new(rng.gen_range(-100.0..100.0),0.0,rng.gen_range(-100.0..100.0)),rotation:UnitQuaternion::from_euler_angles(0.0,90.0_f32.to_radians(),90.0_f32.to_radians()),scale:Vector3::new(1.0,1.0,1.0),model:Some(model_entity)}).build();
-                        //}
-                        container
-                            .world
-                            .create_entity_unchecked()
-                            .with(crate::components::transform::Transform {
-                                position: Vector3::new(0.0, 0.0, 0.0),
-                                rotation: UnitQuaternion::from_euler_angles(0.0, 0.0, 0.0),
-                                scale: Vector3::new(0.1, 0.1, 0.1),
-                                model: Some(model_entity),
-                            })
-                            .build();
-                        // sender.send(Ok(model_entity)).unwrap();
+
+                        sender.send(Ok(model_entity)).unwrap();
+                        let fut = async move {
+                            let ecs = ECSContainer::global();
+                            let mut scripting =
+                                ecs.world.write_resource::<HorizonScriptingEngine>();
+                            scripting.js_runtime.run_event_loop(false).await.unwrap();
+                        };
+
+                        // nice code v2
+                        let local = tokio::task::LocalSet::new();
+                        local.block_on(&runtime, async move {
+                            // event loop needs to timeout (or just need to be polled ) inorder to give control back to the event loop so that other events can be processed
+                            task::spawn_local(fut).await.unwrap();
+                            // if tokio::time::timeout(Duration::from_nanos(1), )
+                            //     .await
+                            //     .is_err()
+                            // {}
+                        });
                     }
                 };
             }
-            _ => {
-                let fut = async move {
-                    let ecs = ECSContainer::global();
-                    let mut scripting = ecs.world.write_resource::<HorizonScriptingEngine>();
-                    scripting.js_runtime.run_event_loop(false).await.unwrap();
-                };
-                rt.block_on(fut);
-                //futures::executor::block_on(fut);
-                // log::info!("ran event loop of deno");
-            }
+            _ => {}
         }
     });
 }
@@ -887,18 +870,4 @@ fn setup_pipelines(world: &mut World) {
         .with(DebugTextureBindGroup)
         .with(debug_texture_container)
         .build();
-}
-
-fn create_debug_scene() {
-    let importer = Importer::default();
-    let gltf_contents =
-        futures::executor::block_on(importer.import_gltf_model("Sponza.glb")).unwrap();
-    let model = ModelBuilder::create_gltf_model(gltf_contents).unwrap();
-
-    let val = ref_thread_local::RefThreadLocal::borrow(&EVENT_LOOP_PROXY);
-    let (sender, receiver) = futures::channel::oneshot::channel::<Result<Entity, ScriptingError>>();
-    val.as_ref()
-        .unwrap()
-        .send_event(CustomEvent::RequestModelLoad(model, sender))
-        .unwrap();
 }

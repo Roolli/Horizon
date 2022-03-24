@@ -248,8 +248,8 @@ impl ScriptingFunctions {
             .set_angvel(vel, true);
         Ok(())
     }
-    // -> Result<HorizonEntity, ScriptingError>
-    pub async fn load_model(model_name: String) {
+
+    pub async fn load_model(model_name: String) -> Result<HorizonEntity, ScriptingError> {
         log::info!(target: "model_load","loading model {}",model_name);
         let importer = crate::Importer::default();
 
@@ -257,11 +257,12 @@ impl ScriptingFunctions {
             .import_gltf_model(model_name.as_str())
             .await
             .unwrap();
-        let model = ModelBuilder::create_gltf_model(gltf_contents)
+        let mut model = ModelBuilder::create_gltf_model(gltf_contents)
             .map_err(|e| {
                 ScriptingError::ModelLoadFailed(format!("error during model load: {:?}", e))
             })
             .unwrap();
+        model.name = Some(model_name);
         log::info!("imported model");
         let val = ref_thread_local::RefThreadLocal::borrow(&EVENT_LOOP_PROXY);
         let (sender, receiver) =
@@ -270,21 +271,20 @@ impl ScriptingFunctions {
             .unwrap()
             .send_event(CustomEvent::RequestModelLoad(model, sender))
             .unwrap();
-        log::info!("awaiting receiver!");
-        // if let Ok(res) = receiver.await {
-        //     if let Ok(res) = res {
-        //         Ok(HorizonEntity::from_entity_id(res.id()))
-        //     } else {
-        //         Err(ScriptingError::ModelLoadFailed(format!(
-        //             "{:?}",
-        //             res.err().unwrap()
-        //         )))
-        //     }
-        // } else {
-        //     Err(ScriptingError::ModelLoadFailed(
-        //         "failed to load model!".to_string(),
-        //     ))
-        // }
+        if let Ok(res) = receiver.await {
+            if let Ok(res) = res {
+                Ok(HorizonEntity::from_entity_id(res.id()))
+            } else {
+                Err(ScriptingError::ModelLoadFailed(format!(
+                    "{:?}",
+                    res.err().unwrap()
+                )))
+            }
+        } else {
+            Err(ScriptingError::ModelLoadFailed(
+                "failed to load model!".to_string(),
+            ))
+        }
     }
 }
 

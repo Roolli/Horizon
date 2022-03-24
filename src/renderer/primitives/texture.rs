@@ -1,15 +1,14 @@
-use std::{num::NonZeroU8};
 use std::collections::HashSet;
+use std::num::NonZeroU8;
 
+use crate::filesystem::modelimporter::Importer;
+use crate::renderer::primitives::texture::ImageLoadError::ImageParseError;
+use crate::SkyboxBindGroup;
 use anyhow::*;
 use bytemuck::Contiguous;
 use ddsfile::{DataFormat, DxgiFormat, FourCC};
 use image::{DynamicImage, GenericImageView, ImageBuffer, ImageFormat, ImageResult};
 use wgpu::util::DeviceExt;
-use crate::filesystem::modelimporter::Importer;
-use crate::renderer::primitives::texture::ImageLoadError::ImageParseError;
-use crate::SkyboxBindGroup;
-
 
 pub struct Texture {
     pub texture: wgpu::Texture,
@@ -45,21 +44,23 @@ impl Texture {
             depth_or_array_layers: 1,
         };
 
-
-        let texture = device.create_texture_with_data(queue,&wgpu::TextureDescriptor {
-            label,
-            dimension: wgpu::TextureDimension::D2,
-            size: texture_size,
-            mip_level_count: 1,
-            sample_count: 1,
-            format: if is_normal {
-                wgpu::TextureFormat::Rgba8Unorm
-            } else {
-                wgpu::TextureFormat::Rgba8UnormSrgb
+        let texture = device.create_texture_with_data(
+            queue,
+            &wgpu::TextureDescriptor {
+                label,
+                dimension: wgpu::TextureDimension::D2,
+                size: texture_size,
+                mip_level_count: 1,
+                sample_count: 1,
+                format: if is_normal {
+                    wgpu::TextureFormat::Rgba8Unorm
+                } else {
+                    wgpu::TextureFormat::Rgba8UnormSrgb
+                },
+                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             },
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-
-        },&rgba);
+            &rgba,
+        );
 
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
@@ -67,15 +68,11 @@ impl Texture {
             address_mode_v: wgpu::AddressMode::Repeat,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
             mipmap_filter: wgpu::FilterMode::Linear,
-            mag_filter:wgpu::FilterMode::Linear,
-            min_filter:wgpu::FilterMode::Nearest,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Nearest,
             anisotropy_clamp: NonZeroU8::from_integer(1),
             ..Default::default()
         });
-        if label.is_some() && !label.as_ref().unwrap().contains("default")
-        {
-            log::info!("size:{:?} name:{:?}",texture_size,label);
-        }
         Ok(Self {
             sampler,
             texture,
@@ -95,7 +92,7 @@ impl Texture {
         }
 
         let img = DynamicImage::ImageRgb8(buffer);
-        Self::from_image(device,queue, &img, label, is_normal)
+        Self::from_image(device, queue, &img, label, is_normal)
     }
     pub fn create_depth_texture(
         device: &wgpu::Device,
@@ -149,44 +146,55 @@ impl Texture {
 
         Self::from_image(device, queue, &img, label, is_normal)
     }
-    pub fn load_skybox_texture(device:&wgpu::Device,queue:&wgpu::Queue,buffer:&[u8]) -> (wgpu::Texture,wgpu::TextureView)
-    {
+    pub fn load_skybox_texture(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        buffer: &[u8],
+    ) -> (wgpu::Texture, wgpu::TextureView) {
         // Use DDS formats for skybox only!
         let img = ddsfile::Dds::read(buffer).unwrap();
-        let texture = device.create_texture_with_data(queue,&wgpu::TextureDescriptor{
-            label: Some("skybox_texture"),
-            format: wgpu::TextureFormat::Bgra8UnormSrgb,
-            mip_level_count:img.get_num_mipmap_levels(),
-            dimension:wgpu::TextureDimension::D2,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING,
-            sample_count:1,
-            size:wgpu::Extent3d{
-                width: img.get_width(),
-                height: img.get_height(),
-                depth_or_array_layers:6,
-            }
-        },&img.data);
-        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor{
-            label:Some("skybox_texture_view"),
-            dimension:Some(wgpu::TextureViewDimension::Cube),
+        let texture = device.create_texture_with_data(
+            queue,
+            &wgpu::TextureDescriptor {
+                label: Some("skybox_texture"),
+                format: wgpu::TextureFormat::Bgra8UnormSrgb,
+                mip_level_count: img.get_num_mipmap_levels(),
+                dimension: wgpu::TextureDimension::D2,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING,
+                sample_count: 1,
+                size: wgpu::Extent3d {
+                    width: img.get_width(),
+                    height: img.get_height(),
+                    depth_or_array_layers: 6,
+                },
+            },
+            &img.data,
+        );
+        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor {
+            label: Some("skybox_texture_view"),
+            dimension: Some(wgpu::TextureViewDimension::Cube),
             ..Default::default()
         });
-        (texture,texture_view)
-
+        (texture, texture_view)
     }
-    pub fn create_image_from_gltf_texture(buffer_data:&[gltf::buffer::Data],texture:&gltf::Texture) -> Result<DynamicImage,ImageLoadError>
-    {
-        let image =  if let gltf::image::Source::View {view,mime_type}  =  texture.source().source() {
+    pub fn create_image_from_gltf_texture(
+        buffer_data: &[gltf::buffer::Data],
+        texture: &gltf::Texture,
+    ) -> Result<DynamicImage, ImageLoadError> {
+        let image = if let gltf::image::Source::View { view, mime_type } = texture.source().source()
+        {
             let data = &buffer_data[view.buffer().index()];
-            image::load_from_memory(&data.0[view.offset()..view.offset()+view.length()]).map_err(|e| ImageParseError(format!("error while parsing image: Inner error: {:?}",e)))
-        }else {
+            image::load_from_memory(&data.0[view.offset()..view.offset() + view.length()]).map_err(
+                |e| ImageParseError(format!("error while parsing image: Inner error: {:?}", e)),
+            )
+        } else {
             Err(ImageLoadError::InvalidSource)
         };
         image
     }
 }
 
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub enum ImageLoadError {
     InvalidSource,
     ImageParseError(String),

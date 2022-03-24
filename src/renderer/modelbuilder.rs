@@ -267,6 +267,7 @@ impl ModelBuilder {
             meshes,
             materials,
             textures: loaded_textures,
+            name: None,
         })
     }
 

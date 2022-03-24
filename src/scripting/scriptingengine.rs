@@ -273,26 +273,11 @@ impl HorizonScriptingEngine {
         let horizon_key = v8::String::new(scope, "HorizonInternal").unwrap();
         let horizon_val = v8::Object::new(scope);
         let callback_key = v8::String::new(scope, "registerCallback").unwrap();
-        let print_key = v8::String::new(scope, "log").unwrap();
-        let print_val = v8::Function::new(scope, Self::print_cb).unwrap();
         let func = v8::Function::new(scope, Self::register_callback_cb).unwrap();
         func.set_name(callback_key);
         global_context.set(scope, horizon_key.into(), horizon_val.into());
         horizon_val.set(scope, callback_key.into(), func.into());
-        horizon_val.set(scope, print_key.into(), print_val.into());
     }
-    pub fn print_cb(
-        scope: &mut v8::HandleScope,
-        args: v8::FunctionCallbackArguments,
-        _rv: v8::ReturnValue,
-    ) {
-        let obj = args.get(0);
-        let try_catch_scope = &mut v8::TryCatch::new(scope);
-        let string = obj.to_string(try_catch_scope).unwrap();
-
-        log::info!("{}", string.to_rust_string_lossy(try_catch_scope));
-    }
-
     fn register_callback_cb(
         scope: &mut deno_core::v8::HandleScope,
         args: v8::FunctionCallbackArguments,
@@ -324,9 +309,10 @@ use deno_core::op;
 use deno_web::BlobStore;
 
 #[op]
-async fn op_load_model(model_name: String) -> Result<(), deno_core::anyhow::Error> {
-    ScriptingFunctions::load_model(model_name).await;
-    Ok(())
+async fn op_load_model(model_name: String) -> Result<HorizonEntity, deno_core::anyhow::Error> {
+    ScriptingFunctions::load_model(model_name)
+        .await
+        .map_err(|e| deno_core::anyhow::Error::msg(format!("{:?}", e)))
 }
 #[op]
 fn op_model_exists(model_name: String) -> Result<Option<HorizonEntity>, deno_core::anyhow::Error> {

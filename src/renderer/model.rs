@@ -1,17 +1,18 @@
+use image::DynamicImage;
 use std::collections::HashMap;
 use std::ops::Range;
-use image::DynamicImage;
 
-use super::primitives::{material::Material};
-use super::primitives::{mesh::Mesh};
-use specs::{Component, VecStorage};
+use super::primitives::material::Material;
+use super::primitives::mesh::Mesh;
 use crate::components::gltfmodel::GltfModel;
 use crate::renderer::primitives::material::GltfMaterial;
+use specs::{Component, VecStorage};
 
-#[derive(Component,Debug)]
+#[derive(Component, Debug)]
 #[storage(VecStorage)]
 pub struct HorizonModel {
-   pub meshes: Vec<GltfModel>,
-   pub materials: HashMap<usize,GltfMaterial>,
-   pub textures: HashMap<usize,DynamicImage>,
+    pub meshes: Vec<GltfModel>,
+    pub materials: HashMap<usize, GltfMaterial>,
+    pub textures: HashMap<usize, DynamicImage>,
+    pub name: Option<String>,
 }

@@ -9,6 +9,7 @@ use wasm_bindgen::prelude::*;
 pub enum ScriptingError {
     MissingComponent(&'static str),
     ModelLoadFailed(String),
+    TextureOverrideFailed(String),
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]

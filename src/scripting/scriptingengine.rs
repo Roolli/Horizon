@@ -1,184 +1,7 @@
-use anyhow::Error;
-use deno_core::error::generic_error;
 use deno_core::{
-    Extension, FsModuleLoader, JsRuntime, ModuleLoader, ModuleSource, ModuleSourceFuture,
-    ModuleSpecifier, ModuleType, OpState, RuntimeOptions,
+    Extension, ExtensionBuilder, FsModuleLoader, JsRuntime, ModuleLoader, ModuleSource,
+    ModuleSourceFuture, ModuleSpecifier, ModuleType, OpState, RuntimeOptions,
 };
-use std::pin::Pin;
-
-// use std::collections::HashMap;
-// use std::sync::Once;
-//
-// use crate::components::scriptingcallback::ScriptingCallback;
-// use crate::scripting::scriptevent::ScriptEvent;
-// use crate::ECSContainer;
-// use specs::{Builder, WorldExt};
-// #[cfg(not(target_arch = "wasm32"))]
-// use v8;
-// #[cfg(not(target_arch = "wasm32"))]
-// use v8::{
-//     Context, ContextScope, CreateParams, HandleScope, Local, OwnedIsolate, Platform, UniquePtr,
-//     UniqueRef,
-// };
-//
-// static PLATFORM_INIT: Once = Once::new();
-// #[cfg(not(target_arch = "wasm32"))]
-// pub struct V8ScriptingEngine {
-//     pub isolate: OwnedIsolate,
-// }
-//
-// #[cfg(not(target_arch = "wasm32"))]
-// fn platform_init() {
-//     PLATFORM_INIT.call_once(|| {
-//         let platform = v8::new_default_platform(0, false).make_shared();
-//         v8::V8::initialize_platform(platform);
-//         v8::V8::initialize();
-//     });
-// }
-// #[cfg(not(target_arch = "wasm32"))]
-// impl V8ScriptingEngine {
-//     pub fn new() -> Self {
-//         platform_init();
-//         let mut isolate = v8::Isolate::new(Default::default());
-//         let global_context;
-//         {
-//             let handle_scope = &mut v8::HandleScope::new(&mut isolate);
-//             let context = Self::setup_global_functions(handle_scope);
-//
-//             global_context = v8::Global::new(handle_scope, context);
-//         }
-//         isolate.set_slot(std::rc::Rc::new(std::cell::RefCell::new(
-//             ScriptingEngineState {
-//                 callbacks: HashMap::new(),
-//                 global_context: Some(global_context),
-//             },
-//         )));
-//         Self { isolate }
-//     }
-//     pub fn setup_global_functions<'s>(
-//         scope: &mut v8::HandleScope<'s, ()>,
-//     ) -> v8::Local<'s, v8::Context> {
-//         let scope = &mut v8::EscapableHandleScope::new(scope);
-//         let context = v8::Context::new(scope);
-//         let global = context.global(scope);
-//
-//         let scope = &mut v8::ContextScope::new(scope, context);
-//
-//         let horizon_key = v8::String::new(scope, "Horizon").unwrap();
-//         let horizon_val = v8::Object::new(scope);
-//         global.set(scope, horizon_key.into(), horizon_val.into());
-//         // Self::bind_function(scope, horizon_val, "print", ScriptingFunctions::print);
-//         // Self::bind_function(
-//         //     scope,
-//         //     horizon_val,
-//         //     "registerCallback",
-//         //     ScriptingFunctions::register_callback,
-//         // );
-//         scope.escape(context)
-//     }
-//     fn script_origin<'a>(
-//         scope: &mut v8::HandleScope<'a>,
-//         resource_name: v8::Local<'a, v8::String>,
-//     ) -> v8::ScriptOrigin<'a> {
-//         let source_map = v8::String::new(scope, "").unwrap();
-//         v8::ScriptOrigin::new(
-//             scope,
-//             resource_name.into(),
-//             0,
-//             0,
-//             false,
-//             123,
-//             source_map.into(),
-//             false,
-//             false,
-//             false,
-//         )
-//     }
-//
-//     fn module_origin<'a>(
-//         scope: &mut v8::HandleScope<'a>,
-//         resource_name: v8::Local<'a, v8::String>,
-//     ) -> v8::ScriptOrigin<'a> {
-//         let source_map = v8::String::new(scope, "").unwrap();
-//         v8::ScriptOrigin::new(
-//             scope,
-//             resource_name.into(),
-//             0,
-//             0,
-//             false,
-//             123,
-//             source_map.into(),
-//             false,
-//             false,
-//             true,
-//         )
-//     }
-//     pub fn global_context(&mut self) -> v8::Global<v8::Context> {
-//         let state = Self::state(&self.isolate);
-//         let state = state.as_ref().borrow();
-//         state.global_context.clone().unwrap()
-//     }
-//     pub fn execute(&mut self, js_filename: &str, js_src: &str) {
-//         let global_context = self.global_context();
-//         let scope = &mut v8::HandleScope::with_context(&mut self.isolate, global_context);
-//         let source = v8::String::new(scope, js_src).unwrap();
-//         let name = v8::String::new(scope, js_filename).unwrap();
-//         let origin = Self::script_origin(scope, name);
-//
-//         let tc_scope = &mut v8::TryCatch::new(scope);
-//
-//         let script = v8::Script::compile(tc_scope, source, Some(&origin)).unwrap();
-//         match script.run(tc_scope) {
-//             Some(_) => {}
-//             None => {
-//                 let exception = tc_scope.exception().unwrap();
-//                 let message = v8::Exception::create_message(tc_scope, exception);
-//                 let message_string = message.get(tc_scope);
-//                 log::error!(
-//                     "exception has occured: {}",
-//                     message_string.to_rust_string_lossy(tc_scope)
-//                 );
-//             }
-//         }
-//     }
-//
-//     #[inline(always)]
-//     fn bind_function(
-//         scope: &mut v8::HandleScope<'_>,
-//         obj: v8::Local<v8::Object>,
-//         name: &'static str,
-//         callback: impl v8::MapFnTo<v8::FunctionCallback>,
-//     ) {
-//         let key = v8::String::new(scope, name).unwrap();
-//         let template = v8::FunctionTemplate::new(scope, callback);
-//         let val = template.get_function(scope).unwrap();
-//         obj.set(scope, key.into(), val.into());
-//     }
-//     pub fn state(isolate: &v8::Isolate) -> std::rc::Rc<std::cell::RefCell<ScriptingEngineState>> {
-//         let state = isolate
-//             .get_slot::<std::rc::Rc<std::cell::RefCell<ScriptingEngineState>>>()
-//             .unwrap();
-//         state.clone()
-//     }
-// }
-// #[cfg(not(target_arch = "wasm32"))]
-// pub struct ScriptingEngineState {
-//     pub global_context: Option<v8::Global<v8::Context>>,
-//     pub callbacks: HashMap<String, v8::Global<v8::Function>>,
-// }
-//
-// #[cfg(not(target_arch = "wasm32"))]
-// impl crate::scripting::scriptingfunctions::ScriptingFunctions {
-//
-//
-//     // https://github.com/denoland/deno/blob/main/core/bindings.rs#L463
-//     pub fn register_callback(
-//         scope: &mut v8::HandleScope,
-//         args: v8::FunctionCallbackArguments,
-//         _rv: v8::ReturnValue,
-//     ) {
-//
-// }
 
 struct TimerPermission;
 
@@ -188,45 +11,6 @@ impl deno_web::TimersPermission for TimerPermission {
     }
 
     fn check_unstable(&self, state: &OpState, api_name: &'static str) {}
-}
-
-#[derive(Default)]
-struct ModLoader;
-
-impl ModuleLoader for ModLoader {
-    fn resolve(
-        &self,
-        specifier: &str,
-        referrer: &str,
-        _is_main: bool,
-    ) -> Result<ModuleSpecifier, Error> {
-        Ok(deno_core::resolve_import(specifier, referrer)?)
-    }
-
-    fn load(
-        &self,
-        module_specifier: &ModuleSpecifier,
-        maybe_referrer: Option<ModuleSpecifier>,
-        is_dyn_import: bool,
-    ) -> Pin<Box<ModuleSourceFuture>> {
-        let module_specifier = module_specifier.clone();
-        async move {
-            log::info!("{:?}", module_specifier.as_str());
-            let path = module_specifier.to_file_path().unwrap();
-            let path_os_string = path.into_os_string();
-            let path_string = path_os_string.into_string().unwrap();
-            let path_str = path_string.as_str();
-            let file_contents = Importer::default().import_file_abs(path_str).await;
-            let module = ModuleSource {
-                code: String::from_utf8(file_contents).unwrap(),
-                module_url_found: module_specifier.to_string(),
-                module_url_specified: module_specifier.to_string(),
-                module_type: ModuleType::JavaScript,
-            };
-            Ok(module)
-        }
-        .boxed_local()
-    }
 }
 
 use crate::components::scriptingcallback::ScriptingCallback;
@@ -249,9 +33,8 @@ pub struct HorizonScriptingEngine {
 impl Default for HorizonScriptingEngine {
     fn default() -> Self {
         let loader = std::rc::Rc::new(FsModuleLoader);
-        let extensions = Extension::builder()
-            .ops(vec![op_load_model::decl(), op_model_exists::decl()])
-            .build();
+        let mut extension_builder = Extension::builder();
+        let extension = HorizonScriptingEngine::add_ops(&mut extension_builder).build();
         let js_runtime = JsRuntime::new(RuntimeOptions {
             module_loader: Some(loader),
             extensions: vec![
@@ -259,7 +42,7 @@ impl Default for HorizonScriptingEngine {
                 deno_webidl::init(),
                 deno_url::init(),
                 deno_web::init::<TimerPermission>(BlobStore::default(), None),
-                extensions,
+                extension,
             ],
 
             ..Default::default()
@@ -288,6 +71,7 @@ impl HorizonScriptingEngine {
         _rv: v8::ReturnValue,
     ) {
         let ecs = ECSContainer::global();
+
         let function = match v8::Local::<v8::Function>::try_from(args.get(0)) {
             Ok(callback) => callback,
             Err(err) => {
@@ -305,18 +89,52 @@ impl HorizonScriptingEngine {
             .with(ScriptingCallback::new(global_func))
             .with(event_type)
             .build();
+        log::info!(target:"callbacks","callback registered!");
+    }
+    // perhaps a trait and a function and DI would be better where each area would be put in it's own module... yeah #notime
+    fn add_ops(builder: &mut ExtensionBuilder) -> &mut ExtensionBuilder {
+        builder.ops(vec![
+            op_load_model::decl(),
+            op_model_exists::decl(),
+            op_set_skybox_texture::decl(),
+            op_camera_get_pos::decl(),
+            op_camera_get_yaw::decl(),
+            op_camera_get_pitch::decl(),
+            op_camera_set_pos::decl(),
+            op_camera_set_yaw::decl(),
+            op_camera_set_pitch::decl(),
+            op_dir_light_get_dir::decl(),
+            op_dir_light_get_color::decl(),
+            op_dir_light_set_dir::decl(),
+            op_dir_light_set_color::decl(),
+            op_create_entity::decl(),
+            op_get_component::decl(),
+            op_set_component::decl(),
+            op_delete_component::decl(),
+            op_apply_force::decl(),
+            op_apply_force_torque::decl(),
+            op_apply_impulse::decl(),
+            op_apply_impulse_torque::decl(),
+            op_set_lin_vel::decl(),
+            op_set_ang_vel::decl(),
+        ])
     }
 }
 use crate::components::assetidentifier::AssetIdentifier;
+use crate::components::componenttypes::{ComponentData, ComponentTypes};
 use crate::scripting::scriptingfunctions::ScriptingFunctions;
+use crate::scripting::util::entityinfo::{Component, EntityInfo};
+use crate::scripting::util::glmconversion::Vec3;
+use crate::scripting::util::horizonresource::{ScriptingCamera, ScriptingDirLight};
 use deno_core::op;
 use deno_web::BlobStore;
 
 #[op]
-async fn op_load_model(model_name: String) -> Result<HorizonEntity, deno_core::anyhow::Error> {
+async fn op_load_model(model_name: String) -> Result<u32, deno_core::anyhow::Error> {
     ScriptingFunctions::load_model(model_name)
         .await
         .map_err(|e| deno_core::anyhow::Error::msg(format!("{:?}", e)))
+        .map(|v| v.get_id())
 }
 #[op]
 fn op_model_exists(model_name: String) -> Result<Option<HorizonEntity>, deno_core::anyhow::Error> {
@@ -329,4 +147,122 @@ fn op_model_exists(model_name: String) -> Result<Option<HorizonEntity>, deno_cor
         }
     }
     Ok(None)
+}
+#[op]
+async fn op_set_skybox_texture(texture_name: String) -> Result<(), deno_core::anyhow::Error> {
+    ScriptingFunctions::set_skybox_texture(texture_name)
+        .await
+        .map_err(|e| deno_core::anyhow::Error::msg(format!("{:?}", e)))
+}
+#[op]
+fn op_camera_get_pos() -> Result<Vec3, deno_core::anyhow::Error> {
+    Ok(ScriptingCamera::get_position())
+}
+#[op]
+fn op_camera_set_pos(pos: Vec3) -> Result<(), deno_core::anyhow::Error> {
+    ScriptingCamera::set_position(pos);
+    Ok(())
+}
+#[op]
+fn op_camera_get_pitch() -> Result<f32, deno_core::anyhow::Error> {
+    Ok(ScriptingCamera::get_pitch())
+}
+#[op]
+fn op_camera_set_pitch(pitch: f32) -> Result<(), deno_core::anyhow::Error> {
+    ScriptingCamera::set_pitch(pitch);
+    Ok(())
+}
+#[op]
+fn op_camera_get_yaw() -> Result<f32, deno_core::anyhow::Error> {
+    Ok(ScriptingCamera::get_yaw())
+}
+#[op]
+fn op_camera_set_yaw(yaw: f32) -> Result<(), deno_core::anyhow::Error> {
+    ScriptingCamera::set_yaw(yaw);
+    Ok(())
+}
+#[op]
+fn op_dir_light_get_dir() -> Result<Vec3, deno_core::anyhow::Error> {
+    Ok(ScriptingDirLight::get_direction())
+}
+#[op]
+fn op_dir_light_get_color() -> Result<Vec3, deno_core::anyhow::Error> {
+    Ok(ScriptingDirLight::get_color())
+}
+#[op]
+fn op_dir_light_set_dir(dir: Vec3) -> Result<(), deno_core::anyhow::Error> {
+    ScriptingDirLight::set_direction(dir);
+    Ok(())
+}
+#[op]
+fn op_dir_light_set_color(color: Vec3) -> Result<(), deno_core::anyhow::Error> {
+    ScriptingDirLight::set_color(color);
+    Ok(())
+}
+#[op]
+fn op_create_entity(entity_info: String) -> Result<u32, deno_core::anyhow::Error> {
+    let entity_data = deno_core::serde_json::from_str::<EntityInfo>(entity_info.as_str())?;
+    ScriptingFunctions::create_entity(entity_data)
+        .map_err(|e| deno_core::anyhow::Error::msg(format!("{:?}", e)))
+        .map(|v| v.get_id())
+}
+#[op]
+fn op_get_component(
+    entity_id: u32,
+    component_type: ComponentTypes,
+) -> Result<ComponentData, deno_core::anyhow::Error> {
+    Ok(ScriptingFunctions::get_component(component_type, entity_id))
+}
+#[op]
+fn op_set_component(
+    entity_id: u32,
+    component_data: String,
+) -> Result<(), deno_core::anyhow::Error> {
+    let component_data = deno_core::serde_json::from_str::<Component>(component_data.as_str())?;
+    ScriptingFunctions::insert_component(component_data, entity_id)
+        .map_err(|e| deno_core::anyhow::Error::msg(format!("{:?}", e)))
+}
+#[op]
+fn op_delete_component(
+    entity_id: u32,
+    component_type: ComponentTypes,
+) -> Result<(), deno_core::anyhow::Error> {
+    ScriptingFunctions::delete_component(component_type, entity_id);
+    Ok(())
+}
+#[op]
+fn op_apply_force(entity_id: u32, force: Vec3) -> Result<(), deno_core::anyhow::Error> {
+    ScriptingFunctions::apply_force_to_entity(force.into(), entity_id)
+        .map_err(|e| deno_core::anyhow::Error::msg(format!("{:?}", e)))
+}
+#[op]
+fn op_apply_force_torque(
+    entity_id: u32,
+    force_torque: Vec3,
+) -> Result<(), deno_core::anyhow::Error> {
+    ScriptingFunctions::apply_torque_to_entity(force_torque.into(), entity_id)
+        .map_err(|e| deno_core::anyhow::Error::msg(format!("{:?}", e)))
+}
+#[op]
+fn op_apply_impulse(entity_id: u32, impulse: Vec3) -> Result<(), deno_core::anyhow::Error> {
+    ScriptingFunctions::apply_impulse_to_entity(impulse.into(), entity_id)
+        .map_err(|e| deno_core::anyhow::Error::msg(format!("{:?}", e)))
+}
+#[op]
+fn op_apply_impulse_torque(
+    entity_id: u32,
+    impulse_torque: Vec3,
+) -> Result<(), deno_core::anyhow::Error> {
+    ScriptingFunctions::apply_torque_impulse(impulse_torque.into(), entity_id)
+        .map_err(|e| deno_core::anyhow::Error::msg(format!("{:?}", e)))
+}
+#[op]
+fn op_set_lin_vel(entity_id: u32, lin_vel: Vec3) -> Result<(), deno_core::anyhow::Error> {
+    ScriptingFunctions::set_linear_velocity(lin_vel.into(), entity_id)
+        .map_err(|e| deno_core::anyhow::Error::msg(format!("{:?}", e)))
+}
+#[op]
+fn op_set_ang_vel(entity_id: u32, ang_vel: Vec3) -> Result<(), deno_core::anyhow::Error> {
+    ScriptingFunctions::set_angular_velocity(ang_vel.into(), entity_id)
+        .map_err(|e| deno_core::anyhow::Error::msg(format!("{:?}", e)))
 }

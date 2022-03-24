@@ -236,6 +236,7 @@ pub async fn setup() -> (EventLoop<CustomEvent>, Window) {
             .await
             .unwrap();
         let _ = scripting.js_runtime.mod_evaluate(module_id);
+        scripting.js_runtime.run_event_loop(false).await.unwrap();
     };
     fut.await;
     winit_resources

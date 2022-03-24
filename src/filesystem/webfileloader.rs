@@ -1,7 +1,7 @@
-use futures::{TryFutureExt};
+use futures::TryFutureExt;
 
 use async_trait::async_trait;
-use std::{usize};
+use std::usize;
 
 use super::fileloader::FileLoader;
 
@@ -18,9 +18,9 @@ impl WebFileLoader {
         }
     }
     async fn send_request(&self, path: &str) -> Vec<u8> {
-        use js_sys::{Promise};
+        use js_sys::Promise;
         use wasm_bindgen::{JsCast, JsValue};
-        use wasm_bindgen_futures::{JsFuture};
+        use wasm_bindgen_futures::JsFuture;
         let mut opts = web_sys::RequestInit::new();
         opts.method("GET");
         opts.mode(web_sys::RequestMode::Cors);

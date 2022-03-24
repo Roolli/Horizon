@@ -1,8 +1,8 @@
 use anyhow::Error;
 use deno_core::error::generic_error;
 use deno_core::{
-    Extension, JsRuntime, ModuleLoader, ModuleSource, ModuleSourceFuture, ModuleSpecifier,
-    ModuleType, OpState, RuntimeOptions,
+    Extension, FsModuleLoader, JsRuntime, ModuleLoader, ModuleSource, ModuleSourceFuture,
+    ModuleSpecifier, ModuleType, OpState, RuntimeOptions,
 };
 use std::pin::Pin;
 
@@ -200,8 +200,7 @@ impl ModuleLoader for ModLoader {
         referrer: &str,
         _is_main: bool,
     ) -> Result<ModuleSpecifier, Error> {
-        let s = deno_core::resolve_import(specifier, referrer).unwrap();
-        Ok(s)
+        Ok(deno_core::resolve_import(specifier, referrer)?)
     }
 
     fn load(
@@ -212,11 +211,16 @@ impl ModuleLoader for ModLoader {
     ) -> Pin<Box<ModuleSourceFuture>> {
         let module_specifier = module_specifier.clone();
         async move {
-            log::info!("{:?}", module_specifier);
+            log::info!("{:?}", module_specifier.as_str());
+            let path = module_specifier.to_file_path().unwrap();
+            let path_os_string = path.into_os_string();
+            let path_string = path_os_string.into_string().unwrap();
+            let path_str = path_string.as_str();
+            let file_contents = Importer::default().import_file_abs(path_str).await;
             let module = ModuleSource {
-                code: String::from(""),
-                module_url_found: String::from(""),
-                module_url_specified: String::from(""),
+                code: String::from_utf8(file_contents).unwrap(),
+                module_url_found: module_specifier.to_string(),
+                module_url_specified: module_specifier.to_string(),
                 module_type: ModuleType::JavaScript,
             };
             Ok(module)
@@ -228,7 +232,7 @@ impl ModuleLoader for ModLoader {
 use crate::components::scriptingcallback::ScriptingCallback;
 use crate::scripting::scriptevent::ScriptEvent;
 use crate::scripting::util::horizonentity::HorizonEntity;
-use crate::ECSContainer;
+use crate::{ECSContainer, Importer};
 use deno_core::v8;
 use futures::{FutureExt, Stream, StreamExt, TryFutureExt};
 use specs::{Builder, Join, WorldExt};
@@ -244,7 +248,7 @@ pub struct HorizonScriptingEngine {
 #[cfg(not(target_arch = "wasm32"))]
 impl Default for HorizonScriptingEngine {
     fn default() -> Self {
-        let loader = std::rc::Rc::new(ModLoader::default());
+        let loader = std::rc::Rc::new(FsModuleLoader);
         let extensions = Extension::builder()
             .ops(vec![op_load_model::decl(), op_model_exists::decl()])
             .build();

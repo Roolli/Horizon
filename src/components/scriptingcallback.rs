@@ -61,7 +61,15 @@ impl<'s> ExecuteFunction<'s> for ScriptingCallback {
         let js = &mut engine.js_runtime;
         let scope = &mut js.handle_scope();
         let recv = v8::Integer::new(scope, 1).into();
-        self.callback.open(scope).call(scope, recv, &[]);
+        match args {
+            CallbackArgs::Tick(t) => {
+                let val = v8::Number::new(scope, t as f64).into();
+                self.callback.open(scope).call(scope, recv, &[val]);
+            }
+            CallbackArgs::None => {
+                self.callback.open(scope).call(scope, recv, &[]);
+            }
+        }
     }
 }
 #[cfg(not(target_arch = "wasm32"))]
@@ -77,8 +85,6 @@ impl ScriptingCallback {
 pub trait ExecuteFunction<'s> {
     type InvokeParameters;
     fn execute_with_no_args(&self, additional_args: Self::InvokeParameters);
-
-    // use numbers for now might change to a boxed value
     fn execute_with_args(&self, additional_args: Self::InvokeParameters, args: CallbackArgs);
 }
 #[derive(Debug)]

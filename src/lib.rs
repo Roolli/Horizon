@@ -97,6 +97,7 @@ use crate::resources::defaulttexturecontainer::{DefaultTextureContainer, Default
 use crate::resources::deltatime::DeltaTime;
 use crate::resources::eguicontainer::EguiContainer;
 use crate::resources::projection::Projection;
+use crate::resources::windowstate::WindowState;
 use crate::scripting::scriptingengine::HorizonScriptingEngine;
 use crate::scripting::ScriptingError;
 use crate::systems::events::handlelifecycleevents::HandleInitCallbacks;
@@ -129,7 +130,7 @@ ref_thread_local::ref_thread_local! {
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 #[cfg(target_arch = "wasm32")]
-pub async fn setup() -> (EventLoop<CustomEvent>, Window) {
+pub fn run() {
     #[cfg(target_arch = "wasm32")]
     {
         use web_sys::Window;
@@ -139,8 +140,8 @@ pub async fn setup() -> (EventLoop<CustomEvent>, Window) {
         let screen_x = win.inner_width().unwrap().as_f64().unwrap();
         let screen_y = win.inner_height().unwrap().as_f64().unwrap();
 
-        log::info!("x: {}", screen_x);
-        log::info!("y: {}", screen_y);
+        log::info!(target:"window_size","x: {}", screen_x);
+        log::info!(target:"window_size","y: {}", screen_y);
         std::panic::set_hook(Box::new(console_error_panic_hook::hook));
         console_log::init().expect("failed to initialize logger");
         let doc = win.document().unwrap();
@@ -194,6 +195,38 @@ pub async fn setup() -> (EventLoop<CustomEvent>, Window) {
         });
     }
 }
+#[cfg(target_arch = "wasm32")]
+pub fn run_event_loop(event_loop: EventLoop<CustomEvent>, window: winit::window::Window) {
+    run_init();
+    event_loop.run(move |event, _, mut control_flow| {
+        match event {
+            Event::WindowEvent {
+                ref event,
+                window_id,
+                ..
+            } => {
+                if window_id == window.id() {
+                    handle_window_event(event, &window, control_flow);
+                }
+            }
+            Event::DeviceEvent { ref event, .. } => {
+                handle_device_events(event);
+            }
+            Event::RedrawRequested(_) => {
+                handle_redraw_request();
+            }
+            Event::MainEventsCleared => {
+                window.request_redraw();
+            }
+            Event::UserEvent(ref event) => {
+                handle_user_events(event);
+            }
+            _ => {
+                // run once a frame maybe?
+            }
+        }
+    });
+}
 
 fn get_winit_resources() -> (EventLoop<CustomEvent>, Window) {
     let event_loop = EventLoop::<CustomEvent>::with_user_event();
@@ -244,334 +277,341 @@ pub async fn setup() -> (EventLoop<CustomEvent>, Window) {
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window, runtime: Runtime) {
-    let ecs = ECSContainer::global();
-    let mut run_init = HandleInitCallbacks {};
-    run_init.run_now(&ecs.world); // Very nice code... really....
-    drop(ecs);
-    let mut cursor_state = false;
-    event_loop.run(move |event, _, control_flow| {
+    run_init();
+    event_loop.run(move |event, _, mut control_flow| {
         match event {
             Event::WindowEvent {
-                window_id,
                 ref event,
-            } if window_id == window.id() => {
-                {
-                    let container = ECSContainer::global();
-                    let mut egui = container.world.write_resource::<EguiContainer>();
-                    // TODO: check return value
-                    egui.handle_events(event);
-                }
-                match event {
-                    WindowEvent::MouseInput { button, state, .. } => {
-                        let container = ECSContainer::global();
-                        let mut mouse_event = container.world.write_resource::<MouseInputEvent>();
-                        mouse_event.info = (*button, *state);
-                        mouse_event.handled = false;
-                    }
-                    WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
-                    WindowEvent::KeyboardInput { input, .. } => {
-                        if let KeyboardInput {
-                            state: ElementState::Pressed,
-                            virtual_keycode: Some(VirtualKeyCode::Return),
-                            ..
-                        } = input
-                        {
-                            *control_flow = ControlFlow::Exit
-                        } else if let KeyboardInput {
-                            state: ElementState::Pressed,
-                            virtual_keycode: Some(VirtualKeyCode::M),
-                            ..
-                        } = input
-                        {
-                            cursor_state = !cursor_state;
-                            window.set_cursor_grab(cursor_state).unwrap();
-                            window.set_cursor_visible(!cursor_state);
-                        }
-                        let container = ECSContainer::global();
-                        let mut keyboard_event = container.world.write_resource::<KeyboardEvent>();
-                        keyboard_event.info = *input;
-                        keyboard_event.handled = false;
-                    }
-                    WindowEvent::Resized(physical_size) => {
-                        let container = ECSContainer::global();
-                        let mut resize_event = container.world.write_resource::<ResizeEvent>();
-                        resize_event.new_size = *physical_size;
-                        resize_event.scale_factor = Some(window.scale_factor());
-                        resize_event.handled = false;
-                    }
-                    WindowEvent::ScaleFactorChanged {
-                        new_inner_size,
-                        scale_factor,
-                    } => {
-                        let container = ECSContainer::global();
-                        let mut resize_event = container.world.write_resource::<ResizeEvent>();
-                        resize_event.new_size = **new_inner_size;
-                        resize_event.scale_factor = Some(*scale_factor);
-                        resize_event.handled = false;
-                    }
-                    //Not working on the web currently
-                    WindowEvent::ModifiersChanged(_state) => {}
-                    _ => {}
+                window_id,
+                ..
+            } => {
+                if window_id == window.id() {
+                    handle_window_event(event, &window, control_flow);
                 }
             }
-            Event::DeviceEvent { event, .. } => {
-                if let DeviceEvent::MouseMotion { delta } = event {
-                    let container = ECSContainer::global();
-                    let mut mouse_position_event =
-                        container.world.write_resource::<MouseMoveEvent>();
-                    mouse_position_event.info = delta;
-                    mouse_position_event.handled = false;
-                }
+            Event::DeviceEvent { ref event, .. } => {
+                handle_device_events(event);
             }
             Event::RedrawRequested(_) => {
-                let ecs = ECSContainer::global();
-                let mut render_callbacks =
-                    crate::systems::events::handlelifecycleevents::HandleOnRenderCallbacks {};
-                render_callbacks.run_now(&ecs.world);
-                let mut egui_container = ecs.world.write_resource::<EguiContainer>();
-                let inputs = egui_container.state.take_egui_input(&window);
-                egui_container.context.begin_frame(inputs);
-                drop(egui_container);
-                drop(ecs);
-                let mut container = ECSContainer::global_mut();
-                container.dispatch();
-                drop(container);
-                let container = ECSContainer::global();
-                let render_result = container.world.read_resource::<RenderResult>();
-                match render_result.result {
-                    Some(wgpu::SurfaceError::Lost) => {
-                        let mut resize_event = container.world.write_resource::<ResizeEvent>();
-                        let state = container.world.read_resource::<State>();
-                        resize_event.new_size = state.size;
-                        resize_event.handled = false;
-                    }
-                    Some(wgpu::SurfaceError::OutOfMemory) => {
-                        log::error!("Not enough memory to allocate new frame!");
-                        *control_flow = ControlFlow::Exit;
-                    }
-                    _ => {}
-                };
+                handle_redraw_request();
             }
             Event::MainEventsCleared => {
                 window.request_redraw();
             }
-            Event::UserEvent(event) => {
-                //TODO: add a system which handles this event and use a resource to pass the data to it!
-                match event {
-                    CustomEvent::SkyboxTextureLoad(data, sender) => {
-                        let container = ECSContainer::global();
-                        let state = container.world.read_resource::<State>();
-                        let mut binding_resource_container =
-                            container.world.write_resource::<BindingResourceContainer>();
-                        let mut bind_group_container =
-                            container.world.write_storage::<BindGroupContainer>();
-                        let (texture, texture_view) = Texture::load_skybox_texture(
-                            &state.device,
-                            &state.queue,
-                            data.as_slice(),
-                        );
-                        binding_resource_container.textures[TextureTypes::Skybox] = Some(texture);
-                        binding_resource_container.texture_views[TextureViewTypes::Skybox] =
-                            Some(texture_view);
-                        let skybox_bind_group = container.world.read_storage::<SkyboxBindGroup>();
-                        let (_, skybox_bind_group_container) =
-                            (&skybox_bind_group, &mut bind_group_container)
-                                .join()
-                                .next()
-                                .unwrap();
-                        *skybox_bind_group_container = SkyboxBindGroup::create_container(
-                            &state.device,
-                            (
-                                binding_resource_container.buffers[BufferTypes::Skybox]
-                                    .as_ref()
-                                    .unwrap(),
-                                binding_resource_container.texture_views[TextureViewTypes::Skybox]
-                                    .as_ref()
-                                    .unwrap(),
-                                binding_resource_container.samplers[SamplerTypes::Skybox]
-                                    .as_ref()
-                                    .unwrap(),
-                            ),
-                        );
-                        sender.send(()).unwrap();
-                    }
-                    CustomEvent::RequestModelLoad(data, sender) => {
-                        log::info!("got data from model load");
-                        let container = ECSContainer::global();
-                        let state = container.world.read_resource::<State>();
-                        let default_texture_container =
-                            container.world.read_resource::<DefaultTextureContainer>();
-                        let mut gpu_mats = HashMap::new();
-                        let mut loaded_gpu_textures: HashMap<usize, Texture> = HashMap::new();
-                        for (index, material_data) in &data.materials {
-                            material_data.upload_material_textures_to_gpu(
-                                &state.device,
-                                &state.queue,
-                                &data.textures,
-                                &mut loaded_gpu_textures,
-                            );
-                            let bind_group = material_data.register_bind_group(
-                                &state.device,
-                                &loaded_gpu_textures,
-                                &default_texture_container.elements,
-                            );
-                            gpu_mats.insert(
-                                *index,
-                                RawMaterial {
-                                    bind_group_container: bind_group,
-                                },
-                            );
-                        }
-                        let mut meshes = Vec::new();
-                        for mesh in &data.meshes {
-                            for primitive in &mesh.primitives {
-                                if let Some(VertexAttribValues::Float32x3(pos)) = primitive
-                                    .mesh
-                                    .vertex_attribs
-                                    .get(&VertexAttributeType::Position)
-                                {
-                                    let vertex_count = pos.len();
-                                    let mut normals = vec![[0.0, 0.0, 0.0]; vertex_count];
-                                    let mut tangents = vec![[1.0, 1.0, 1.0, 1.0]; vertex_count];
-                                    let mut vertex_colors = vec![0; vertex_count];
-                                    let mut texture_coords = vec![[0.0, 0.0]; vertex_count];
-                                    let mut weights = vec![[0.0, 0.0, 0.0, 0.0]; vertex_count];
-                                    let mut joint_ids = vec![0; vertex_count];
-
-                                    if let Some(VertexAttribValues::Float32x3(norm_values)) =
-                                        primitive
-                                            .mesh
-                                            .vertex_attribs
-                                            .get(&VertexAttributeType::Normal)
-                                    {
-                                        normals.copy_from_slice(norm_values);
-                                    }
-                                    if let Some(VertexAttribValues::Float32x4(tangent_values)) =
-                                        primitive
-                                            .mesh
-                                            .vertex_attribs
-                                            .get(&VertexAttributeType::Tangent)
-                                    {
-                                        tangents.copy_from_slice(tangent_values);
-                                    }
-
-                                    if let Some(VertexAttribValues::Float32x2(tex_coords_values)) =
-                                        primitive
-                                            .mesh
-                                            .vertex_attribs
-                                            .get(&VertexAttributeType::TextureCoords)
-                                    {
-                                        texture_coords
-                                            .copy_from_slice(tex_coords_values.as_slice());
-                                    }
-
-                                    if let Some(VertexAttribValues::Uint32(vertex_color_values)) =
-                                        primitive
-                                            .mesh
-                                            .vertex_attribs
-                                            .get(&VertexAttributeType::VertexColor)
-                                    {
-                                        vertex_colors
-                                            .copy_from_slice(vertex_color_values.as_slice());
-                                    }
-
-                                    if let Some(VertexAttribValues::Float32x4(weight_values)) =
-                                        primitive
-                                            .mesh
-                                            .vertex_attribs
-                                            .get(&VertexAttributeType::JointWeight)
-                                    {
-                                        weights.copy_from_slice(weight_values.as_slice())
-                                    }
-                                    if let Some(VertexAttribValues::Uint32(joint_id_values)) =
-                                        primitive
-                                            .mesh
-                                            .vertex_attribs
-                                            .get(&VertexAttributeType::JointIndex)
-                                    {
-                                        joint_ids.copy_from_slice(joint_id_values.as_slice());
-                                    }
-                                    let mut vertex_data = Vec::new();
-                                    for i in 0..vertex_count {
-                                        vertex_data.push(MeshVertexData {
-                                            position: pos[i],
-                                            normals: normals[i],
-                                            tex_coords: texture_coords[i],
-                                            joint_index: joint_ids[i],
-                                            vertex_color: vertex_colors[i],
-                                            tangent: tangents[i],
-                                            joint_weight: weights[i],
-                                        });
-                                    }
-                                    let vertex_buffer = state.device.create_buffer_init(
-                                        &wgpu::util::BufferInitDescriptor {
-                                            label: Some(
-                                                format!("{}-vertex_buffer", primitive.mesh.name)
-                                                    .as_str(),
-                                            ),
-                                            usage: wgpu::BufferUsages::VERTEX
-                                                | wgpu::BufferUsages::COPY_DST,
-                                            contents: bytemuck::cast_slice(vertex_data.as_slice()),
-                                        },
-                                    );
-                                    let indices = primitive.mesh.indices.as_ref().unwrap();
-                                    let index_buffer = state.device.create_buffer_init(
-                                        &wgpu::util::BufferInitDescriptor {
-                                            label: Some(
-                                                format!("{}-index_buffer", primitive.mesh.name)
-                                                    .as_str(),
-                                            ),
-                                            usage: wgpu::BufferUsages::INDEX
-                                                | wgpu::BufferUsages::COPY_DST,
-                                            contents: bytemuck::cast_slice(indices.as_slice()),
-                                        },
-                                    );
-
-                                    meshes.push(RawMesh {
-                                        name: primitive.mesh.name.clone(),
-                                        index_buffer,
-                                        vertex_buffer,
-                                        material_index: primitive.material.unwrap_or(0),
-                                        index_buffer_len: indices.len() as u32,
-                                    });
-                                } else {
-                                    sender
-                                        .send(Err(ScriptingError::ModelLoadFailed(
-                                            "Error while parsing model data".to_string(),
-                                        )))
-                                        .unwrap();
-                                    return;
-                                }
-                            }
-                        }
-
-                        // let collision_builder =
-                        //     rapier3d::geometry::ColliderBuilder::convex_hull(obj_model.meshes[0].points.as_slice()).unwrap();
-                        let raw_model = RawModel {
-                            meshes,
-                            materials: gpu_mats,
-                        };
-                        let identifier = data.name.as_ref().unwrap().clone();
-                        let model_entity = container
-                            .world
-                            .create_entity_unchecked()
-                            .with(raw_model)
-                            .with(data)
-                            .with(AssetIdentifier(identifier))
-                            .build();
-
-                        sender.send(Ok(model_entity)).unwrap();
-                    }
-                };
+            Event::UserEvent(ref event) => {
+                handle_user_events(event);
             }
             _ => {
-                #[cfg(not(target_arch = "wasm32"))]
-                run_deno_event_loop(&runtime);
                 // run once a frame maybe?
+                run_deno_event_loop(&runtime);
             }
         }
     });
 }
+fn run_init() {
+    let ecs = ECSContainer::global();
+    let mut run_init = HandleInitCallbacks {};
+    run_init.run_now(&ecs.world); // Very nice code... really....
+}
+fn handle_device_events(event: &winit::event::DeviceEvent) {
+    if let DeviceEvent::MouseMotion { delta } = event {
+        let container = ECSContainer::global();
+        let mut mouse_position_event = container.world.write_resource::<MouseMoveEvent>();
+        mouse_position_event.info = *delta;
+        mouse_position_event.handled = false;
+    }
+}
+
+fn handle_model_load(custom_event: &CustomEvent) {
+    if let CustomEvent::RequestModelLoad(data, sender) = custom_event {
+        log::info!("got data from model load");
+        let container = ECSContainer::global();
+        let state = container.world.read_resource::<State>();
+        let default_texture_container = container.world.read_resource::<DefaultTextureContainer>();
+        let mut gpu_mats = HashMap::new();
+        let mut loaded_gpu_textures: HashMap<usize, Texture> = HashMap::new();
+        for (index, material_data) in &data.materials {
+            material_data.upload_material_textures_to_gpu(
+                &state.device,
+                &state.queue,
+                &data.textures,
+                &mut loaded_gpu_textures,
+            );
+            let bind_group = material_data.register_bind_group(
+                &state.device,
+                &loaded_gpu_textures,
+                &default_texture_container.elements,
+            );
+            gpu_mats.insert(
+                *index,
+                RawMaterial {
+                    bind_group_container: bind_group,
+                },
+            );
+        }
+        let mut meshes = Vec::new();
+        for mesh in &data.meshes {
+            for primitive in &mesh.primitives {
+                if let Some(VertexAttribValues::Float32x3(pos)) = primitive
+                    .mesh
+                    .vertex_attribs
+                    .get(&VertexAttributeType::Position)
+                {
+                    let vertex_count = pos.len();
+                    let mut normals = vec![[0.0, 0.0, 0.0]; vertex_count];
+                    let mut tangents = vec![[1.0, 1.0, 1.0, 1.0]; vertex_count];
+                    let mut vertex_colors = vec![0; vertex_count];
+                    let mut texture_coords = vec![[0.0, 0.0]; vertex_count];
+                    let mut weights = vec![[0.0, 0.0, 0.0, 0.0]; vertex_count];
+                    let mut joint_ids = vec![0; vertex_count];
+
+                    if let Some(VertexAttribValues::Float32x3(norm_values)) = primitive
+                        .mesh
+                        .vertex_attribs
+                        .get(&VertexAttributeType::Normal)
+                    {
+                        normals.copy_from_slice(&norm_values);
+                    }
+                    if let Some(VertexAttribValues::Float32x4(tangent_values)) = primitive
+                        .mesh
+                        .vertex_attribs
+                        .get(&VertexAttributeType::Tangent)
+                    {
+                        tangents.copy_from_slice(&tangent_values);
+                    }
+
+                    if let Some(VertexAttribValues::Float32x2(tex_coords_values)) = primitive
+                        .mesh
+                        .vertex_attribs
+                        .get(&VertexAttributeType::TextureCoords)
+                    {
+                        texture_coords.copy_from_slice(tex_coords_values.as_slice());
+                    }
+
+                    if let Some(VertexAttribValues::Uint32(vertex_color_values)) = primitive
+                        .mesh
+                        .vertex_attribs
+                        .get(&VertexAttributeType::VertexColor)
+                    {
+                        vertex_colors.copy_from_slice(vertex_color_values.as_slice());
+                    }
+
+                    if let Some(VertexAttribValues::Float32x4(weight_values)) = primitive
+                        .mesh
+                        .vertex_attribs
+                        .get(&VertexAttributeType::JointWeight)
+                    {
+                        weights.copy_from_slice(weight_values.as_slice())
+                    }
+                    if let Some(VertexAttribValues::Uint32(joint_id_values)) = primitive
+                        .mesh
+                        .vertex_attribs
+                        .get(&VertexAttributeType::JointIndex)
+                    {
+                        joint_ids.copy_from_slice(joint_id_values.as_slice());
+                    }
+                    let mut vertex_data = Vec::new();
+                    for i in 0..vertex_count {
+                        vertex_data.push(MeshVertexData {
+                            position: pos[i],
+                            normals: normals[i],
+                            tex_coords: texture_coords[i],
+                            joint_index: joint_ids[i],
+                            vertex_color: vertex_colors[i],
+                            tangent: tangents[i],
+                            joint_weight: weights[i],
+                        });
+                    }
+                    let vertex_buffer =
+                        state
+                            .device
+                            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                                label: Some(
+                                    format!("{}-vertex_buffer", primitive.mesh.name).as_str(),
+                                ),
+                                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                                contents: bytemuck::cast_slice(vertex_data.as_slice()),
+                            });
+                    let indices = primitive.mesh.indices.as_ref().unwrap();
+                    let index_buffer =
+                        state
+                            .device
+                            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                                label: Some(
+                                    format!("{}-index_buffer", primitive.mesh.name).as_str(),
+                                ),
+                                usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+                                contents: bytemuck::cast_slice(indices.as_slice()),
+                            });
+
+                    meshes.push(RawMesh {
+                        name: primitive.mesh.name.clone(),
+                        index_buffer,
+                        vertex_buffer,
+                        material_index: primitive.material.unwrap_or(0),
+                        index_buffer_len: indices.len() as u32,
+                    });
+                } else {
+                    sender
+                        .send(Err(ScriptingError::ModelLoadFailed(
+                            "Error while parsing model data".to_string(),
+                        )))
+                        .unwrap();
+                    return;
+                }
+            }
+        }
+
+        // let collision_builder =
+        //     rapier3d::geometry::ColliderBuilder::convex_hull(obj_model.meshes[0].points.as_slice()).unwrap();
+        let raw_model = RawModel {
+            meshes,
+            materials: gpu_mats,
+        };
+        let identifier = data.name.as_ref().unwrap().clone();
+        let model_entity = container
+            .world
+            .create_entity_unchecked()
+            .with(raw_model)
+            .with(data)
+            .with(AssetIdentifier(identifier))
+            .build();
+
+        sender.send(Ok(model_entity)).unwrap();
+    }
+}
+fn handle_skybox_texture_override(skybox_event: &CustomEvent) {
+    if let CustomEvent::SkyboxTextureLoad(data, sender) = skybox_event {
+        let container = ECSContainer::global();
+        let state = container.world.read_resource::<State>();
+        let mut binding_resource_container =
+            container.world.write_resource::<BindingResourceContainer>();
+        let mut bind_group_container = container.world.write_storage::<BindGroupContainer>();
+        let (texture, texture_view) =
+            Texture::load_skybox_texture(&state.device, &state.queue, data.as_slice());
+        binding_resource_container.textures[TextureTypes::Skybox] = Some(texture);
+        binding_resource_container.texture_views[TextureViewTypes::Skybox] = Some(texture_view);
+        let skybox_bind_group = container.world.read_storage::<SkyboxBindGroup>();
+        let (_, skybox_bind_group_container) = (&skybox_bind_group, &mut bind_group_container)
+            .join()
+            .next()
+            .unwrap();
+        *skybox_bind_group_container = SkyboxBindGroup::create_container(
+            &state.device,
+            (
+                binding_resource_container.buffers[BufferTypes::Skybox]
+                    .as_ref()
+                    .unwrap(),
+                binding_resource_container.texture_views[TextureViewTypes::Skybox]
+                    .as_ref()
+                    .unwrap(),
+                binding_resource_container.samplers[SamplerTypes::Skybox]
+                    .as_ref()
+                    .unwrap(),
+            ),
+        );
+        sender.send(()).unwrap();
+    }
+}
+
+fn handle_redraw_request() {
+    let ecs = ECSContainer::global();
+    let mut render_callbacks =
+        crate::systems::events::handlelifecycleevents::HandleOnRenderCallbacks {};
+    render_callbacks.run_now(&ecs.world);
+    let mut egui_container = ecs.world.write_resource::<EguiContainer>();
+    let inputs = egui_container.state.take_egui_input(&window);
+    egui_container.context.begin_frame(inputs);
+    drop(egui_container);
+    drop(ecs);
+    let mut container = ECSContainer::global_mut();
+    container.dispatch();
+    drop(container);
+    let container = ECSContainer::global();
+    let render_result = container.world.read_resource::<RenderResult>();
+    match render_result.result {
+        Some(wgpu::SurfaceError::Lost) => {
+            let mut resize_event = container.world.write_resource::<ResizeEvent>();
+            let state = container.world.read_resource::<State>();
+            resize_event.new_size = state.size;
+            resize_event.handled = false;
+        }
+        Some(wgpu::SurfaceError::OutOfMemory) => {
+            log::error!("Not enough memory to allocate new frame!");
+            *control_flow = ControlFlow::Exit;
+        }
+        _ => {}
+    };
+}
+fn handle_user_events(event: &CustomEvent) {
+    match event {
+        CustomEvent::SkyboxTextureLoad(_, _) => handle_skybox_texture_override(event),
+        CustomEvent::RequestModelLoad(_, _) => handle_model_load(event),
+    }
+}
+
+fn handle_window_event(event: &WindowEvent, window: &Window, control_flow: &mut ControlFlow) {
+    let container = ECSContainer::global();
+    let mut egui = container.world.write_resource::<EguiContainer>();
+    // TODO: check return value
+    egui.handle_events(event);
+    match event {
+        WindowEvent::MouseInput { button, state, .. } => {
+            let container = ECSContainer::global();
+            let mut mouse_event = container.world.write_resource::<MouseInputEvent>();
+            mouse_event.info = (*button, *state);
+            mouse_event.handled = false;
+        }
+        WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+        WindowEvent::KeyboardInput { input, .. } => {
+            if let KeyboardInput {
+                state: ElementState::Pressed,
+                virtual_keycode: Some(VirtualKeyCode::Return),
+                ..
+            } = input
+            {
+                *control_flow = ControlFlow::Exit
+            } else if let KeyboardInput {
+                state: ElementState::Pressed,
+                virtual_keycode: Some(VirtualKeyCode::M),
+                ..
+            } = input
+            {
+                let container = ECSContainer::global();
+                let mut window_state = container.world.write_resource::<WindowState>();
+                window_state.cursor_state = !window_state.cursor_state;
+                window.set_cursor_grab(window_state.cursor_state).unwrap();
+                window.set_cursor_visible(!window_state.cursor_state);
+            }
+            let container = ECSContainer::global();
+            let mut keyboard_event = container.world.write_resource::<KeyboardEvent>();
+            keyboard_event.info = *input;
+            keyboard_event.handled = false;
+        }
+        WindowEvent::Resized(physical_size) => {
+            let container = ECSContainer::global();
+            let mut resize_event = container.world.write_resource::<ResizeEvent>();
+            resize_event.new_size = *physical_size;
+            resize_event.scale_factor = Some(window.scale_factor());
+            resize_event.handled = false;
+        }
+        WindowEvent::ScaleFactorChanged {
+            new_inner_size,
+            scale_factor,
+        } => {
+            let container = ECSContainer::global();
+            let mut resize_event = container.world.write_resource::<ResizeEvent>();
+            resize_event.new_size = **new_inner_size;
+            resize_event.scale_factor = Some(*scale_factor);
+            resize_event.handled = false;
+        }
+        //Not working on the web currently
+        WindowEvent::ModifiersChanged(_state) => {}
+        _ => {}
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 fn run_deno_event_loop(runtime: &Runtime) {
     let fut = async move {
         let ecs = ECSContainer::global();

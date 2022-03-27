@@ -126,6 +126,7 @@ struct FragmentInput {
 [[builtin(position)]] fragPos: vec4<f32>;
 };
 
+//TODO: add UV coords to vertex
 
 fn get_shadow_value(coords:vec4<f32>) -> f32
 {

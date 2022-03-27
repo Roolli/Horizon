@@ -78,7 +78,6 @@ impl<'a> System<'a> for UpdateBuffers {
             0,
             bytemuck::bytes_of(&dir_light.to_raw()),
         );
-        //TODO: optimize to minimize copying
         let point_light_raw = point_lights
             .join()
             .map(PointLight::to_raw)

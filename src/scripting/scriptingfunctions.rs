@@ -294,7 +294,6 @@ impl ScriptingFunctions {
             .await;
 
         let event_loop_proxy = ref_thread_local::RefThreadLocal::borrow(&EVENT_LOOP_PROXY);
-        // MAYBE unit type is not the greatest return value...
         let (sender, receiver) = futures::channel::oneshot::channel::<()>();
         event_loop_proxy
             .as_ref()

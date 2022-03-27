@@ -69,8 +69,7 @@ impl TileInfo {
         self.tile_count_x =
             f32::floor((width + (self.tile_size - 1) as f32) / self.tile_size as f32) as i32;
         self.tile_count_y =
-            f32::floor((width + (self.tile_size - 1) as f32) / self.tile_size as f32) as i32;
-        self.num_tile_light_slot = 128; // magic number
+            f32::floor((height + (self.tile_size - 1) as f32) / self.tile_size as f32) as i32;
         self.num_tiles = (self.tile_count_x * self.tile_count_y) as u32;
         (std::mem::size_of::<u32>()
             * (self.num_tile_light_slot + 1) as usize

@@ -105,7 +105,6 @@ fn main([[builtin(global_invocation_id)]] Global_Invocation_Id: vec3<u32>) {
     var lightRadius: f32 = pointLights.elements[index].radius;
     var bounding_box_min = lightPos - vec4<f32>(vec3<f32>(lightRadius),0.0);
     var bounding_box_max = lightPos + vec4<f32>(vec3<f32>(lightRadius),0.0);
-
     var frustums: array<vec4<f32>,6>;
     frustums[4] = vec4<f32>(0.0,0.0,-1.0,view_near); // near plane
     frustums[5] = vec4<f32>(0.0,0.0,1.0,-view_far); // far plane

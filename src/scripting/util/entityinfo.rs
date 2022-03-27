@@ -19,12 +19,12 @@ pub struct Component {
     pub position: Option<Vec3>,
     pub rotation: Option<Vec3>,
     pub model: Option<u32>,
-    pub attenuation: Option<Vec3>,
-    pub color: Option<Vec4<f64>>,
+    pub radius: Option<f32>,
+    pub color: Option<Vec3>,
     pub body_type: Option<RigidBodyType>,
     pub mass: Option<f64>,
     pub lock_rotation: Option<LockRotation>,
-    pub damping: Option<Vec<Damping>>
+    pub damping: Option<Vec<Damping>>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -34,9 +34,9 @@ pub struct LockRotation {
     pub y: bool,
     pub z: bool,
 }
-#[derive(Default,Debug,Clone,PartialEq,Serialize,Deserialize)]
-#[serde(rename_all="camelCase")]
-pub struct Damping{
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Damping {
     pub damping_type: String,
     pub amount: f32,
 }

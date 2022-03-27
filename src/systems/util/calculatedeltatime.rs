@@ -20,7 +20,6 @@ impl<'a> System<'a> for UpdateDeltaTime {
         if delta_time.total_frame_time < Duration::seconds(1) {
             delta_time.frame_count += 1;
         } else {
-            delta_time.ran_event_loop_this_sec = false;
             delta_time.prev_sec_frame_count = delta_time.frame_count;
             debug_ui.fps = delta_time.prev_sec_frame_count;
             delta_time.frame_count = 0;

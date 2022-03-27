@@ -78,6 +78,7 @@ impl ScriptingFunctions {
             ComponentTypes::AssetIdentifier => {
                 // Not being used currently, might not be the best idea anyways to just remove identifiers,
             }
+            ComponentTypes::None => {}
         }
     }
     pub fn insert_component(
@@ -150,6 +151,7 @@ impl ScriptingFunctions {
                     ComponentData::Empty
                 }
             }
+            _ => ComponentData::Empty,
         }
     }
     pub fn apply_force_to_entity(

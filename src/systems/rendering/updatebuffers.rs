@@ -1,16 +1,20 @@
 use rapier3d::na::{Matrix3, Matrix4};
 use specs::{Join, ReadExpect, ReadStorage, System, WriteExpect};
 
-use crate::{BufferTypes, Projection, renderer::{
-    primitives::{
-        lights::{
-            directionallight::DirectionalLight, pointlight::PointLight, spotlight::SpotLight,
+use crate::renderer::primitives::uniforms::{LightCullingUniforms, SkyboxUniform};
+use crate::{
+    renderer::{
+        primitives::{
+            lights::{
+                directionallight::DirectionalLight, pointlight::PointLight, spotlight::SpotLight,
+            },
+            uniforms::Globals,
         },
-        uniforms::{Globals},
+        state::State,
     },
-    state::State,
-}, resources::{bindingresourcecontainer::BindingResourceContainer, camera::Camera}, Skybox, Uniform};
-use crate::renderer::primitives::uniforms::SkyboxUniform;
+    resources::{bindingresourcecontainer::BindingResourceContainer, camera::Camera},
+    BufferTypes, Projection, Skybox, Uniform,
+};
 
 pub struct UpdateBuffers;
 
@@ -21,37 +25,56 @@ impl<'a> System<'a> for UpdateBuffers {
         ReadExpect<'a, DirectionalLight>,
         WriteExpect<'a, Globals>,
         ReadExpect<'a, Camera>,
-        ReadExpect<'a,Projection>,
+        ReadExpect<'a, Projection>,
         ReadStorage<'a, PointLight>,
         ReadStorage<'a, SpotLight>,
     );
 
     fn run(
         &mut self,
-        (binding_resource_container, state, dir_light, mut globals, cam,proj,point_lights,spot_lights): Self::SystemData,
+        (
+            binding_resource_container,
+            state,
+            dir_light,
+            mut globals,
+            cam,
+            proj,
+            point_lights,
+            spot_lights,
+        ): Self::SystemData,
     ) {
-        globals.update_view_proj_matrix(&cam,&proj);
-        state.queue.write_buffer(
-            binding_resource_container
-                .buffers[Uniform].as_ref().unwrap(),
-            0,
-            bytemuck::bytes_of(&*globals),
-        );
-        //get 3x3 matrix and remove translation & keep yaw only
-         let view_matrix = cam.get_view_matrix();
+        globals.update_view_proj_matrix(&cam, &proj);
 
-        let removed_translation: Matrix4<f32> = Matrix4::from_data(Matrix3::new(view_matrix.m11,view_matrix.m12,view_matrix.m13,view_matrix.m21,view_matrix.m22,view_matrix.m23,view_matrix.m31,view_matrix.m32,view_matrix.m33).to_homogeneous().data);
+        //get 3x3 matrix and remove translation & keep yaw only
+        let view_matrix = cam.get_view_matrix();
+
+        let removed_translation: Matrix4<f32> = Matrix4::from_data(
+            Matrix3::new(
+                view_matrix.m11,
+                view_matrix.m12,
+                view_matrix.m13,
+                view_matrix.m21,
+                view_matrix.m22,
+                view_matrix.m23,
+                view_matrix.m31,
+                view_matrix.m32,
+                view_matrix.m33,
+            )
+            .to_homogeneous()
+            .data,
+        );
         state.queue.write_buffer(
             binding_resource_container.buffers[Skybox].as_ref().unwrap(),
             0,
-            bytemuck::bytes_of(
-                &SkyboxUniform{
-                    view: (Matrix4::from(State::OPENGL_TO_WGPU_MATRIX) * removed_translation).into(),
-                    projection_inverse: proj.calc_proj_matrix().try_inverse().unwrap().into()
-                }));
+            bytemuck::bytes_of(&SkyboxUniform {
+                view: (Matrix4::from(State::OPENGL_TO_WGPU_MATRIX) * removed_translation).into(),
+                projection_inverse: proj.calc_proj_matrix().try_inverse().unwrap().into(),
+            }),
+        );
         state.queue.write_buffer(
-            binding_resource_container
-                .buffers[BufferTypes::DirectionalLight].as_ref().unwrap(),
+            binding_resource_container.buffers[BufferTypes::DirectionalLight]
+                .as_ref()
+                .unwrap(),
             0,
             bytemuck::bytes_of(&dir_light.to_raw()),
         );
@@ -66,17 +89,34 @@ impl<'a> System<'a> for UpdateBuffers {
             .collect::<Vec<_>>();
         globals.set_point_light_count(point_light_raw.len() as u32);
         globals.set_spot_light_count(spot_light_raw.len() as u32);
+
         state.queue.write_buffer(
-            binding_resource_container
-                .buffers[BufferTypes::SpotLight].as_ref().unwrap(),
+            binding_resource_container.buffers[BufferTypes::LightCulling]
+                .as_ref()
+                .unwrap(),
+            0,
+            bytemuck::bytes_of(&LightCullingUniforms::new(&proj, &cam)),
+        );
+        state.queue.write_buffer(
+            binding_resource_container.buffers[BufferTypes::SpotLight]
+                .as_ref()
+                .unwrap(),
             0,
             bytemuck::cast_slice(&spot_light_raw),
         );
         state.queue.write_buffer(
-            binding_resource_container
-                .buffers[BufferTypes::PointLight].as_ref().unwrap(),
+            binding_resource_container.buffers[BufferTypes::PointLight]
+                .as_ref()
+                .unwrap(),
             0,
             bytemuck::cast_slice(&point_light_raw),
+        );
+        state.queue.write_buffer(
+            binding_resource_container.buffers[Uniform]
+                .as_ref()
+                .unwrap(),
+            0,
+            bytemuck::bytes_of(&*globals),
         );
     }
 }

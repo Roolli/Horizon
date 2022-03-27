@@ -10,13 +10,13 @@ pub enum ScriptEvent {
     Init = 0,
     OnResourceStart = 1,
     OnTick = 2,
-    OnWindowEvent = 4,
-    OnResourceStop = 8,
-    BeforeRender = 16,
-    AfterRender = 32,
-    Cleanup = 64,
-    OnMouseMove = 128,
-    OnKeyDown = 256,
+    OnWindowEvent = 3,
+    OnResourceStop = 4,
+    BeforeRender = 5,
+    AfterRender = 6,
+    Cleanup = 7,
+    OnMouseMove = 8,
+    OnKeyDown = 9,
 }
 impl ScriptEvent {
     pub fn from_number(val: i32) -> Self {

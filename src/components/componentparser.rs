@@ -1,9 +1,10 @@
-use std::ops::Deref;
 use crate::components::componentparser::ComponentParserError::NotFound;
 use crate::components::modelcollider::ModelCollider;
 use crate::components::physicshandle::PhysicsHandle;
 use crate::components::transform::Transform;
+use crate::renderer::model::HorizonModel;
 use crate::renderer::primitives::lights::pointlight::PointLight;
+use crate::renderer::primitives::mesh::{VertexAttribValues, VertexAttributeType};
 use crate::scripting::util::entityinfo::Component;
 use crate::systems::physics::PhysicsWorld;
 use crate::ECSContainer;
@@ -11,8 +12,7 @@ use rapier3d::na::{Point3, UnitQuaternion, Vector3};
 use rapier3d::prelude::*;
 use ref_thread_local::Ref;
 use specs::{Builder, Entity, EntityBuilder, Join, World, WorldExt};
-use crate::renderer::model::HorizonModel;
-use crate::renderer::primitives::mesh::{VertexAttributeType, VertexAttribValues};
+use std::ops::Deref;
 
 #[derive(Debug, Clone)]
 pub enum ComponentParserError {
@@ -78,7 +78,7 @@ impl ParseComponent for TransformComponentParser {
                     .position
                     .ok_or(ComponentParserError::InvalidData("position"))?
                     .into(),
-                UnitQuaternion::from_euler_angles(rot.x,rot.y,rot.z),
+                UnitQuaternion::from_euler_angles(rot.x, rot.y, rot.z),
                 component_data
                     .scale
                     .ok_or(ComponentParserError::InvalidData("scale"))?
@@ -113,33 +113,42 @@ impl ParseComponent for PhysicsComponentParser {
             // Only add physics to valid already created objects
             if let Some(model) = component_data.model {
                 let mut physics_world = world.write_resource::<PhysicsWorld>();
-                let mass = component_data
-                    .mass.unwrap_or_default();
+                let mass = component_data.mass.unwrap_or_default();
                 let mut rigid_body_handle: Option<RigidBodyHandle> = None;
                 let mut collider_handle: Option<ColliderHandle> = None;
                 let transform_storage = world.read_storage::<Transform>();
-                let transform =  transform_storage.get(entity).ok_or(ComponentParserError::MissingDependantComponent("Transform"))?;
+                let transform = transform_storage
+                    .get(entity)
+                    .ok_or(ComponentParserError::MissingDependantComponent("Transform"))?;
                 match component_data.body_type {
                     Some(crate::scripting::util::RigidBodyType::Dynamic) => {
-
                         let colliders = world.read_component::<ModelCollider>();
                         let collider = colliders
                             .get(world.entities().entity(model))
                             .ok_or(ComponentParserError::InvalidData("modelCollider"))?;
                         let collider = collider.0.build();
                         let mut rigid_body_builder = RigidBodyBuilder::new_dynamic()
-                            .position(Isometry::new(transform.position,transform.rotation.scaled_axis()))
+                            .position(Isometry::new(
+                                transform.position,
+                                transform.rotation.scaled_axis(),
+                            ))
                             .additional_mass(mass as f32);
                         if let Some(damping_values) = component_data.damping {
                             for damping in damping_values {
                                 match damping.damping_type.as_str() {
-                                    "linear" =>{ rigid_body_builder = rigid_body_builder.linear_damping(damping.amount);},
-                                    "angular"=>{rigid_body_builder= rigid_body_builder.angular_damping(damping.amount);},
-                                    _=>return Err(ComponentParserError::InvalidData("damping")),
+                                    "linear" => {
+                                        rigid_body_builder =
+                                            rigid_body_builder.linear_damping(damping.amount);
+                                    }
+                                    "angular" => {
+                                        rigid_body_builder =
+                                            rigid_body_builder.angular_damping(damping.amount);
+                                    }
+                                    _ => return Err(ComponentParserError::InvalidData("damping")),
                                 }
                             }
                         }
-                            let rigid_body = rigid_body_builder.build();
+                        let rigid_body = rigid_body_builder.build();
                         let body_handle = physics_world.add_rigid_body(rigid_body);
 
                         collider_handle = Some(physics_world.add_collider(collider, body_handle));
@@ -147,7 +156,10 @@ impl ParseComponent for PhysicsComponentParser {
                     }
                     Some(crate::scripting::util::RigidBodyType::Static) => {
                         let rigid_body = RigidBodyBuilder::new_static()
-                            .position(Isometry::new(transform.position,transform.rotation.scaled_axis()))
+                            .position(Isometry::new(
+                                transform.position,
+                                transform.rotation.scaled_axis(),
+                            ))
                             .additional_mass(mass as f32)
                             .build();
                         let body_handle = physics_world.add_rigid_body(rigid_body);
@@ -158,14 +170,20 @@ impl ParseComponent for PhysicsComponentParser {
                             .get(world.entities().entity(model))
                             .ok_or(ComponentParserError::InvalidData("modelCollider"))?;
                         // TODO fix
-                       let values = if let VertexAttribValues::Float32x3{0:values} = model.meshes[0].primitives[0].mesh.attribute(VertexAttributeType::Position).unwrap(){
+                        let values = if let VertexAttribValues::Float32x3 { 0: values } =
+                            model.meshes[0].primitives[0]
+                                .mesh
+                                .attribute(VertexAttributeType::Position)
+                                .unwrap()
+                        {
                             values.clone()
-                        }
-                       else {
-                          vec![[0.0,0.0,0.0]]
-                       };
-                        let collider_builder = ColliderBuilder::convex_hull(&[Point3::new(0.0,0.0,0.0)]).unwrap();
-                        collider_handle = Some(physics_world.add_collider(collider_builder.build(), body_handle));
+                        } else {
+                            vec![[0.0, 0.0, 0.0]]
+                        };
+                        let collider_builder =
+                            ColliderBuilder::convex_hull(&[Point3::new(0.0, 0.0, 0.0)]).unwrap();
+                        collider_handle =
+                            Some(physics_world.add_collider(collider_builder.build(), body_handle));
                         rigid_body_handle = Some(body_handle);
                     }
                     _ => return Err(ComponentParserError::InvalidData("bodyType")),
@@ -218,7 +236,7 @@ impl ParseComponent for PointLightComponentParser {
             } else {
                 return Err(ComponentParserError::MissingDependantComponent("Transform"));
             };
-            let attenuation_values = component_data.attenuation.unwrap();
+            let radius = component_data.radius.unwrap();
             let color = component_data.color.unwrap();
             let mut point_light_storage = world.write_component::<PointLight>();
             point_light_storage
@@ -226,15 +244,8 @@ impl ParseComponent for PointLightComponentParser {
                     entity,
                     PointLight::new(
                         Point3::from(pos),
-                        wgpu::Color {
-                            r: color.x(),
-                            g: color.y(),
-                            b: color.z(),
-                            a: color.w(),
-                        },
-                        attenuation_values.x,
-                        attenuation_values.y,
-                        attenuation_values.z,
+                        Vector3::new(color.x as f32, color.y as f32, color.z as f32),
+                        radius,
                         None, //TODO: add attachment
                     ),
                 )

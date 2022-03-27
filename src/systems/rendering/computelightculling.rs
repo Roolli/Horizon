@@ -11,9 +11,7 @@ use crate::{
         pipelines::lightcullingpipeline::LightCullingPipeline,
         state::State,
     },
-    resources::{
-        commandencoder::HorizonCommandEncoder,
-    },
+    resources::commandencoder::HorizonCommandEncoder,
 };
 
 pub struct ComputeLightCulling;
@@ -62,7 +60,11 @@ impl<'a> System<'a> for ComputeLightCulling {
         compute_pass.set_bind_group(0, &light_bind_group_container.bind_group, &[]);
         compute_pass.set_bind_group(1, &uniform_bind_group_container.bind_group, &[]);
         compute_pass.set_bind_group(2, &tiling_bind_group_container.bind_group, &[]);
-        compute_pass.dispatch(State::MAX_POINT_LIGHTS.try_into().unwrap(), 0, 0);
+        compute_pass.dispatch(
+            (f32::ceil(State::MAX_POINT_LIGHTS as f32 / 64.0)) as u32,
+            1,
+            1,
+        );
         drop(compute_pass);
 
         cmd_encoder.finish(&state.device, &state.queue);

@@ -1,15 +1,8 @@
-use __core::ops::Range;
 use bytemuck::*;
 use rapier3d::na::{Matrix4, Perspective3, Point3, Vector3, Vector4};
-use std::ops::{Add, Div, DivAssign};
+use std::ops::DivAssign;
 
-use wgpu::BindGroup;
-
-use crate::{
-    renderer::{model::HorizonModel, primitives::mesh::Mesh, state::State},
-    resources::camera::Camera,
-    Projection,
-};
+use crate::{renderer::state::State, resources::camera::Camera, Projection};
 
 pub struct DirectionalLight {
     pub yaw: f32,

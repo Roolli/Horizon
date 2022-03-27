@@ -1,15 +1,13 @@
-
-use enum_map::{EnumMap, Enum};
+use enum_map::{Enum, EnumMap};
 
 #[derive(Default)]
 pub struct BindingResourceContainer {
     pub buffers: EnumMap<BufferTypes, Option<wgpu::Buffer>>,
-    pub textures: EnumMap<TextureTypes, Option< wgpu::Texture>>,
+    pub textures: EnumMap<TextureTypes, Option<wgpu::Texture>>,
     pub texture_views: EnumMap<TextureViewTypes, Option<wgpu::TextureView>>,
     pub samplers: EnumMap<SamplerTypes, Option<wgpu::Sampler>>,
-    pub texture_array_views:EnumMap<TextureArrayViewTypes,Vec<wgpu::TextureView>>,
+    pub texture_array_views: EnumMap<TextureArrayViewTypes, Vec<wgpu::TextureView>>,
 }
-
 
 #[derive(Enum)]
 pub enum BufferTypes {
@@ -23,15 +21,16 @@ pub enum BufferTypes {
     PointLight,
     SpotLight,
     Tiling,
+    LightCulling,
+    LightId,
     Skybox,
     DebugTextureVertex,
     ShadowCascade,
-    ShadowCascadeLengths
+    ShadowCascadeLengths,
 }
 
 #[derive(Enum)]
-pub enum SamplerTypes
-{
+pub enum SamplerTypes {
     Shadow,
     DeferredTexture,
     Skybox,
@@ -39,15 +38,14 @@ pub enum SamplerTypes
 }
 
 #[derive(Enum)]
-pub enum TextureTypes
-{
-PositionDiffuseNormals,
-Albedo,
-Shadow,
-Skybox,
+pub enum TextureTypes {
+    PositionDiffuseNormals,
+    Albedo,
+    Shadow,
+    Skybox,
 }
 
-#[derive(Enum,Debug,PartialEq,Copy,Clone)]
+#[derive(Enum, Debug, PartialEq, Copy, Clone)]
 pub enum TextureViewTypes {
     DeferredPosition,
     DeferredNormals,
@@ -57,7 +55,7 @@ pub enum TextureViewTypes {
     Shadow,
     Depth,
 }
-#[derive(Enum,Debug,PartialOrd, PartialEq,Copy,Clone)]
-pub enum TextureArrayViewTypes{
-    Shadow
+#[derive(Enum, Debug, PartialOrd, PartialEq, Copy, Clone)]
+pub enum TextureArrayViewTypes {
+    Shadow,
 }

@@ -8,7 +8,6 @@ pub struct DeltaTime {
     pub delta: f32,
     pub app_start_time: i64,
     pub prev_sec_frame_count: u16,
-    pub ran_event_loop_this_sec: bool,
 }
 impl Default for DeltaTime {
     fn default() -> Self {
@@ -21,7 +20,6 @@ impl Default for DeltaTime {
             delta: 0.0,
             app_start_time: chrono::offset::Utc::now().timestamp_millis(),
             prev_sec_frame_count: 0,
-            ran_event_loop_this_sec: false,
         }
     }
 }

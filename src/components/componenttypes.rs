@@ -11,8 +11,20 @@ pub enum ComponentTypes {
     PhysicsHandle,
     Transform,
     PointLight,
+    None,
 }
-#[derive(Debug,Serialize,Deserialize)]
+impl From<u32> for ComponentTypes {
+    fn from(val: u32) -> Self {
+        match val {
+            0 => ComponentTypes::AssetIdentifier,
+            1 => ComponentTypes::PhysicsHandle,
+            2 => ComponentTypes::Transform,
+            3 => ComponentTypes::PointLight,
+            _ => ComponentTypes::None,
+        }
+    }
+}
+#[derive(Debug, Serialize, Deserialize)]
 pub enum ComponentData {
     Empty,
     Transform(TransformComponent),

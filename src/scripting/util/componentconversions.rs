@@ -39,28 +39,22 @@ impl From<Transform> for TransformComponent {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PointLightComponent {
     position: Vec3,
-    color: Vec4<f64>,
-    constant: f32,
-    linear: f32,
-    quadratic: f32,
+    color: Vec3,
+    radius: f32,
     attached_to: Option<HorizonEntity>,
 }
 
 impl PointLightComponent {
     pub fn new(
         position: Vec3,
-        color: Vec4<f64>,
-        constant: f32,
-        linear: f32,
-        quadratic: f32,
+        color: Vec3,
+        radius: f32,
         attached_to: Option<HorizonEntity>,
     ) -> Self {
         PointLightComponent {
             position,
             color,
-            constant,
-            linear,
-            quadratic,
+            radius,
             attached_to,
         }
     }
@@ -74,9 +68,7 @@ impl From<PointLight> for PointLightComponent {
         PointLightComponent::new(
             val.position.into(),
             val.color.into(),
-            val.constant,
-            val.linear,
-            val.quadratic,
+            val.radius,
             attached_ent,
         )
     }

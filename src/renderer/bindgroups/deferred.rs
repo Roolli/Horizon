@@ -2,9 +2,9 @@ use super::HorizonBindGroup;
 use crate::renderer::{
     bindgroupcontainer::BindGroupContainer, primitives::uniforms::CanvasConstants,
 };
+use crate::resources::bindingresourcecontainer::BufferTypes::{CanvasSize, DeferredVao};
 use specs::*;
 use wgpu::util::DeviceExt;
-use crate::resources::bindingresourcecontainer::BufferTypes::{CanvasSize, DeferredVao};
 
 #[derive(Component, Default)]
 #[storage(NullStorage)]
@@ -28,6 +28,8 @@ impl<'a> HorizonBindGroup<'a> for DeferredBindGroup {
         &'a wgpu::TextureView,
         &'a wgpu::TextureView,
         &'a wgpu::TextureView,
+        &'a wgpu::Buffer,
+        &'a wgpu::Buffer,
         &'a wgpu::Buffer,
     );
 
@@ -91,6 +93,26 @@ impl<'a> HorizonBindGroup<'a> for DeferredBindGroup {
                     },
                     count: None,
                 },
+                wgpu::BindGroupLayoutEntry {
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    binding: 6,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    binding: 7,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        min_binding_size: None,
+                        has_dynamic_offset: false,
+                    },
+                    count: None,
+                },
             ],
         })
     }
@@ -99,9 +121,16 @@ impl<'a> HorizonBindGroup<'a> for DeferredBindGroup {
         device: &wgpu::Device,
         resources: Self::BindingResources,
     ) -> crate::renderer::bindgroupcontainer::BindGroupContainer {
-        let (sampler, position_texture,
-            normals_texture, albedo_texture,specular_view, canvas_size_buffer) =
-            resources;
+        let (
+            sampler,
+            position_texture,
+            normals_texture,
+            albedo_texture,
+            specular_view,
+            canvas_size_buffer,
+            light_id_buffer,
+            tile_info_buffer,
+        ) = resources;
         let deferred_bind_group_layout = Self::get_layout(device);
         let deferred_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &deferred_bind_group_layout,
@@ -122,15 +151,22 @@ impl<'a> HorizonBindGroup<'a> for DeferredBindGroup {
                     binding: 3,
                     resource: wgpu::BindingResource::TextureView(specular_view),
                 },
-                wgpu::BindGroupEntry{
-                    binding:4,
+                wgpu::BindGroupEntry {
+                    binding: 4,
                     resource: wgpu::BindingResource::TextureView(albedo_texture),
                 },
                 wgpu::BindGroupEntry {
                     binding: 5,
                     resource: canvas_size_buffer.as_entire_binding(),
                 },
-
+                wgpu::BindGroupEntry {
+                    binding: 6,
+                    resource: light_id_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 7,
+                    resource: tile_info_buffer.as_entire_binding(),
+                },
             ],
             label: Some("deferred_bind_group"),
         });
@@ -148,13 +184,13 @@ impl<'a> HorizonBindGroup<'a> for DeferredBindGroup {
             size: std::mem::size_of::<CanvasConstants>() as wgpu::BufferAddress,
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
         });
-        resource_container.buffers[CanvasSize] =Some(canvas_size_buffer);
+        resource_container.buffers[CanvasSize] = Some(canvas_size_buffer);
 
         let deferred_vao = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             contents: bytemuck::cast_slice(&Self::ARRAY),
             usage: wgpu::BufferUsages::VERTEX,
             label: Some("deferred_vao"),
         });
-        resource_container.buffers[DeferredVao] =Some(deferred_vao);
+        resource_container.buffers[DeferredVao] = Some(deferred_vao);
     }
 }

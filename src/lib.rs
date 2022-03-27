@@ -101,6 +101,7 @@ use crate::resources::windowstate::WindowState;
 use crate::scripting::scriptingengine::HorizonScriptingEngine;
 use crate::scripting::ScriptingError;
 use crate::systems::events::handlelifecycleevents::HandleInitCallbacks;
+use crate::BufferTypes::{LightCulling, LightId};
 use crate::TextureViewTypes::DeferredSpecular;
 use ecscontainer::ECSContainer;
 use wgpu::util::DeviceExt;
@@ -213,7 +214,7 @@ pub fn run_event_loop(event_loop: EventLoop<CustomEvent>, window: winit::window:
                 handle_device_events(event);
             }
             Event::RedrawRequested(_) => {
-                handle_redraw_request();
+                handle_redraw_request(&window, control_flow);
             }
             Event::MainEventsCleared => {
                 window.request_redraw();
@@ -293,12 +294,12 @@ pub fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window, ru
                 handle_device_events(event);
             }
             Event::RedrawRequested(_) => {
-                handle_redraw_request();
+                handle_redraw_request(&window, control_flow);
             }
             Event::MainEventsCleared => {
                 window.request_redraw();
             }
-            Event::UserEvent(ref event) => {
+            Event::UserEvent(event) => {
                 handle_user_events(event);
             }
             _ => {
@@ -322,7 +323,7 @@ fn handle_device_events(event: &winit::event::DeviceEvent) {
     }
 }
 
-fn handle_model_load(custom_event: &CustomEvent) {
+fn handle_model_load(custom_event: CustomEvent) {
     if let CustomEvent::RequestModelLoad(data, sender) = custom_event {
         log::info!("got data from model load");
         let container = ECSContainer::global();
@@ -480,7 +481,7 @@ fn handle_model_load(custom_event: &CustomEvent) {
         sender.send(Ok(model_entity)).unwrap();
     }
 }
-fn handle_skybox_texture_override(skybox_event: &CustomEvent) {
+fn handle_skybox_texture_override(skybox_event: CustomEvent) {
     if let CustomEvent::SkyboxTextureLoad(data, sender) = skybox_event {
         let container = ECSContainer::global();
         let state = container.world.read_resource::<State>();
@@ -514,13 +515,13 @@ fn handle_skybox_texture_override(skybox_event: &CustomEvent) {
     }
 }
 
-fn handle_redraw_request() {
+fn handle_redraw_request(window: &Window, control_flow: &mut winit::event_loop::ControlFlow) {
     let ecs = ECSContainer::global();
     let mut render_callbacks =
         crate::systems::events::handlelifecycleevents::HandleOnRenderCallbacks {};
     render_callbacks.run_now(&ecs.world);
     let mut egui_container = ecs.world.write_resource::<EguiContainer>();
-    let inputs = egui_container.state.take_egui_input(&window);
+    let inputs = egui_container.state.take_egui_input(window);
     egui_container.context.begin_frame(inputs);
     drop(egui_container);
     drop(ecs);
@@ -543,7 +544,7 @@ fn handle_redraw_request() {
         _ => {}
     };
 }
-fn handle_user_events(event: &CustomEvent) {
+fn handle_user_events(event: CustomEvent) {
     match event {
         CustomEvent::SkyboxTextureLoad(_, _) => handle_skybox_texture_override(event),
         CustomEvent::RequestModelLoad(_, _) => handle_model_load(event),
@@ -615,15 +616,8 @@ fn handle_window_event(event: &WindowEvent, window: &Window, control_flow: &mut 
 fn run_deno_event_loop(runtime: &Runtime) {
     let fut = async move {
         let ecs = ECSContainer::global();
-        let mut dt = ecs.world.write_resource::<DeltaTime>();
-        //     // 1s - 1000/60
-        if dt.total_frame_time >= chrono::Duration::milliseconds(983) && !dt.ran_event_loop_this_sec
-        {
-            let mut scripting = ecs.world.write_resource::<HorizonScriptingEngine>();
-            dt.ran_event_loop_this_sec = true;
-            scripting.js_runtime.run_event_loop(false).await.unwrap();
-            log::info!("ran event loop!");
-        }
+        let mut scripting = ecs.world.write_resource::<HorizonScriptingEngine>();
+        scripting.js_runtime.run_event_loop(false).await.unwrap();
     };
 
     let local = tokio::task::LocalSet::new();
@@ -710,6 +704,12 @@ fn setup_pipelines(world: &mut World) {
             binding_resource_container.buffers[CanvasSize]
                 .as_ref()
                 .unwrap(),
+            binding_resource_container.buffers[LightCulling]
+                .as_ref()
+                .unwrap(),
+            binding_resource_container.buffers[LightId]
+                .as_ref()
+                .unwrap(),
         ),
     );
 
@@ -734,6 +734,10 @@ fn setup_pipelines(world: &mut World) {
             binding_resource_container.buffers[CanvasSize]
                 .as_ref()
                 .unwrap(),
+            binding_resource_container.buffers[LightId]
+                .as_ref()
+                .unwrap(),
+            binding_resource_container.buffers[Tiling].as_ref().unwrap(),
         ),
     );
     let skybox_container = SkyboxBindGroup::create_container(

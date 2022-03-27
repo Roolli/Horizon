@@ -28,7 +28,8 @@ use crate::{
     },
     systems::physics::{Physics, PhysicsWorld},
     Camera, CameraController, DebugTextureBindGroup, DefaultTextureContainer, DirectionalLight,
-    Globals, HorizonModel, Projection, RawModel, SkyboxBindGroup, TextureViewTypes, ECS_CONTAINER,
+    Globals, HorizonModel, Projection, RawModel, SkyboxBindGroup, TextureViewTypes, WindowState,
+    ECS_CONTAINER,
 };
 
 use crate::systems::events::handlewindowevents::HandleWindowEvents;
@@ -149,6 +150,9 @@ impl ECSContainer {
             selected_entity: None,
             selected_texture: 0,
             selected_material: 0,
+        });
+        world.insert(WindowState {
+            cursor_state: false,
         });
         world.insert(KeyboardEvent::default());
         world.insert(MouseMoveEvent::default());

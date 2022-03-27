@@ -209,9 +209,12 @@ fn op_create_entity(entity_info: String) -> Result<u32, deno_core::anyhow::Error
 #[op]
 fn op_get_component(
     entity_id: u32,
-    component_type: ComponentTypes,
+    component_type: u32,
 ) -> Result<ComponentData, deno_core::anyhow::Error> {
-    Ok(ScriptingFunctions::get_component(component_type, entity_id))
+    Ok(ScriptingFunctions::get_component(
+        component_type.into(),
+        entity_id,
+    ))
 }
 #[op]
 fn op_set_component(

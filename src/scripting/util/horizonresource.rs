@@ -6,7 +6,7 @@ use rapier3d::na::Vector3;
 use specs::WorldExt;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
-//TODO: add option to switch between FPS style and free cam
+//TODO: add option to switch between FPS style and free cam -- done?
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "Camera"))]
 pub struct ScriptingCamera;
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_class = "Camera"))]
@@ -56,6 +56,19 @@ impl ScriptingCamera {
             .world
             .write_resource::<crate::resources::camera::Camera>()
             .pitch = pitch;
+    }
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "setTarget"))]
+    pub fn set_follow_target(target: Option<u32>) {
+        let ecs = ECSContainer::global();
+        let target_ent = if let Some(t) = target {
+            Some(ecs.world.entities().entity(t))
+        } else {
+            None
+        };
+        let mut cam = ecs
+            .world
+            .write_resource::<crate::resources::camera::Camera>();
+        cam.set_follow_target_ent(target_ent);
     }
 }
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "DirectionalLight"))]

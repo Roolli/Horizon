@@ -182,6 +182,12 @@ fn op_camera_set_yaw(yaw: f32) -> Result<(), deno_core::anyhow::Error> {
     Ok(())
 }
 #[op]
+fn op_camera_set_target(target:Option<u32>) -> Result<(),deno_core::anyhow::Error>
+{
+    ScriptingCamera::set_follow_target(target);
+    Ok(())
+}
+#[op]
 fn op_dir_light_get_dir() -> Result<Vec3, deno_core::anyhow::Error> {
     Ok(ScriptingDirLight::get_direction())
 }

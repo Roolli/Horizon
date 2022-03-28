@@ -57,7 +57,7 @@ Add CPU time measurement (maybe do a resource in ECS?)
 - Add mouse / keyboard events 
 - Hook up collision events
 - Add method of creating colshapes 
-- Add attachment to camera and/or lights
+- ~~Add attachment to camera and/or~~ lights
 - if UI builder is done add events for closing / interacting with certain elements
 
 

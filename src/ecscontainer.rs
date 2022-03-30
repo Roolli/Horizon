@@ -110,7 +110,7 @@ impl ECSContainer {
             f32::to_radians(45.0),
             0.01,
         );
-        let cam_controller = CameraController::new(10.0, 2.0);
+        let cam_controller = CameraController::new(1.0, 2.0);
         globals.update_view_proj_matrix(&cam, &proj);
         drop(state);
 

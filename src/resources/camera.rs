@@ -11,7 +11,8 @@ pub struct Camera {
     pub position: Point3<f32>,
     pub yaw: f32,
     pub pitch: f32,
-    follow_target: Option<Entity>,
+    pub follow_target: Option<Entity>,
+    follow_target_pos: Point3<f32>,
 }
 impl Camera {
     /// yaw: in radians
@@ -22,24 +23,27 @@ impl Camera {
             pitch,
             yaw,
             follow_target: None,
+            follow_target_pos: Point3::origin(),
         }
     }
     pub fn set_follow_target_ent(&mut self, target: Option<Entity>) {
         self.follow_target = target;
     }
+    pub fn set_follow_target_pos(&mut self, pos: Point3<f32>) {
+        self.follow_target_pos = pos;
+    }
     pub fn get_view_matrix(&self) -> Matrix4<f32> {
         let f = Vector3::new(self.yaw.cos(), self.pitch.sin(), self.yaw.sin()).normalize();
-        if let Some(target) = self.follow_target {
-            let ecs = ECSContainer::global();
-            //TODO: test
-            if let Some(transform) = ecs.world.read_storage::<Transform>().get(target) {
-                return Matrix4::look_at_rh(
-                    &self.position,
-                    &Point3::from(transform.position + f),
-                    &Vector3::y(),
-                );
-            }
+        if let Some(_) = self.follow_target {
+            return Matrix4::look_at_rh(
+                &(self.position - f),
+                &self.follow_target_pos,
+                &Vector3::y(),
+            );
+        } else {
+            log::info!("no entity last pos: {:?}", self.follow_target_pos);
         }
+
         Matrix4::look_at_rh(&self.position, &(self.position + f), &Vector3::y())
     }
 }

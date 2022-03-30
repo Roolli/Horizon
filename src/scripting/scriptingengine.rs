@@ -1,6 +1,6 @@
 use deno_core::{
     Extension, ExtensionBuilder, FsModuleLoader, JsRuntime, ModuleLoader, ModuleSource,
-    ModuleSourceFuture, ModuleSpecifier, ModuleType, OpState, RuntimeOptions,
+    ModuleSourceFuture, ModuleSpecifier, ModuleType, OpState, RuntimeOptions, Snapshot,
 };
 
 struct TimerPermission;
@@ -24,7 +24,8 @@ use specs::{Builder, Join, WorldExt};
 #[cfg(target_arch = "wasm32")]
 #[derive(Default)]
 pub struct HorizonScriptingEngine;
-
+#[cfg(not(target_arch = "wasm32"))]
+static HORIZON_SNAPSHOT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/HORIZON_SNAPSHOT.bin"));
 #[cfg(not(target_arch = "wasm32"))]
 pub struct HorizonScriptingEngine {
     pub js_runtime: JsRuntime,
@@ -36,6 +37,7 @@ impl Default for HorizonScriptingEngine {
         let mut extension_builder = Extension::builder();
         let extension = HorizonScriptingEngine::add_ops(&mut extension_builder).build();
         let js_runtime = JsRuntime::new(RuntimeOptions {
+            startup_snapshot: Some(Snapshot::Static(HORIZON_SNAPSHOT)),
             module_loader: Some(loader),
             extensions: vec![
                 deno_console::init(),

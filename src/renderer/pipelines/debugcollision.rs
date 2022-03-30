@@ -1,19 +1,19 @@
-use crate::HorizonPipeline;
-use wgpu::{ColorTargetState, Device, RenderPipeline};
+use crate::{HorizonPipeline, Texture};
+use wgpu::{ColorTargetState, CompareFunction, Device, RenderPipeline};
 
 pub struct DebugCollisionPipeline(pub wgpu::RenderPipeline);
 
 impl<'a> HorizonPipeline<'a> for DebugCollisionPipeline {
-    type RequiredLayouts = (&'a wgpu::BindGroupLayout);
+    type RequiredLayouts = (&'a wgpu::BindGroupLayout, &'a wgpu::BindGroupLayout);
 
     fn create_pipeline(
         device: &Device,
-        bind_group_layouts: Self::RequiredLayouts,
+        (uniform_bind_group_layout, debug_collision_uniform_layout): Self::RequiredLayouts,
         targets: &[ColorTargetState],
     ) -> RenderPipeline {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("debug collisions pipeline layout"),
-            bind_group_layouts: &[bind_group_layouts],
+            bind_group_layouts: &[uniform_bind_group_layout, debug_collision_uniform_layout],
             push_constant_ranges: &[],
         });
         let module = device
@@ -32,14 +32,20 @@ impl<'a> HorizonPipeline<'a> for DebugCollisionPipeline {
                 }],
                 entry_point: "vs_main",
             },
-            depth_stencil: None,
+            depth_stencil: Some(wgpu::DepthStencilState {
+                bias: wgpu::DepthBiasState::default(),
+                stencil: wgpu::StencilState::default(),
+                format: Texture::DEPTH_FORMAT,
+                depth_write_enabled: false,
+                depth_compare: CompareFunction::GreaterEqual,
+            }),
             multisample: wgpu::MultisampleState {
                 ..Default::default()
             },
             primitive: wgpu::PrimitiveState {
                 cull_mode: None,
                 front_face: wgpu::FrontFace::Ccw,
-                polygon_mode: wgpu::PolygonMode::Line,
+                polygon_mode: wgpu::PolygonMode::Fill,
                 topology: wgpu::PrimitiveTopology::TriangleList,
                 ..Default::default()
             },

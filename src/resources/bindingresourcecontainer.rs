@@ -27,6 +27,8 @@ pub enum BufferTypes {
     DebugTextureVertex,
     ShadowCascade,
     ShadowCascadeLengths,
+    DebugCollisionVertex,
+    DebugCollisionUniform
 }
 
 #[derive(Enum)]

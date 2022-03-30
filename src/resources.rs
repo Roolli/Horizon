@@ -6,6 +6,7 @@ pub mod deltatime;
 pub mod eguicontainer;
 pub mod projection;
 pub mod renderresult;
+pub mod scriptingstate;
 pub mod surfacetexture;
 pub mod windowevents;
 pub mod windowstate;

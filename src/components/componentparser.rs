@@ -158,8 +158,7 @@ impl ParseComponent for PhysicsComponentParser {
                                 if let Some(VertexAttribValues::Float32x3 { 0: values }) =
                                     primitive.mesh.attribute(VertexAttributeType::Position)
                                 {
-                                    let original_points = values;
-                                    let points: Vec<Point3<f32>> = original_points
+                                    let points: Vec<Point3<f32>> = values
                                         .iter()
                                         .map(|v| {
                                             Point3::new(
@@ -169,23 +168,8 @@ impl ParseComponent for PhysicsComponentParser {
                                             )
                                         })
                                         .collect::<Vec<_>>();
-                                    let indices: Vec<[u32; 3]> = primitive
-                                        .mesh
-                                        .indices
-                                        .as_ref()
-                                        .unwrap()
-                                        .chunks(3)
-                                        .map(|v| v.try_into().unwrap())
-                                        .collect::<Vec<_>>();
-                                    if let Some(mut builder) = ColliderBuilder::convex_hull(&points)
-                                    {
-                                        builder.position = Isometry::new(
-                                            transform.position,
-                                            transform.rotation.scaled_axis(),
-                                        );
+                                    if let Some(builder) = ColliderBuilder::convex_hull(&points) {
                                         convex_decs.push(builder.build());
-                                    } else {
-                                        log::info!("could not compute convex hull for {} with vertex buffer size: {} index buffer size: {}",primitive.mesh.name,points.len(),indices.len());
                                     }
                                 }
                             }
@@ -193,25 +177,15 @@ impl ParseComponent for PhysicsComponentParser {
                         let compound_collider = ColliderBuilder::compound(
                             convex_decs
                                 .into_iter()
-                                .map(|v| (*v.position(), v.shared_shape().clone()))
+                                .map(|v| (Isometry::identity(), v.shared_shape().clone()))
                                 .collect::<Vec<_>>(),
                         )
+                        .active_events(
+                            ActiveEvents::CONTACT_EVENTS | ActiveEvents::INTERSECTION_EVENTS,
+                        )
                         .build();
-                        let aabb = compound_collider
-                            .shared_shape()
-                            .as_compound()
-                            .unwrap()
-                            .local_aabb();
-                        log::info!("mins: {}, maxs: {}", aabb.mins, aabb.maxs);
                         collider_handles
                             .push(physics_world.add_collider(compound_collider, body_handle));
-
-                        // collider_handles.extend(
-                        //     convex_decs
-                        //         .into_iter()
-                        //         .map(|collider| physics_world.add_collider(collider, body_handle)),
-                        //);
-                        // collider_handle = Some(physics_world.add_collider(collider, body_handle));
                         rigid_body_handle = Some(body_handle);
                     }
                     // use tri-mesh for static rigid Bodies.
@@ -234,34 +208,48 @@ impl ParseComponent for PhysicsComponentParser {
                                 if let Some(VertexAttribValues::Float32x3 { 0: values }) =
                                     primitive.mesh.attribute(VertexAttributeType::Position)
                                 {
-                                    let points: Vec<Point3<f32>> = values
-                                        .iter()
-                                        .map(|v| {
-                                            Point3::new(
-                                                v[0] * scale.x,
-                                                v[1] * scale.y,
-                                                v[2] * scale.z,
-                                            )
-                                        })
-                                        .collect::<Vec<_>>();
-                                    let indices: Vec<[u32; 3]> = primitive
+                                    let vertices: Vec<Point3<f32>> = primitive
                                         .mesh
                                         .indices
                                         .as_ref()
                                         .unwrap()
-                                        .chunks(3)
-                                        .map(|v| v.try_into().unwrap())
+                                        .iter()
+                                        .map(|v| {
+                                            let vertex = values[*v as usize];
+                                            Point3::new(
+                                                vertex[0] * scale.x,
+                                                vertex[1] * scale.y,
+                                                vertex[2] * scale.z,
+                                            )
+                                        })
                                         .collect::<Vec<_>>();
-                                    triangles_meshes
-                                        .push(ColliderBuilder::trimesh(points, indices).build());
+
+                                    if let Some(collider_builder) =
+                                        ColliderBuilder::convex_hull(&vertices)
+                                    {
+                                        triangles_meshes.push(collider_builder.build());
+                                    }
                                 }
                             }
                         }
-                        collider_handles.extend(
+
+                        // collider_handles.extend(
+                        //     triangles_meshes
+                        //         .into_iter()
+                        //         .map(|collider| physics_world.add_collider(collider, body_handle)),
+                        // );
+                        let compound_collider = ColliderBuilder::compound(
                             triangles_meshes
                                 .into_iter()
-                                .map(|collider| physics_world.add_collider(collider, body_handle)),
-                        );
+                                .map(|v| (Isometry::identity(), v.shared_shape().clone()))
+                                .collect::<Vec<_>>(),
+                        )
+                        .active_events(
+                            ActiveEvents::CONTACT_EVENTS | ActiveEvents::INTERSECTION_EVENTS,
+                        )
+                        .build();
+                        collider_handles
+                            .push(physics_world.add_collider(compound_collider, body_handle));
                         rigid_body_handle = Some(body_handle);
                     }
                     _ => return Err(ComponentParserError::InvalidData("bodyType")),

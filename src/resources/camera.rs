@@ -40,10 +40,7 @@ impl Camera {
                 &self.follow_target_pos,
                 &Vector3::y(),
             );
-        } else {
-            log::info!("no entity last pos: {:?}", self.follow_target_pos);
         }
-
         Matrix4::look_at_rh(&self.position, &(self.position + f), &Vector3::y())
     }
 }

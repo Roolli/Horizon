@@ -27,15 +27,16 @@ use crate::{
         windowevents::{KeyboardEvent, MouseInputEvent, MouseMoveEvent, ResizeEvent},
     },
     systems::physics::{Physics, PhysicsWorld},
-    Camera, CameraController, DebugTextureBindGroup, DefaultTextureContainer, DirectionalLight,
-    Globals, HorizonModel, Projection, RawModel, SkyboxBindGroup, TextureViewTypes, WindowState,
-    ECS_CONTAINER,
+    Camera, CameraController, DebugCollisionBindGroup, DebugTextureBindGroup,
+    DefaultTextureContainer, DirectionalLight, Globals, HorizonModel, Projection, RawModel,
+    SkyboxBindGroup, TextureViewTypes, WindowState, ECS_CONTAINER,
 };
 
 use crate::systems::events::handlewindowevents::HandleWindowEvents;
 use crate::systems::events::resize::Resize;
 use crate::systems::rendering::acquiretexture::AcquireTexture;
 use crate::systems::rendering::computelightculling::ComputeLightCulling;
+use crate::systems::rendering::rendercollision::RenderCollision;
 use crate::systems::rendering::renderforwardpass::RenderForwardPass;
 use crate::systems::rendering::rendershadowpass::RenderShadowPass;
 use crate::systems::rendering::renderskybox::RenderSkyBox;
@@ -65,6 +66,7 @@ impl Default for ECSContainer {
             .with_thread_local(ComputeLightCulling)
             .with_thread_local(AcquireTexture)
             .with_thread_local(RenderForwardPass)
+            .with_thread_local(RenderCollision)
             .with_thread_local(RenderSkyBox)
             .with_thread_local(RenderUIPass)
             .build();
@@ -110,7 +112,7 @@ impl ECSContainer {
             f32::to_radians(45.0),
             0.01,
         );
-        let cam_controller = CameraController::new(1.0, 2.0);
+        let cam_controller = CameraController::new(0.1, 2.0);
         globals.update_view_proj_matrix(&cam, &proj);
         drop(state);
 
@@ -172,6 +174,7 @@ impl ECSContainer {
         world.register::<TilingBindGroup>();
         world.register::<SkyboxBindGroup>();
         world.register::<DebugTextureBindGroup>();
+        world.register::<DebugCollisionBindGroup>();
         world.register::<ScriptingCallback>();
         world.register::<ScriptEvent>();
         world.register::<AssetIdentifier>();

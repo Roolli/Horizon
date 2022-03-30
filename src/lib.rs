@@ -72,10 +72,12 @@ use crate::components::assetidentifier::AssetIdentifier;
 use crate::components::gltfmodel::{RawMaterial, RawMesh, RawModel};
 use crate::filesystem::modelimporter::Importer;
 use crate::renderer::bindgroupcontainer::BindGroupContainer;
+use crate::renderer::bindgroups::debugcollision::DebugCollisionBindGroup;
 use crate::renderer::bindgroups::debugtexture::DebugTextureBindGroup;
 use crate::renderer::bindgroups::material::MaterialBindGroup;
 use crate::renderer::bindgroups::skybox::SkyboxBindGroup;
 use crate::renderer::model::HorizonModel;
+use crate::renderer::pipelines::debugcollision::DebugCollisionPipeline;
 use crate::renderer::pipelines::debugtexturepipeline::DebugTexturePipeline;
 use crate::renderer::pipelines::skyboxpipeline::SkyboxPipeline;
 use crate::renderer::primitives::material::{GltfMaterial, MaterialUniform};
@@ -101,7 +103,7 @@ use crate::resources::windowstate::WindowState;
 use crate::scripting::scriptingengine::HorizonScriptingEngine;
 use crate::scripting::ScriptingError;
 use crate::systems::events::handlelifecycleevents::HandleInitCallbacks;
-use crate::BufferTypes::{LightCulling, LightId};
+use crate::BufferTypes::{DebugCollisionUniform, LightCulling, LightId};
 use crate::TextureViewTypes::DeferredSpecular;
 use ecscontainer::ECSContainer;
 use wgpu::util::DeviceExt;
@@ -621,8 +623,7 @@ fn run_deno_event_loop(runtime: &Runtime) {
     });
 }
 
-/// Initializes a new ECS container (World) and registers the components, creates the dependency tree for the system and sets up resources.
-
+/// sets up all the required bind groups and the pipelines that use these bindgroups.
 fn setup_pipelines(world: &mut World) {
     let state = world.read_resource::<State>();
     let mut binding_resource_container = world.write_resource::<BindingResourceContainer>();
@@ -633,6 +634,7 @@ fn setup_pipelines(world: &mut World) {
     TilingBindGroup::get_resources(&state.device, &mut binding_resource_container);
     SkyboxBindGroup::get_resources(&state.device, &mut binding_resource_container);
     DebugTextureBindGroup::get_resources(&state.device, &mut binding_resource_container);
+    DebugCollisionBindGroup::get_resources(&state.device, &mut binding_resource_container);
     GBuffer::generate_g_buffers(
         &state.device,
         &state.sc_descriptor,
@@ -759,6 +761,12 @@ fn setup_pipelines(world: &mut World) {
                 .unwrap(),
         ),
     );
+    let debug_collision_container = DebugCollisionBindGroup::create_container(
+        &state.device,
+        binding_resource_container.buffers[DebugCollisionUniform]
+            .as_ref()
+            .unwrap(),
+    );
     let gbuffer_pipeline = GBufferPipeline::create_pipeline(
         &state.device,
         (
@@ -816,6 +824,11 @@ fn setup_pipelines(world: &mut World) {
         &debug_texture_container.layout,
         &[wgpu::TextureFormat::Bgra8Unorm.into()],
     );
+    let debug_collision_pipeline = DebugCollisionPipeline::create_pipeline(
+        &state.device,
+        (&uniform_container.layout, &debug_collision_container.layout),
+        &[state.sc_descriptor.format.into()],
+    );
 
     drop(state);
     drop(binding_resource_container);
@@ -826,6 +839,7 @@ fn setup_pipelines(world: &mut World) {
     world.insert(LightCullingPipeline(lightculling_pipeline));
     world.insert(SkyboxPipeline(skybox_pipeline));
     world.insert(DebugTexturePipeline(debug_texture_pipeline));
+    world.insert(DebugCollisionPipeline(debug_collision_pipeline));
     world
         .create_entity()
         .with(UniformBindGroup)
@@ -861,5 +875,10 @@ fn setup_pipelines(world: &mut World) {
         .create_entity()
         .with(DebugTextureBindGroup)
         .with(debug_texture_container)
+        .build();
+    world
+        .create_entity()
+        .with(DebugCollisionBindGroup)
+        .with(debug_collision_container)
         .build();
 }

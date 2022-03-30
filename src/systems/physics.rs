@@ -117,9 +117,9 @@ impl<'a> System<'a> for Physics {
         // perform simulation
         world.step(dt.delta);
         for (handle, transform) in (&handles, &mut transforms).join() {
-            let body = world.body_set.get(handle.rigid_body_handle).unwrap();
+            let body = world.body_set.get_mut(handle.rigid_body_handle).unwrap();
             transform.position = body.position().translation.vector;
-            transform.rotation = body.rotation().cast();
+            transform.rotation = body.position().rotation;
         }
         while let Ok(intersection_event) = world.intersection_event_receiver.try_recv() {
             log::info!("intersection event! {:?}", intersection_event);

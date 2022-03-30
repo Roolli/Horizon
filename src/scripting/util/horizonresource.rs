@@ -60,11 +60,7 @@ impl ScriptingCamera {
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "setTarget"))]
     pub fn set_follow_target(target: Option<u32>) {
         let ecs = ECSContainer::global();
-        let target_ent = if let Some(t) = target {
-            Some(ecs.world.entities().entity(t))
-        } else {
-            None
-        };
+        let target_ent = target.map(|t| ecs.world.entities().entity(t));
         let mut cam = ecs
             .world
             .write_resource::<crate::resources::camera::Camera>();

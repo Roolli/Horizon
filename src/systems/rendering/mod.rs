@@ -8,3 +8,4 @@ pub mod computelightculling;
 pub mod updatecamera;
 pub mod renderskybox;
 pub mod acquiretexture;
+pub mod rendercollision;

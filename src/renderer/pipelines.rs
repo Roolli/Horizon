@@ -1,11 +1,12 @@
+pub mod debugcollision;
+pub mod debugtexturepipeline;
 pub mod forwardpipeline;
 pub mod gbufferpipeline;
 pub mod lightcullingpipeline;
 pub mod lightpipeline;
 pub mod shadowpipeline;
-pub mod texturepipeline;
 pub mod skyboxpipeline;
-pub mod debugtexturepipeline;
+pub mod texturepipeline;
 
 use wgpu::ColorTargetState;
 pub trait HorizonPipeline<'a> {
@@ -44,7 +45,7 @@ impl RenderPipelineBuilder {
             vertex,
             fragment: fragment_state,
             primitive: primitve_state,
-            multisample: wgpu::MultisampleState{
+            multisample: wgpu::MultisampleState {
                 ..Default::default()
             },
             depth_stencil: depth_stencil_state,

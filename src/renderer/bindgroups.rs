@@ -2,17 +2,18 @@ use wgpu::Device;
 
 use crate::resources::bindingresourcecontainer::BindingResourceContainer;
 
-use super::bindgroupcontainer::{BindGroupContainer};
+use super::bindgroupcontainer::BindGroupContainer;
 
+pub mod debugcollision;
+pub mod debugtexture;
 pub mod deferred;
 pub mod gbuffer;
 pub mod lighting;
+pub mod material;
 pub mod shadow;
+pub mod skybox;
 pub mod tiling;
 pub mod uniforms;
-pub mod skybox;
-pub mod material;
-pub mod debugtexture;
 
 pub trait HorizonBindGroup<'a> {
     type BindingResources;

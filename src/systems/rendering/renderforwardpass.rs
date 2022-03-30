@@ -4,21 +4,18 @@ use crate::{
         bindgroups::{
             deferred::DeferredBindGroup, lighting::LightBindGroup, uniforms::UniformBindGroup,
         },
-        pipelines::{forwardpipeline::ForwardPipeline},
+        pipelines::forwardpipeline::ForwardPipeline,
         state::State,
     },
     resources::{
-        bindingresourcecontainer::BindingResourceContainer,
-        commandencoder::HorizonCommandEncoder, renderresult::RenderResult,
+        bindingresourcecontainer::BindingResourceContainer, commandencoder::HorizonCommandEncoder,
+        renderresult::RenderResult,
     },
 };
-use crate::{resources::deltatime::DeltaTime};
-use chrono::Duration;
 
-
-use specs::prelude::*;
 use crate::resources::bindingresourcecontainer::BufferTypes::DeferredVao;
 use crate::resources::surfacetexture::SurfaceTexture;
+use specs::prelude::*;
 
 pub struct RenderForwardPass;
 
@@ -33,7 +30,7 @@ impl<'a> System<'a> for RenderForwardPass {
         ReadExpect<'a, ForwardPipeline>,
         Write<'a, RenderResult>,
         ReadStorage<'a, DeferredBindGroup>,
-        ReadExpect<'a,SurfaceTexture>
+        ReadExpect<'a, SurfaceTexture>,
     );
 
     fn run(
@@ -51,14 +48,18 @@ impl<'a> System<'a> for RenderForwardPass {
             surface_texture,
         ): Self::SystemData,
     ) {
-        if render_result.result.is_some()
-        {
+        if render_result.result.is_some() {
             return;
         }
 
         let cmd_encoder = encoder.get_encoder();
 
-        let view = surface_texture.texture.as_ref().unwrap().texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let view = surface_texture
+            .texture
+            .as_ref()
+            .unwrap()
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
 
         let mut render_pass = cmd_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("forward pass"),
@@ -78,11 +79,7 @@ impl<'a> System<'a> for RenderForwardPass {
             depth_stencil_attachment: None,
         });
 
-
-
         render_pass.set_pipeline(&forward_pipeline.0);
-
-        // //TODO: Convert to resource
         let (_, deffered_bind_group_container) = (&deferred_bind_group, &bind_group_containers)
             .join()
             .next()
@@ -101,7 +98,10 @@ impl<'a> System<'a> for RenderForwardPass {
 
         render_pass.set_vertex_buffer(
             0,
-            binding_resource_container.buffers[DeferredVao].as_ref().unwrap().slice(..),
+            binding_resource_container.buffers[DeferredVao]
+                .as_ref()
+                .unwrap()
+                .slice(..),
         );
         render_pass.draw(0..6, 0..1);
         drop(render_pass);

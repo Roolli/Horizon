@@ -325,7 +325,6 @@ fn handle_device_events(event: &winit::event::DeviceEvent) {
 
 fn handle_model_load(custom_event: CustomEvent) {
     if let CustomEvent::RequestModelLoad(data, sender) = custom_event {
-        log::info!("got data from model load");
         let container = ECSContainer::global();
         let state = container.world.read_resource::<State>();
         let default_texture_container = container.world.read_resource::<DefaultTextureContainer>();
@@ -462,9 +461,6 @@ fn handle_model_load(custom_event: CustomEvent) {
                 }
             }
         }
-
-        // let collision_builder =
-        //     rapier3d::geometry::ColliderBuilder::convex_hull(obj_model.meshes[0].points.as_slice()).unwrap();
         let raw_model = RawModel {
             meshes,
             materials: gpu_mats,
@@ -554,7 +550,6 @@ fn handle_user_events(event: CustomEvent) {
 fn handle_window_event(event: &WindowEvent, window: &Window, control_flow: &mut ControlFlow) {
     let container = ECSContainer::global();
     let mut egui = container.world.write_resource::<EguiContainer>();
-    // TODO: check return value
     egui.handle_events(event);
     match event {
         WindowEvent::MouseInput { button, state, .. } => {

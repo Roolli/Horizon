@@ -12,6 +12,7 @@ use crate::{
         state::State,
     },
     resources::commandencoder::HorizonCommandEncoder,
+    BindingResourceContainer, BufferTypes,
 };
 
 pub struct ComputeLightCulling;
@@ -25,6 +26,7 @@ impl<'a> System<'a> for ComputeLightCulling {
         ReadStorage<'a, BindGroupContainer>,
         ReadExpect<'a, LightCullingPipeline>,
         ReadStorage<'a, TilingBindGroup>,
+        ReadExpect<'a, BindingResourceContainer>,
     );
 
     fn run(
@@ -37,9 +39,17 @@ impl<'a> System<'a> for ComputeLightCulling {
             bind_group_container,
             pipeline,
             tiling_bind_group,
+            binding_resource_container,
         ): Self::SystemData,
     ) {
         let command_encoder = cmd_encoder.get_encoder();
+        command_encoder.clear_buffer(
+            binding_resource_container.buffers[BufferTypes::LightId]
+                .as_ref()
+                .unwrap(),
+            0,
+            None,
+        );
         let mut compute_pass = command_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("Light Culling pass"),
         });

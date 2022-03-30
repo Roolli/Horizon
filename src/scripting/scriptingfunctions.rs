@@ -291,7 +291,13 @@ impl ScriptingFunctions {
     pub async fn set_skybox_texture(texture_path: String) -> Result<(), ScriptingError> {
         let file_contents = crate::Importer::default()
             .import_file(texture_path.as_str())
-            .await;
+            .await
+            .map_err(|e| {
+                ScriptingError::TextureOverrideFailed(format!(
+                    "could not load texture:  Inner error: {}",
+                    e
+                ))
+            })?;
 
         let event_loop_proxy = ref_thread_local::RefThreadLocal::borrow(&EVENT_LOOP_PROXY);
         let (sender, receiver) = futures::channel::oneshot::channel::<()>();

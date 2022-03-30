@@ -14,7 +14,7 @@ impl Importer {
         Self { file_loader }
     }
 
-    pub async fn import_file(&self, file_path: &str) -> Vec<u8> {
+    pub async fn import_file(&self, file_path: &str) -> Result<Vec<u8>, anyhow::Error> {
         self.file_loader.load_file(file_path).await
     }
     pub async fn import_gltf_model(
@@ -28,21 +28,27 @@ impl Importer {
         ),
         ImporterError,
     > {
-        gltf::import_slice(self.file_loader.load_file(file_path).await.as_slice())
-            .map_err(|e| ImporterError::LoadError)
+        gltf::import_slice(
+            self.file_loader
+                .load_file(file_path)
+                .await
+                .map_err(|e| ImporterError::LoadError)?
+                .as_slice(),
+        )
+        .map_err(|e| ImporterError::LoadError)
     }
 }
 #[cfg(not(target_arch = "wasm32"))]
 impl Default for Importer {
     fn default() -> Self {
-        use crate::filesystem::nativefileloader::Nativefileloader;
+        use crate::filesystem::nativefileloader::NativeFileLoader;
         let exe_dir = std::env::current_exe()
             .unwrap()
             .parent()
             .unwrap()
             .to_path_buf();
 
-        Self::new(Box::new(Nativefileloader::new(exe_dir)))
+        Self::new(Box::new(NativeFileLoader::new(exe_dir)))
     }
 }
 #[cfg(target_arch = "wasm32")]

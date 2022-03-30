@@ -1,30 +1,21 @@
-use std::{
-    borrow::BorrowMut,
-};
+use std::borrow::BorrowMut;
 
+use rapier3d::na::{vector, UnitQuaternion, Vector3};
+use rapier3d::prelude::{CCDSolver, IslandManager, RigidBodyType};
 use rapier3d::{
-    crossbeam::{
-        self,
-        channel::{Receiver},
-    },
-    dynamics::{
-        IntegrationParameters, JointSet, RigidBody, RigidBodyHandle, RigidBodySet,
-    },
+    crossbeam::{self, channel::Receiver},
+    dynamics::{IntegrationParameters, JointSet, RigidBody, RigidBodyHandle, RigidBodySet},
     geometry::{
         BroadPhase, Collider, ColliderHandle, ColliderSet, ContactEvent, IntersectionEvent,
         NarrowPhase,
     },
     pipeline::{ChannelEventCollector, PhysicsPipeline},
 };
-use rapier3d::na::{UnitQuaternion, vector, Vector3};
-use rapier3d::prelude::{CCDSolver, IslandManager, RigidBodyType};
-use specs::{Entities, Join, ReadStorage, System, WriteExpect, WriteStorage};
+use specs::{Entities, Join, ReadExpect, ReadStorage, System, WriteExpect, WriteStorage};
 
-use crate::components::{
-    physicshandle::{PhysicsHandle},
-    transform::Transform,
-};
+use crate::components::{physicshandle::PhysicsHandle, transform::Transform};
 use crate::ui::debugstats::DebugStats;
+use crate::DeltaTime;
 
 pub struct PhysicsWorld {
     pipeline: PhysicsPipeline,
@@ -60,6 +51,7 @@ impl PhysicsWorld {
             gravity: gravity_vector,
             ccd_solver: CCDSolver::new(),
             integration_parameters: IntegrationParameters {
+                min_ccd_dt: 0.01,
                 ..Default::default()
             },
             joints: JointSet::new(),
@@ -83,7 +75,9 @@ impl PhysicsWorld {
         self.collider_set
             .insert_with_parent(collider_descriptor, parent_handle, &mut self.body_set)
     }
-    pub fn step(&mut self) {
+    pub fn step(&mut self, delta: f32) {
+        self.integration_parameters.dt = f32::min(delta, 0.01667f32);
+
         self.pipeline.step(
             &self.gravity,
             &self.integration_parameters,
@@ -98,9 +92,13 @@ impl PhysicsWorld {
             &self.event_handler,
         );
     }
-    pub fn delete_rigid_body(&mut self,rigid_body_handle: RigidBodyHandle)
-    {
-        self.body_set.remove(rigid_body_handle,&mut self.island_manager,&mut self.collider_set,&mut self.joints);
+    pub fn delete_rigid_body(&mut self, rigid_body_handle: RigidBodyHandle) {
+        self.body_set.remove(
+            rigid_body_handle,
+            &mut self.island_manager,
+            &mut self.collider_set,
+            &mut self.joints,
+        );
     }
 }
 
@@ -111,17 +109,23 @@ impl<'a> System<'a> for Physics {
         ReadStorage<'a, PhysicsHandle>,
         WriteStorage<'a, Transform>,
         Entities<'a>,
-        WriteExpect<'a,DebugStats>,
+        ReadExpect<'a, DeltaTime>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
-        let (mut world, handles, mut transforms,entities,mut debug_ui) = data;
+        let (mut world, handles, mut transforms, entities, dt) = data;
         // perform simulation
-        world.step();
-        for (handle, transform,ent) in (&handles, &mut transforms,&entities).join() {
+        world.step(dt.delta);
+        for (handle, transform) in (&handles, &mut transforms).join() {
             let body = world.body_set.get(handle.rigid_body_handle).unwrap();
             transform.position = body.position().translation.vector;
             transform.rotation = body.rotation().cast();
+        }
+        while let Ok(intersection_event) = world.intersection_event_receiver.try_recv() {
+            log::info!("intersection event! {:?}", intersection_event);
+        }
+        while let Ok(contact_event) = world.contact_event_receiver.try_recv() {
+            log::info!("contact event! {:?}", contact_event);
         }
     }
 }

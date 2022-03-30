@@ -8,12 +8,13 @@
 - scripting extensions
 
 ## Light culling
-- calculate proper radius
-- utilize buffers in forward fragemnt shader
-- MAYBE do spot lights too.
+- ~~calculate proper radius~~
+- ~~utilize buffers in forward fragemnt shader~~
+- figure out why it's not calculating proper frustums
+~~- MAYBE do spot lights too.~~
   
 ## Physics
-- Calculate composite shapes for each object that has more than 1 mesh
+- ~~Calculate composite shapes for each object that has more than 1 mesh~~
 - wire-up collision detection user events
 - add colshapes
 - wire-up colshape events
@@ -47,11 +48,8 @@ Add CPU time measurement (maybe do a resource in ECS?)
 - first one to 'finish' wins
 - ????
 - profit
-### Parking simulator (maybe?)
-- Create car 
-- Create some other cars
-- setup parking space
-- if car collides with other entities = reset
+### Test suite
+- setup test scenes using this
 
 ## Scripting extensions
 - Add mouse / keyboard events 

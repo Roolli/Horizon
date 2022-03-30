@@ -3,11 +3,11 @@ use rapier3d::{dynamics::RigidBodyHandle, geometry::ColliderHandle};
 use serde::{Deserialize, Serialize};
 use specs::{Component, VecStorage};
 
-#[derive(Component, Clone, Copy, Serialize, Deserialize)]
+#[derive(Component, Serialize, Deserialize)]
 #[storage(VecStorage)]
 pub struct PhysicsHandle {
     pub rigid_body_handle: RigidBodyHandle,
-    pub collider_handle: ColliderHandle, // Might not be needed as remove doesn't need it.
+    pub collider_handles: Vec<ColliderHandle>,
 }
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]

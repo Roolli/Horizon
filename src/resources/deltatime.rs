@@ -4,7 +4,7 @@ pub struct DeltaTime {
     pub frame_count: u16,
     pub previous_frame_time: chrono::Duration,
     pub total_frame_time: chrono::Duration,
-    /// Time between the last frame render (in ms)
+    /// Time between the last frame render in seconds
     pub delta: f32,
     pub app_start_time: i64,
     pub prev_sec_frame_count: u16,

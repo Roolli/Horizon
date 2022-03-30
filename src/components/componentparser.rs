@@ -114,19 +114,20 @@ impl ParseComponent for PhysicsComponentParser {
             if let Some(model) = component_data.model {
                 let mut physics_world = world.write_resource::<PhysicsWorld>();
                 let mass = component_data.mass.unwrap_or_default();
+                let model_data = world.read_component::<HorizonModel>();
+                let model = model_data
+                    .get(world.entities().entity(model))
+                    .ok_or(ComponentParserError::InvalidData("model"))?;
+
                 let mut rigid_body_handle: Option<RigidBodyHandle> = None;
-                let mut collider_handle: Option<ColliderHandle> = None;
+                let mut collider_handles: Vec<ColliderHandle> = Vec::new();
+
                 let transform_storage = world.read_storage::<Transform>();
                 let transform = transform_storage
                     .get(entity)
                     .ok_or(ComponentParserError::MissingDependantComponent("Transform"))?;
                 match component_data.body_type {
                     Some(crate::scripting::util::RigidBodyType::Dynamic) => {
-                        let colliders = world.read_component::<ModelCollider>();
-                        let collider = colliders
-                            .get(world.entities().entity(model))
-                            .ok_or(ComponentParserError::InvalidData("modelCollider"))?;
-                        let collider = collider.0.build();
                         let mut rigid_body_builder = RigidBodyBuilder::new_dynamic()
                             .position(Isometry::new(
                                 transform.position,
@@ -150,10 +151,70 @@ impl ParseComponent for PhysicsComponentParser {
                         }
                         let rigid_body = rigid_body_builder.build();
                         let body_handle = physics_world.add_rigid_body(rigid_body);
+                        let mut convex_decs = Vec::new();
+                        let scale = transform.scale;
+                        for mesh in &model.meshes {
+                            for primitive in &mesh.primitives {
+                                if let Some(VertexAttribValues::Float32x3 { 0: values }) =
+                                    primitive.mesh.attribute(VertexAttributeType::Position)
+                                {
+                                    let original_points = values;
+                                    let points: Vec<Point3<f32>> = original_points
+                                        .iter()
+                                        .map(|v| {
+                                            Point3::new(
+                                                v[0] * scale.x,
+                                                v[1] * scale.y,
+                                                v[2] * scale.z,
+                                            )
+                                        })
+                                        .collect::<Vec<_>>();
+                                    let indices: Vec<[u32; 3]> = primitive
+                                        .mesh
+                                        .indices
+                                        .as_ref()
+                                        .unwrap()
+                                        .chunks(3)
+                                        .map(|v| v.try_into().unwrap())
+                                        .collect::<Vec<_>>();
+                                    if let Some(mut builder) = ColliderBuilder::convex_hull(&points)
+                                    {
+                                        builder.position = Isometry::new(
+                                            transform.position,
+                                            transform.rotation.scaled_axis(),
+                                        );
+                                        convex_decs.push(builder.build());
+                                    } else {
+                                        log::info!("could not compute convex hull for {} with vertex buffer size: {} index buffer size: {}",primitive.mesh.name,points.len(),indices.len());
+                                    }
+                                }
+                            }
+                        }
+                        let compound_collider = ColliderBuilder::compound(
+                            convex_decs
+                                .into_iter()
+                                .map(|v| (*v.position(), v.shared_shape().clone()))
+                                .collect::<Vec<_>>(),
+                        )
+                        .build();
+                        let aabb = compound_collider
+                            .shared_shape()
+                            .as_compound()
+                            .unwrap()
+                            .local_aabb();
+                        log::info!("mins: {}, maxs: {}", aabb.mins, aabb.maxs);
+                        collider_handles
+                            .push(physics_world.add_collider(compound_collider, body_handle));
 
-                        collider_handle = Some(physics_world.add_collider(collider, body_handle));
+                        // collider_handles.extend(
+                        //     convex_decs
+                        //         .into_iter()
+                        //         .map(|collider| physics_world.add_collider(collider, body_handle)),
+                        //);
+                        // collider_handle = Some(physics_world.add_collider(collider, body_handle));
                         rigid_body_handle = Some(body_handle);
                     }
+                    // use tri-mesh for static rigid Bodies.
                     Some(crate::scripting::util::RigidBodyType::Static) => {
                         let rigid_body = RigidBodyBuilder::new_static()
                             .position(Isometry::new(
@@ -164,40 +225,55 @@ impl ParseComponent for PhysicsComponentParser {
                             .build();
                         let body_handle = physics_world.add_rigid_body(rigid_body);
 
-                        // Add cuboid collider for now maybe calculate min-extents for the given object
-                        let colliders = world.read_component::<HorizonModel>();
-                        let model = colliders
-                            .get(world.entities().entity(model))
-                            .ok_or(ComponentParserError::InvalidData("modelCollider"))?;
-                        // TODO fix
-                        let values = if let VertexAttribValues::Float32x3 { 0: values } =
-                            model.meshes[0].primitives[0]
-                                .mesh
-                                .attribute(VertexAttributeType::Position)
-                                .unwrap()
-                        {
-                            values.clone()
-                        } else {
-                            vec![[0.0, 0.0, 0.0]]
-                        };
-                        let collider_builder =
-                            ColliderBuilder::convex_hull(&[Point3::new(0.0, 0.0, 0.0)]).unwrap();
-                        collider_handle =
-                            Some(physics_world.add_collider(collider_builder.build(), body_handle));
+                        let scale = transform.scale;
+
+                        let mut triangles_meshes = Vec::new();
+
+                        for mesh in &model.meshes {
+                            for primitive in &mesh.primitives {
+                                if let Some(VertexAttribValues::Float32x3 { 0: values }) =
+                                    primitive.mesh.attribute(VertexAttributeType::Position)
+                                {
+                                    let points: Vec<Point3<f32>> = values
+                                        .iter()
+                                        .map(|v| {
+                                            Point3::new(
+                                                v[0] * scale.x,
+                                                v[1] * scale.y,
+                                                v[2] * scale.z,
+                                            )
+                                        })
+                                        .collect::<Vec<_>>();
+                                    let indices: Vec<[u32; 3]> = primitive
+                                        .mesh
+                                        .indices
+                                        .as_ref()
+                                        .unwrap()
+                                        .chunks(3)
+                                        .map(|v| v.try_into().unwrap())
+                                        .collect::<Vec<_>>();
+                                    triangles_meshes
+                                        .push(ColliderBuilder::trimesh(points, indices).build());
+                                }
+                            }
+                        }
+                        collider_handles.extend(
+                            triangles_meshes
+                                .into_iter()
+                                .map(|collider| physics_world.add_collider(collider, body_handle)),
+                        );
                         rigid_body_handle = Some(body_handle);
                     }
                     _ => return Err(ComponentParserError::InvalidData("bodyType")),
                 }
 
-                if let (Some(body_handle), Some(collision_handle)) =
-                    (rigid_body_handle, collider_handle)
-                {
+                if let Some(body_handle) = rigid_body_handle {
                     let mut physics_storage = world.write_component::<PhysicsHandle>();
                     physics_storage
                         .insert(
                             entity,
                             PhysicsHandle {
-                                collider_handle: collision_handle,
+                                collider_handles,
                                 rigid_body_handle: body_handle,
                             },
                         )

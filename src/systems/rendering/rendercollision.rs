@@ -3,6 +3,7 @@ use crate::components::transform::Transform;
 use crate::renderer::bindgroups::debugcollision::DebugCollisionBindGroup;
 use crate::renderer::pipelines::debugcollision::DebugCollisionPipeline;
 use crate::resources::commandencoder::HorizonCommandEncoder;
+use crate::resources::scriptingstate::ScriptingState;
 use crate::resources::surfacetexture::SurfaceTexture;
 use crate::systems::physics::PhysicsWorld;
 use crate::BufferTypes::{DebugCollisionUniform, DebugCollisionVertex};
@@ -25,6 +26,7 @@ impl<'a> System<'a> for RenderCollision {
         ReadExpect<'a, BindingResourceContainer>,
         ReadStorage<'a, DebugCollisionBindGroup>,
         ReadStorage<'a, Transform>,
+        ReadExpect<'a, ScriptingState>,
     );
 
     fn run(
@@ -41,8 +43,12 @@ impl<'a> System<'a> for RenderCollision {
             binding_resource_container,
             debug_collision_bind_group_marker,
             transforms,
+            scripting_state,
         ): Self::SystemData,
     ) {
+        if !scripting_state.show_collision_meshes {
+            return;
+        }
         let encoder = cmd_encoder.get_encoder();
         let surface_text = surface_texture.texture.as_ref().unwrap();
         let surface_view = surface_text
@@ -104,7 +110,7 @@ impl<'a> System<'a> for RenderCollision {
                             let vertices = convex_polyhedron
                                 .points()
                                 .iter()
-                                .flat_map(|v| v.coords.data.0)
+                                .flat_map(|v| (v.coords * 100.).data.0)
                                 .collect::<Vec<_>>();
                             // black magic
                             let buffer = binding_resource_container.buffers[DebugCollisionVertex]

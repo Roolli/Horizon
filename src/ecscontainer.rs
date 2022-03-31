@@ -6,6 +6,7 @@ use std::borrow::{Borrow, BorrowMut};
 
 use crate::components::assetidentifier::AssetIdentifier;
 use crate::components::modelcollider::ModelCollider;
+use crate::resources::scriptingstate::ScriptingState;
 use crate::resources::surfacetexture::SurfaceTexture;
 use crate::scripting::scriptevent::ScriptEvent;
 use crate::scripting::scriptingengine::HorizonScriptingEngine;
@@ -112,7 +113,7 @@ impl ECSContainer {
             f32::to_radians(45.0),
             0.01,
         );
-        let cam_controller = CameraController::new(0.1, 2.0);
+        let cam_controller = CameraController::new(10.0, 2.0);
         globals.update_view_proj_matrix(&cam, &proj);
         drop(state);
 
@@ -136,6 +137,10 @@ impl ECSContainer {
             new_size: size,
             handled: false,
             scale_factor: None,
+        });
+        world.insert(ScriptingState {
+            run_physics_simulation: true,
+            show_collision_meshes: false,
         });
         world.insert(SurfaceTexture { texture: None });
         world.insert(DebugStats {

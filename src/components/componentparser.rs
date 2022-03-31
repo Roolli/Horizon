@@ -8,7 +8,7 @@ use crate::renderer::primitives::mesh::{VertexAttribValues, VertexAttributeType}
 use crate::scripting::util::entityinfo::Component;
 use crate::systems::physics::PhysicsWorld;
 use crate::ECSContainer;
-use rapier3d::na::{Point3, UnitQuaternion, Vector3};
+use rapier3d::na::{Isometry3, Matrix4, Point3, Quaternion, UnitQuaternion, Vector3};
 use rapier3d::prelude::*;
 use ref_thread_local::Ref;
 use specs::{Builder, Entity, EntityBuilder, Join, World, WorldExt};
@@ -128,9 +128,19 @@ impl ParseComponent for PhysicsComponentParser {
                     .ok_or(ComponentParserError::MissingDependantComponent("Transform"))?;
                 match component_data.body_type {
                     Some(crate::scripting::util::RigidBodyType::Dynamic) => {
+                        let transform_matrix = transform
+                            .rotation
+                            .to_rotation_matrix()
+                            .to_homogeneous()
+                            .append_nonuniform_scaling(&transform.scale);
+
                         let mut rigid_body_builder = RigidBodyBuilder::new_dynamic()
-                            .position(Isometry::new(
-                                transform.position,
+                            .position(Isometry3::new(
+                                Vector3::new(
+                                    transform.position.x,
+                                    transform.position.y,
+                                    transform.position.z,
+                                ),
                                 transform.rotation.scaled_axis(),
                             ))
                             .additional_mass(mass as f32);
@@ -160,13 +170,7 @@ impl ParseComponent for PhysicsComponentParser {
                                 {
                                     let points: Vec<Point3<f32>> = values
                                         .iter()
-                                        .map(|v| {
-                                            Point3::new(
-                                                v[0] * scale.x,
-                                                v[1] * scale.y,
-                                                v[2] * scale.z,
-                                            )
-                                        })
+                                        .map(|v| Point3::new(v[0], v[1], v[2]))
                                         .collect::<Vec<_>>();
                                     if let Some(builder) = ColliderBuilder::convex_hull(&points) {
                                         convex_decs.push(builder.build());
@@ -191,8 +195,12 @@ impl ParseComponent for PhysicsComponentParser {
                     // use tri-mesh for static rigid Bodies.
                     Some(crate::scripting::util::RigidBodyType::Static) => {
                         let rigid_body = RigidBodyBuilder::new_static()
-                            .position(Isometry::new(
-                                transform.position,
+                            .position(Isometry3::new(
+                                Vector3::new(
+                                    transform.position.x,
+                                    transform.position.y,
+                                    transform.position.z,
+                                ),
                                 transform.rotation.scaled_axis(),
                             ))
                             .additional_mass(mass as f32)
@@ -216,14 +224,9 @@ impl ParseComponent for PhysicsComponentParser {
                                         .iter()
                                         .map(|v| {
                                             let vertex = values[*v as usize];
-                                            Point3::new(
-                                                vertex[0] * scale.x,
-                                                vertex[1] * scale.y,
-                                                vertex[2] * scale.z,
-                                            )
+                                            Point3::new(vertex[0], vertex[1], vertex[2])
                                         })
                                         .collect::<Vec<_>>();
-
                                     if let Some(collider_builder) =
                                         ColliderBuilder::convex_hull(&vertices)
                                     {

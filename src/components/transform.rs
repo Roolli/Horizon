@@ -12,7 +12,6 @@ pub struct Transform {
     pub model: Option<Entity>,
 }
 
-
 impl Transform {
     pub fn new(
         position: Vector3<f32>,
@@ -54,8 +53,11 @@ impl Transform {
 
     pub fn to_raw(&self) -> TransformRaw {
         TransformRaw {
-            data: (Matrix4::new_translation(&self.position) *self.rotation.to_rotation_matrix().to_homogeneous()).append_nonuniform_scaling(&self.scale)
+            data: (Matrix4::new_translation(&self.position)
+                * self.rotation.to_rotation_matrix().to_homogeneous())
+            .append_nonuniform_scaling(&self.scale)
             .into(),
+            //data: Isometry3::new(self.position, self.rotation.scaled_axis()),
         }
     }
 }

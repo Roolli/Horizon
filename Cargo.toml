@@ -225,8 +225,8 @@ wgpu-subscriber="0.1.0"
 [profile.dev.package.rapier3d]
 opt-level = 3
 
-[profile.release]
-codegen-units = 1
+#[profile.release]
+#codegen-units = 1
 
 # [profile.release]
 # opt-level = 3

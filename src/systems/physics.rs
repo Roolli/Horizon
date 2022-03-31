@@ -14,6 +14,7 @@ use rapier3d::{
 use specs::{Entities, Join, ReadExpect, ReadStorage, System, WriteExpect, WriteStorage};
 
 use crate::components::{physicshandle::PhysicsHandle, transform::Transform};
+use crate::resources::scriptingstate::ScriptingState;
 use crate::ui::debugstats::DebugStats;
 use crate::DeltaTime;
 
@@ -110,11 +111,15 @@ impl<'a> System<'a> for Physics {
         WriteStorage<'a, Transform>,
         Entities<'a>,
         ReadExpect<'a, DeltaTime>,
+        ReadExpect<'a, ScriptingState>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
-        let (mut world, handles, mut transforms, entities, dt) = data;
+        let (mut world, handles, mut transforms, entities, dt, scripting_state) = data;
         // perform simulation
+        if !scripting_state.run_physics_simulation {
+            return;
+        }
         world.step(dt.delta);
         for (handle, transform) in (&handles, &mut transforms).join() {
             let body = world.body_set.get_mut(handle.rigid_body_handle).unwrap();

@@ -33,7 +33,7 @@ use crate::{
     SkyboxBindGroup, TextureViewTypes, WindowState, ECS_CONTAINER,
 };
 
-use crate::systems::events::handlewindowevents::HandleWindowEvents;
+use crate::systems::events::handlewindowevents::HandleInternalWindowEvents;
 use crate::systems::events::resize::Resize;
 use crate::systems::rendering::acquiretexture::AcquireTexture;
 use crate::systems::rendering::computelightculling::ComputeLightCulling;
@@ -57,7 +57,11 @@ impl Default for ECSContainer {
         let mut world = World::new();
         let mut dispatcher = DispatcherBuilder::new()
             .with(UpdateDeltaTime, stringify!(UpdateDeltaTime), &[])
-            .with(HandleWindowEvents, stringify!(HandleWindowEvents), &[])
+            .with(
+                HandleInternalWindowEvents,
+                stringify!(HandleWindowEvents),
+                &[],
+            )
             .with(UpdateCamera, stringify!(UpdateCamera), &[])
             .with(Physics, stringify!(Physics), &[])
             .with_thread_local(Resize)

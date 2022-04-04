@@ -103,6 +103,7 @@ use crate::resources::windowstate::WindowState;
 use crate::scripting::scriptingengine::HorizonScriptingEngine;
 use crate::scripting::ScriptingError;
 use crate::systems::events::handlelifecycleevents::HandleInitCallbacks;
+use crate::systems::events::handlewindowevents::{HandleKeyboardEvent, HandleMouseInputEvent};
 use crate::BufferTypes::{DebugCollisionUniform, LightCulling, LightId};
 use crate::TextureViewTypes::DeferredSpecular;
 use ecscontainer::ECSContainer;
@@ -117,7 +118,6 @@ extern "C" {
     fn call_catch(this: &wasm_bindgen::JsValue) -> Result<(), wasm_bindgen::JsValue>;
 }
 
-// TODO: convert sender to result<T> and return proper errors
 #[derive(Debug)]
 pub enum CustomEvent {
     RequestModelLoad(
@@ -154,7 +154,6 @@ pub fn run() {
 
         let canvas = window.canvas();
 
-        // TODO: if on web resize accordingly in the event.
         canvas.set_height(screen_y as u32);
         canvas.set_width(screen_x as u32);
         body.append_child(&web_sys::Element::from(canvas)).ok();
@@ -559,6 +558,8 @@ fn handle_window_event(event: &WindowEvent, window: &Window, control_flow: &mut 
             let mut mouse_event = container.world.write_resource::<MouseInputEvent>();
             mouse_event.info = (*button, *state);
             mouse_event.handled = false;
+            let mut system = HandleMouseInputEvent;
+            system.run_now(&container.world);
         }
         WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
         WindowEvent::KeyboardInput { input, .. } => {
@@ -585,6 +586,8 @@ fn handle_window_event(event: &WindowEvent, window: &Window, control_flow: &mut 
             let mut keyboard_event = container.world.write_resource::<KeyboardEvent>();
             keyboard_event.info = *input;
             keyboard_event.handled = false;
+            let mut keyboard_system = HandleKeyboardEvent;
+            keyboard_system.run_now(&container.world);
         }
         WindowEvent::Resized(physical_size) => {
             let container = ECSContainer::global();

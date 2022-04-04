@@ -66,6 +66,19 @@ impl<'s> ExecuteFunction<'s> for ScriptingCallback {
                 let val = v8::Number::new(scope, t as f64).into();
                 self.callback.open(scope).call(scope, recv, &[val]);
             }
+            CallbackArgs::KeyboardEvent(keycode) => {
+                let val = v8::Integer::new(scope, keycode as i32).into();
+                self.callback.open(scope).call(scope, recv, &[val]);
+            }
+            CallbackArgs::MouseMoveEvent((rel_x, rel_y)) => {
+                let x = v8::Number::new(scope, rel_x).into();
+                let y = v8::Number::new(scope, rel_y).into();
+                self.callback.open(scope).call(scope, recv, &[x, y]);
+            }
+            CallbackArgs::MouseClickEvent(button_id) => {
+                let num = v8::Integer::new(scope, button_id as i32).into();
+                self.callback.open(scope).call(scope, recv, &[num]);
+            }
             CallbackArgs::None => {
                 self.callback.open(scope).call(scope, recv, &[]);
             }
@@ -91,4 +104,7 @@ pub trait ExecuteFunction<'s> {
 pub enum CallbackArgs {
     None,
     Tick(f32),
+    KeyboardEvent(u32),
+    MouseClickEvent(u16),
+    MouseMoveEvent((f64, f64)),
 }

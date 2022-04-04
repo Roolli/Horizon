@@ -10,7 +10,7 @@
 ## Light culling
 - ~~calculate proper radius~~
 - ~~utilize buffers in forward fragemnt shader~~
-- figure out why it's not calculating proper frustums
+~~- figure out why it's not calculating proper frustums~~
 ~~- MAYBE do spot lights too.~~
   
 ## Physics

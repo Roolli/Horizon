@@ -6,7 +6,7 @@ use rapier3d::na::Vector3;
 use specs::WorldExt;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
-//TODO: add option to switch between FPS style and free cam -- done?
+//TODO: add option to switch between FPS style and free cam -- needs debug
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "Camera"))]
 pub struct ScriptingCamera;
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_class = "Camera"))]

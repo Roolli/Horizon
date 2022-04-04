@@ -1,7 +1,7 @@
+use crate::renderer::bindgroupcontainer::BindGroupContainer;
+use crate::{BindingResourceContainer, BufferTypes, HorizonBindGroup};
 use specs::*;
 use wgpu::{BindGroupLayout, BufferUsages, Device, ShaderStages};
-use crate::{BindingResourceContainer, BufferTypes, HorizonBindGroup};
-use crate::renderer::bindgroupcontainer::BindGroupContainer;
 
 use crate::renderer::primitives::uniforms::SkyboxUniform;
 use crate::resources::bindingresourcecontainer::{SamplerTypes, TextureTypes, TextureViewTypes};
@@ -46,7 +46,7 @@ impl<'a> HorizonBindGroup<'a> for SkyboxBindGroup {
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     count: None,
                     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                }
+                },
             ],
         })
     }
@@ -69,7 +69,7 @@ impl<'a> HorizonBindGroup<'a> for SkyboxBindGroup {
                 wgpu::BindGroupEntry {
                     binding: 2,
                     resource: wgpu::BindingResource::Sampler(sampler),
-                }
+                },
             ],
         });
         BindGroupContainer::new(bind_group_layout, bind_group)
@@ -96,8 +96,6 @@ impl<'a> HorizonBindGroup<'a> for SkyboxBindGroup {
             ..size
         };
         let max_mips = layers.max_mips();
-        log::info!("max mips: {}",max_mips);
-        //TODO: create default grey texture
         let skybox_texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Skybox_Texture"),
             size,

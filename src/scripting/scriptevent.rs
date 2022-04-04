@@ -17,6 +17,7 @@ pub enum ScriptEvent {
     Cleanup = 7,
     OnMouseMove = 8,
     OnKeyDown = 9,
+    OnMouseClick = 10,
 }
 impl ScriptEvent {
     pub fn from_number(val: i32) -> Self {

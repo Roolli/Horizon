@@ -3,6 +3,7 @@ use rapier3d::na::{Point3, Vector3};
 use ref_thread_local::{Ref, RefMut, RefThreadLocal};
 use specs::{DispatcherBuilder, RunNow, System, World, WorldExt};
 use std::borrow::{Borrow, BorrowMut};
+use std::collections::HashSet;
 
 use crate::components::assetidentifier::AssetIdentifier;
 use crate::components::modelcollider::ModelCollider;
@@ -164,6 +165,8 @@ impl ECSContainer {
         });
         world.insert(WindowState {
             cursor_state: false,
+            mouse_location: (0.0, 0.0_f32),
+            pressed_keys: HashSet::new(),
         });
         world.insert(KeyboardEvent::default());
         world.insert(MouseMoveEvent::default());

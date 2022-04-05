@@ -103,7 +103,9 @@ use crate::resources::windowstate::WindowState;
 use crate::scripting::scriptingengine::HorizonScriptingEngine;
 use crate::scripting::ScriptingError;
 use crate::systems::events::handlelifecycleevents::HandleInitCallbacks;
-use crate::systems::events::handlewindowevents::{HandleKeyboardEvent, HandleMouseInputEvent};
+use crate::systems::events::handlewindowevents::{
+    HandleKeyboardEvent, HandleMouseInputEvent, HandleMouseMoveEvent,
+};
 use crate::BufferTypes::{DebugCollisionUniform, LightCulling, LightId};
 use crate::TextureViewTypes::DeferredSpecular;
 use ecscontainer::ECSContainer;
@@ -318,9 +320,13 @@ fn run_init() {
 fn handle_device_events(event: &winit::event::DeviceEvent) {
     if let DeviceEvent::MouseMotion { delta } = event {
         let container = ECSContainer::global();
-        let mut mouse_position_event = container.world.write_resource::<MouseMoveEvent>();
-        mouse_position_event.info = *delta;
-        mouse_position_event.handled = false;
+        {
+            let mut mouse_position_event = container.world.write_resource::<MouseMoveEvent>();
+            mouse_position_event.info = *delta;
+            mouse_position_event.handled = false;
+        }
+        let mut mouse_move = HandleMouseMoveEvent;
+        mouse_move.run_now(&container.world);
     }
 }
 
@@ -555,9 +561,11 @@ fn handle_window_event(event: &WindowEvent, window: &Window, control_flow: &mut 
     match event {
         WindowEvent::MouseInput { button, state, .. } => {
             let container = ECSContainer::global();
-            let mut mouse_event = container.world.write_resource::<MouseInputEvent>();
-            mouse_event.info = (*button, *state);
-            mouse_event.handled = false;
+            {
+                let mut mouse_event = container.world.write_resource::<MouseInputEvent>();
+                mouse_event.info = (*button, *state);
+                mouse_event.handled = false;
+            }
             let mut system = HandleMouseInputEvent;
             system.run_now(&container.world);
         }
@@ -583,9 +591,11 @@ fn handle_window_event(event: &WindowEvent, window: &Window, control_flow: &mut 
                 window.set_cursor_visible(!window_state.cursor_state);
             }
             let container = ECSContainer::global();
-            let mut keyboard_event = container.world.write_resource::<KeyboardEvent>();
-            keyboard_event.info = *input;
-            keyboard_event.handled = false;
+            {
+                let mut keyboard_event = container.world.write_resource::<KeyboardEvent>();
+                keyboard_event.info = *input;
+                keyboard_event.handled = false;
+            }
             let mut keyboard_system = HandleKeyboardEvent;
             keyboard_system.run_now(&container.world);
         }

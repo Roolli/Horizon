@@ -52,7 +52,7 @@ Add CPU time measurement (maybe do a resource in ECS?)
 - setup test scenes using this
 
 ## Scripting extensions
-- Add mouse / keyboard events 
+-  ~~Add mouse / keyboard events~~ 
 - Hook up collision events
 - Add method of creating colshapes 
 - ~~Add attachment to camera and/or~~ lights

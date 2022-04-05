@@ -4,7 +4,6 @@ pub mod commandencoder;
 pub mod defaulttexturecontainer;
 pub mod deltatime;
 pub mod eguicontainer;
-pub mod keyboard;
 pub mod projection;
 pub mod renderresult;
 pub mod scriptingstate;

@@ -9,6 +9,7 @@ use crate::scripting::util::entityinfo::Component;
 use crate::systems::physics::PhysicsWorld;
 use crate::ECSContainer;
 use rapier3d::na::{Isometry3, Matrix4, Point3, Quaternion, UnitQuaternion, Vector3};
+use rapier3d::parry::transformation::vhacd::VHACDParameters;
 use rapier3d::prelude::*;
 use ref_thread_local::Ref;
 use specs::{Builder, Entity, EntityBuilder, Join, World, WorldExt};
@@ -162,17 +163,23 @@ impl ParseComponent for PhysicsComponentParser {
                         let rigid_body = rigid_body_builder.build();
                         let body_handle = physics_world.add_rigid_body(rigid_body);
                         let mut convex_decs = Vec::new();
-                        let scale = transform.scale;
                         for mesh in &model.meshes {
                             for primitive in &mesh.primitives {
                                 if let Some(VertexAttribValues::Float32x3 { 0: values }) =
                                     primitive.mesh.attribute(VertexAttributeType::Position)
                                 {
-                                    let points: Vec<Point3<f32>> = values
+                                    let vertices: Vec<Point3<f32>> = primitive
+                                        .mesh
+                                        .indices
+                                        .as_ref()
+                                        .unwrap()
                                         .iter()
-                                        .map(|v| Point3::new(v[0], v[1], v[2]))
+                                        .map(|v| {
+                                            let vertex = values[*v as usize];
+                                            Point3::new(vertex[0], vertex[1], vertex[2])
+                                        })
                                         .collect::<Vec<_>>();
-                                    if let Some(builder) = ColliderBuilder::convex_hull(&points) {
+                                    if let Some(builder) = ColliderBuilder::convex_hull(&vertices) {
                                         convex_decs.push(builder.build());
                                     }
                                 }
@@ -207,8 +214,6 @@ impl ParseComponent for PhysicsComponentParser {
                             .build();
                         let body_handle = physics_world.add_rigid_body(rigid_body);
 
-                        let scale = transform.scale;
-
                         let mut triangles_meshes = Vec::new();
 
                         for mesh in &model.meshes {
@@ -236,11 +241,6 @@ impl ParseComponent for PhysicsComponentParser {
                             }
                         }
 
-                        // collider_handles.extend(
-                        //     triangles_meshes
-                        //         .into_iter()
-                        //         .map(|collider| physics_world.add_collider(collider, body_handle)),
-                        // );
                         let compound_collider = ColliderBuilder::compound(
                             triangles_meshes
                                 .into_iter()

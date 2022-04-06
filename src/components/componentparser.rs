@@ -1,5 +1,3 @@
-use crate::components::componentparser::ComponentParserError::NotFound;
-use crate::components::modelcollider::ModelCollider;
 use crate::components::physicshandle::PhysicsHandle;
 use crate::components::transform::Transform;
 use crate::renderer::model::HorizonModel;
@@ -7,13 +5,10 @@ use crate::renderer::primitives::lights::pointlight::PointLight;
 use crate::renderer::primitives::mesh::{VertexAttribValues, VertexAttributeType};
 use crate::scripting::util::entityinfo::Component;
 use crate::systems::physics::PhysicsWorld;
-use crate::ECSContainer;
 use rapier3d::na::{Isometry3, Matrix4, Point3, Quaternion, UnitQuaternion, Vector3};
 use rapier3d::parry::transformation::vhacd::VHACDParameters;
 use rapier3d::prelude::*;
-use ref_thread_local::Ref;
 use specs::{Builder, Entity, EntityBuilder, Join, World, WorldExt};
-use std::ops::Deref;
 
 #[derive(Debug, Clone)]
 pub enum ComponentParserError {
@@ -129,12 +124,6 @@ impl ParseComponent for PhysicsComponentParser {
                     .ok_or(ComponentParserError::MissingDependantComponent("Transform"))?;
                 match component_data.body_type {
                     Some(crate::scripting::util::RigidBodyType::Dynamic) => {
-                        let transform_matrix = transform
-                            .rotation
-                            .to_rotation_matrix()
-                            .to_homogeneous()
-                            .append_nonuniform_scaling(&transform.scale);
-
                         let mut rigid_body_builder = RigidBodyBuilder::new_dynamic()
                             .position(Isometry3::new(
                                 Vector3::new(
@@ -144,6 +133,7 @@ impl ParseComponent for PhysicsComponentParser {
                                 ),
                                 transform.rotation.scaled_axis(),
                             ))
+                            .user_data(entity.id() as u128)
                             .additional_mass(mass as f32);
                         if let Some(damping_values) = component_data.damping {
                             for damping in damping_values {
@@ -210,6 +200,7 @@ impl ParseComponent for PhysicsComponentParser {
                                 ),
                                 transform.rotation.scaled_axis(),
                             ))
+                            .user_data(entity.id() as u128)
                             .additional_mass(mass as f32)
                             .build();
                         let body_handle = physics_world.add_rigid_body(rigid_body);

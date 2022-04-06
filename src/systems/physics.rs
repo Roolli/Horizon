@@ -121,8 +121,11 @@ impl<'a> System<'a> for Physics {
             return;
         }
         world.step(dt.delta);
-        for (handle, transform) in (&handles, &mut transforms).join() {
-            let body = world.body_set.get_mut(handle.rigid_body_handle).unwrap();
+        for rigid_body_handle in world.island_manager.active_dynamic_bodies() {
+            let body = world.body_set.get(*rigid_body_handle).unwrap();
+            let mut transform = transforms
+                .get_mut(entities.entity(body.user_data as u32))
+                .unwrap();
             transform.position = body.position().translation.vector;
             transform.rotation = body.position().rotation;
         }

@@ -95,22 +95,28 @@ impl<'a> System<'a> for RenderCollision {
                 size
             }
         };
-        for (transform, handles) in (&transforms, &physics_handles).join() {
+        let mut shape_count = 0;
+        for handles in physics_handles.join() {
             for collider_handle in physics_world
                 .body_set
                 .get(handles.rigid_body_handle)
                 .unwrap()
                 .colliders()
             {
+                let pos = physics_world
+                    .body_set
+                    .get(handles.rigid_body_handle)
+                    .unwrap()
+                    .position();
                 let collider = physics_world.collider_set.get(*collider_handle).unwrap();
                 let shape = collider.shared_shape();
                 if let Some(compound_shape) = shape.as_compound() {
-                    for (index, inner_shape) in compound_shape.shapes().iter().enumerate() {
+                    for inner_shape in compound_shape.shapes().iter() {
                         if let Some(convex_polyhedron) = inner_shape.1.as_convex_polyhedron() {
                             let vertices = convex_polyhedron
                                 .points()
                                 .iter()
-                                .flat_map(|v| (v.coords * 100.).data.0)
+                                .flat_map(|v| (v.coords).data.0)
                                 .collect::<Vec<_>>();
                             // black magic
                             let buffer = binding_resource_container.buffers[DebugCollisionVertex]
@@ -128,40 +134,30 @@ impl<'a> System<'a> for RenderCollision {
                                     as wgpu::BufferAddress,
                                 bytemuck::cast_slice(&vertices),
                             );
-                            let transform_matrix = Matrix4::new_translation(&transform.position)
-                                * transform.rotation.to_rotation_matrix().to_homogeneous();
+                            let offset = (shape_count as wgpu::BufferAddress * uniform_alignment);
+
                             state.queue.write_buffer(
                                 uniform_buffer,
-                                (index as wgpu::BufferAddress * uniform_alignment)
-                                    as wgpu::BufferAddress,
-                                bytemuck::bytes_of(&transform_matrix.data.0),
+                                offset,
+                                bytemuck::bytes_of(&pos.to_matrix().data.0),
                             );
-
                             render_pass.set_bind_group(
                                 1,
                                 &collision_uniform_bind_group.bind_group,
-                                &[(index as wgpu::BufferAddress * uniform_alignment)
-                                    as wgpu::DynamicOffset],
+                                &[offset as wgpu::DynamicOffset],
                             );
                             render_pass.set_vertex_buffer(0, buffer.slice(..));
                             render_pass.draw(
                                 vertex_count as u32..(vertex_count + vertices.len()) as u32,
                                 0..1,
                             );
+                            render_pass.insert_debug_marker(
+                                format!("draw for shape #{} ", shape_count).as_str(),
+                            );
                             vertex_count += vertices.len();
+                            shape_count += 1;
                         }
                     }
-                }
-                // (vertex_count * std::mem::size_of::<[f32; 3]>())
-                //     as wgpu::BufferAddress
-                //     ..((vertex_count + vertices.len())
-                //     * std::mem::size_of::<[f32; 3]>())
-                //     as wgpu::BufferAddress,
-                // )
-                if let Some(triangle_mesh) = shape.as_trimesh() {
-                    // do this later.... or never....
-                    // triangle_mesh.vertices()
-                    // triangle_mesh.flat_indices()
                 }
             }
         }

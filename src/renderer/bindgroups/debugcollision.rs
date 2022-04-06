@@ -63,7 +63,7 @@ impl<'a> HorizonBindGroup<'a> for DebugCollisionBindGroup {
                 size
             }
         };
-        let uniform_buffer_size = uniform_alignment * 128;
+        let uniform_buffer_size = uniform_alignment * 1024;
         let debug_collision_uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("debug_collision_uniform_buffer"),
             mapped_at_creation: false,

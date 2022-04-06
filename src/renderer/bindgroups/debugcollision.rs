@@ -49,7 +49,7 @@ impl<'a> HorizonBindGroup<'a> for DebugCollisionBindGroup {
         let debug_collision_vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("debug_collision_vertex_buffer"),
             mapped_at_creation: false,
-            size: (std::mem::size_of::<[f32; 3]>() * (u32::MAX / 8) as usize)
+            size: (std::mem::size_of::<[f32; 3]>() * (u32::MAX / 32) as usize)
                 as wgpu::BufferAddress,
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::VERTEX,
         });

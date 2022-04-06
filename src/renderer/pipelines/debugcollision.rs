@@ -46,7 +46,7 @@ impl<'a> HorizonPipeline<'a> for DebugCollisionPipeline {
                 cull_mode: None,
                 front_face: wgpu::FrontFace::Ccw,
                 polygon_mode: wgpu::PolygonMode::Fill,
-                topology: wgpu::PrimitiveTopology::TriangleList,
+                topology: wgpu::PrimitiveTopology::LineList,
                 ..Default::default()
             },
             fragment: Some(wgpu::FragmentState {

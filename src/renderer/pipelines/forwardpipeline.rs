@@ -36,11 +36,11 @@ impl<'a> HorizonPipeline<'a> for ForwardPipeline {
         };
         let module = device.create_shader_module(&module_descriptor);
 
-        let vbo_layout = wgpu::vertex_attr_array![0=>Float32x2];
+        let vbo_layout = wgpu::vertex_attr_array![0=>Float32x4,1=>Float32x2];
 
         let vertex_state = wgpu::VertexState {
             buffers: &[wgpu::VertexBufferLayout {
-                array_stride: (std::mem::size_of::<f32>() * 2) as wgpu::BufferAddress,
+                array_stride: (std::mem::size_of::<f32>() * 6) as wgpu::BufferAddress,
                 attributes: &vbo_layout,
                 step_mode: wgpu::VertexStepMode::Vertex,
             }],

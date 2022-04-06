@@ -1,7 +1,15 @@
 
+struct VertexOutput {
+[[builtin(position)]] fragPos: vec4<f32>;
+[[location(0)]] fragUV:vec2<f32>;
+};
+
 [[stage(vertex)]]
-fn vs_main([[location(0)]] pos: vec2<f32>) -> [[builtin(position)]] vec4<f32> {
-    return vec4<f32>(pos,0.0,1.0);
+fn vs_main([[location(0)]] pos: vec4<f32>,[[location(1)]] uv:vec2<f32>) -> VertexOutput {
+    var vertex_output: VertexOutput;
+        vertex_output.fragUV = uv;
+        vertex_output.fragPos = pos;
+    return vertex_output;
 }
 
 struct SpotLight {
@@ -122,11 +130,6 @@ var<storage,read> pointLights: PointLightContainer;
 binding(2)]]
 var<storage,read> spotLights: SpotLightContainer;
 
-struct FragmentInput {
-[[builtin(position)]] fragPos: vec4<f32>;
-};
-
-//TODO: add UV coords to vertex -- maybe not needed
 
 fn get_shadow_value(coords:vec4<f32>) -> f32
 {
@@ -169,10 +172,10 @@ fn get_shadow_value_web(light_coords:vec4<f32>) -> f32
     let light_local = light_coords.xy * flip_correction * proj_correction + vec2<f32>(0.5, 0.5);
     return textureSampleCompareLevel(t_shadow_single,s_shadow,light_local,light_coords.z*proj_correction);
 }
-fn get_tile_id(position: vec3<f32>,coordinates: vec2<f32>) -> u32
+fn get_tile_id(coordinates: vec2<f32>) -> u32
 {
-// calculate tile position
-    let V = normalize(globals.u_view_position.xyz - position);
+    // calculate tile position
+    //let V = normalize(globals.u_view_position.xyz - position);
     var tile_scale = vec2<f32>(1.0 / f32(tile_info.tile_count_x),1.0 / f32(tile_info.tile_count_y));
     var uv_flip = vec2<f32>(coordinates.x,1.0-coordinates.y);
     var tile_coord = vec2<u32>(floor(uv_flip/tile_scale));
@@ -181,32 +184,26 @@ fn get_tile_id(position: vec3<f32>,coordinates: vec2<f32>) -> u32
 }
 
 let ambient_strength:f32 = 0.1;
-let min_light:f32 = 0.01; // cut off value in the attenuation function.
 
 fn calcPointLightContribution(light: PointLight, position: vec3<f32>, normal: vec3<f32>, view_dir: vec3<f32>, object_color: vec3<f32>) -> vec3<f32> {
-    let ambient = ambient_strength * object_color;
     let norm = normalize(normal);
     let light_direction = normalize(light.position.xyz - position);
 
-    let diffuse_strength = max(dot(norm,light_direction),0.0);
-    let diffuse_color = light.color.xyz * diffuse_strength * object_color;
+    let diffuse_strength = max(dot(light_direction,norm),0.0);
+    let lambert = light.color.xyz * diffuse_strength * object_color;
 
-    let half_dir = normalize(view_dir - light_direction);
-    let specular_strength = pow(max(dot(normal,half_dir),0.0),32.0);
+    let half_dir = normalize(view_dir + light_direction);
+    let specular_strength = pow(max(dot(normal,half_dir),0.0),10.0);
     let specular_color = specular_strength * light.color.xyz * object_color;
-    let dist = length(light.position.xyz - position);
-    // calculate quadratic term from radius  b = 1.0 / (radius*radius * minLight)
-    let quadratic = 1.0 / (light.radius * light.radius * min_light);
-    // might change attenuation to simple dist / radius based approach
-    let attenuation = 1.0 / (1.0 + 0.1 * dist + quadratic);
-    
-    return (ambient * attenuation + specular_color * attenuation + diffuse_color * attenuation);
+    let dist = length(light.position.xyz - position);    
+
+    return  clamp(light.color*pow(1.0-dist / light.radius,2.0) * (object_color * lambert + vec3<f32>(1.0) * specular_color),vec3<f32>(0.0),vec3<f32>(1.0));
 
 }
 fn addPointLightContributions(position:vec3<f32>,coordinates:vec2<f32>,object_normal:vec3<f32>,view_direction:vec3<f32>,object_color:vec3<f32>) -> vec3<f32>
 {
     var result = vec3<f32>(0.0);
-    let tile_id = get_tile_id(position,coordinates);
+    let tile_id = get_tile_id(coordinates);
     let count = atomicLoad(&tile_light_data.data[tile_id].light_count);
     for(var i: u32 = 0u; i < num_tile_light_slot; i = i + 1u)
     {
@@ -215,6 +212,12 @@ fn addPointLightContributions(position:vec3<f32>,coordinates:vec2<f32>,object_no
             break;
         }
         var light =  pointLights.elements[tile_light_data.data[tile_id].light_ids[i] ];
+        var dist = length(light.position.xyz - position);
+        if(dist > light.radius)
+        {
+            continue;
+        }
+
         result = result + calcPointLightContribution(light,position,object_normal,view_direction,object_color);
     }
     return result;
@@ -226,11 +229,11 @@ fn calcDirLightContribution(normal: vec3<f32>, view_direction: vec3<f32>, object
     let norm = normalize(normal);
     let light_direction = normalize(-dirLight.direction.xyz);
 
-    let diffuse_strength = max(dot(norm,light_direction),0.0);
+    let diffuse_strength = max(dot(light_direction,norm),0.0);
     let diffuse_color = dirLight.color.xyz * diffuse_strength * object_color;
 
-    let half_dir = normalize(view_direction - light_direction);
-    let specular_strength = pow(max(dot(normal,half_dir),0.0),32.0);
+    let half_dir = normalize( light_direction+ view_direction);
+    let specular_strength = pow(max(dot(half_dir,normal),0.0),10.0);
     let specular_color = specular_strength * dirLight.color.xyz * object_color;
   
     return (ambient + ((specular_color + diffuse_color) * shadow));
@@ -239,40 +242,46 @@ fn calcDirLightContribution(normal: vec3<f32>, view_direction: vec3<f32>, object
 
 
 [[stage(fragment)]]
-fn fs_main(in: FragmentInput) -> [[location(0)]] vec4<f32> {
+fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
     var result = vec3<f32>(0.0);
-    let coordinates = in.fragPos.xy / canvasSize.canvasConstants;
+    let coordinates = vec2<i32>(floor(in.fragPos.xy)); // / canvasSize.canvasConstants;
 
-    let position = textureSample(positions,texture_sampler,coordinates).xyz;
     // TODO: get occlusion factor & roughness from their respective channels
-    let object_normal = textureSample(normals,texture_sampler,coordinates);
-    let object_color = textureSample(albedo,texture_sampler,coordinates);
-    let view_direction = normalize(-position);
+    let position = textureLoad(positions,coordinates,0).xyz;
+    if(position.z > 10000.0)
+    {
+        discard;
+    }
+    let object_normal = textureLoad(normals,coordinates,0).xyz;
+    let object_color = textureLoad(albedo,coordinates,0).xyz;
+    let view_direction = normalize(globals.u_view_position.xyz - position);
     
    
     let shadow = get_shadow_value(vec4<f32>(position,1.0)); 
 
-    result = result + calcDirLightContribution(object_normal.xyz,view_direction,object_color.xyz,shadow);
+    result = result + calcDirLightContribution(object_normal,view_direction,object_color.xyz,shadow);
 
-   result = result + addPointLightContributions(position,coordinates,object_normal.xyz,view_direction,object_color.xyz);
-
-
+   result = result + addPointLightContributions(position,in.fragUV,object_normal,view_direction,object_color.xyz);
     
     return vec4<f32>(result,1.0);
 }
 [[stage(fragment)]]
-fn fs_main_web(in:FragmentInput) -> [[location(0)]] vec4<f32>{
+fn fs_main_web(in:VertexOutput) -> [[location(0)]] vec4<f32>{
      var result = vec3<f32>(0.0);
-    let coordinates = in.fragPos.xy / canvasSize.canvasConstants;
-    let position = textureSample(positions,texture_sampler,coordinates).xyz;
-    // TODO: get occlusion factor & roughness from their respective channels
-    let object_normal = textureSample(normals,texture_sampler,coordinates);
-    let object_color = textureSample(albedo,texture_sampler,coordinates);
+    let coordinates = vec2<i32>(floor(in.fragPos.xy)); // / canvasSize.canvasConstants;
+      let position = textureLoad(positions,coordinates,0).xyz;
+    if(position.z > 10000.0)
+    {
+        discard;
+    }
+    let object_normal = textureLoad(normals,coordinates,0).xyz;
+    let object_color = textureLoad(albedo,coordinates,0).xyz;
     let view_direction = normalize(-position);
+
     let shadow = get_shadow_value_web(cascade_transforms.elements[0]* vec4<f32>(position,1.0));
     result = result + calcDirLightContribution(object_normal.xyz,view_direction,object_color.xyz,shadow);
 
-    result = result + addPointLightContributions(position,coordinates,object_normal.xyz,view_direction,object_color.xyz);
+    result = result + addPointLightContributions(position,in.fragUV,object_normal.xyz,view_direction,object_color.xyz);
    
     return vec4<f32>(result,1.0);
 }

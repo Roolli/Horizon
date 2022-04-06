@@ -145,7 +145,7 @@ impl ECSContainer {
         });
         world.insert(ScriptingState {
             run_physics_simulation: true,
-            show_collision_meshes: false,
+            show_collision_meshes: true,
         });
         world.insert(SurfaceTexture { texture: None });
         world.insert(DebugStats {

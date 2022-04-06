@@ -1,4 +1,4 @@
-use rapier3d::na::{Matrix3, Matrix4};
+use rapier3d::na::{Matrix3, Matrix4, Perspective3};
 use specs::{Join, ReadExpect, ReadStorage, System, WriteExpect};
 
 use crate::renderer::primitives::uniforms::{LightCullingUniforms, SkyboxUniform};
@@ -89,12 +89,21 @@ impl<'a> System<'a> for UpdateBuffers {
         globals.set_point_light_count(point_light_raw.len() as u32);
         globals.set_spot_light_count(spot_light_raw.len() as u32);
 
+        //TODO: figure out how to convert infinite reversed projection to light culling compute
         state.queue.write_buffer(
             binding_resource_container.buffers[BufferTypes::LightCulling]
                 .as_ref()
                 .unwrap(),
             0,
-            bytemuck::bytes_of(&LightCullingUniforms::new(&proj, &cam)),
+            bytemuck::bytes_of(&LightCullingUniforms::new(
+                &Projection::new(
+                    state.sc_descriptor.width,
+                    state.sc_descriptor.height,
+                    f32::to_radians(45.0),
+                    0.01,
+                ),
+                &cam,
+            )),
         );
         state.queue.write_buffer(
             binding_resource_container.buffers[BufferTypes::SpotLight]

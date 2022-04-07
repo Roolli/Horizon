@@ -1,3 +1,4 @@
+#[cfg(not(target_arch = "wasm32"))]
 use deno_core::{v8, JsRuntime, RuntimeOptions};
 use rapier3d::na::{Point3, Vector3};
 use ref_thread_local::{Ref, RefMut, RefThreadLocal};

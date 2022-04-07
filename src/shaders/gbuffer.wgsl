@@ -64,8 +64,6 @@ fn vs_main(in: GBufferInputs) -> VertexOutputs {
     var normal: mat4x4<f32> = normals.elements[in.instance_index];
     let frag_tangent = (normal * in.tangent);
     let frag_normal = vec3<f32>((normal * vec4<f32>(in.a_normal,0.0)).xyz);
-   // var normal_matrix: mat3x3<f32> = mat3x3<f32>(normal[0].xyz,normal[1].xyz,normal[2].xyz);    
-    //output.worldFragNormal  = normalize(normal_matrix*in.a_normal);
     output.tangent = frag_tangent;
     output.normal = frag_normal;
     var model_space: vec4<f32>  = model_matrix * vec4<f32>(in.a_pos,1.0);

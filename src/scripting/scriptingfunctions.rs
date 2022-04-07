@@ -325,6 +325,14 @@ pub fn register_callback(event_type: ScriptEvent, callback: js_sys::Function) {
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "loadModel"))]
 pub async fn load_model(object_name: JsValue) -> Result<JsValue, JsValue> {
     if let Some(obj) = object_name.as_string() {
+        ScriptingFunctions::load_model(obj)
+            .await
+            .map_err(|e| {
+                JsValue::from_str(
+                    format!("failed to override texture inner error: {:?}", e).as_str(),
+                )
+            })
+            .map(|v| JsValue::from(v.get_id()))
     } else {
         Err(JsValue::from_str("Invalid model name!"))
     }
@@ -336,8 +344,11 @@ pub async fn set_skybox_texture(texture_path: JsValue) -> Result<JsValue, JsValu
         ScriptingFunctions::set_skybox_texture(path)
             .await
             .map_err(|e| {
-                JsValue::from_str(format!("failed to override texture inner error: {:?}", e))
-            })?
+                JsValue::from_str(
+                    format!("failed to override texture inner error: {:?}", e).as_str(),
+                )
+            })
+            .map(|v| JsValue::NULL)
     } else {
         Err(JsValue::from_str("Invalid argument!"))
     }

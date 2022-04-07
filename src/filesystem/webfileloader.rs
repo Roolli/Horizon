@@ -1,5 +1,6 @@
 use futures::TryFutureExt;
 
+use anyhow::anyhow;
 use async_trait::async_trait;
 use std::usize;
 
@@ -17,7 +18,8 @@ impl WebFileLoader {
             base_url: base_path,
         }
     }
-    async fn send_request(&self, path: &str) -> Vec<u8> {
+    //TODO: add error checking
+    async fn send_request(&self, path: &str) -> Result<Vec<u8>, anyhow::Error> {
         use js_sys::Promise;
         use wasm_bindgen::{JsCast, JsValue};
         use wasm_bindgen_futures::JsFuture;
@@ -47,7 +49,7 @@ impl WebFileLoader {
                 body
             });
         let res: Vec<u8> = result.await.unwrap();
-        res
+        Ok(res)
     }
 }
 
@@ -55,7 +57,7 @@ impl WebFileLoader {
 #[async_trait(?Send)]
 impl FileLoader for WebFileLoader {
     ///Fetches the file with the given path as raw bytes
-    async fn load_file(&self, path: &str) -> Vec<u8> {
+    async fn load_file(&self, path: &str) -> Result<Vec<u8>, anyhow::Error> {
         self.send_request(&path).await
     }
 }

@@ -49,13 +49,12 @@ impl<'a> System<'a> for HandleKeyboardEvent {
                 && !keyboard_event.handled
                 && keyboard_event.info.state == ElementState::Pressed
             {
-                let keyboard_event_args =
-                    if let Some(virtual_keycode) = keyboard_event.info.virtual_keycode {
-                        CallbackArgs::KeyboardEvent(virtual_keycode as u32)
-                    } else {
-                        CallbackArgs::KeyboardEvent(keyboard_event.info.scancode)
-                    };
-                callback.execute_with_args(&mut scripting_engine, keyboard_event_args);
+                if let Some(virtual_keycode) = keyboard_event.info.virtual_keycode {
+                    callback.execute_with_args(
+                        &mut scripting_engine,
+                        CallbackArgs::from_winit_keycode_to_js(virtual_keycode),
+                    );
+                }
             }
         }
     }

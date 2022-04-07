@@ -138,7 +138,7 @@ fn get_shadow_value(coords:vec4<f32>) -> f32
     var layer = -1;
     for(var i:i32 =0; i < length;i = i + 1)
     {
-        if(depth > cascade_lengths.elements[i])
+        if(depth < cascade_lengths.elements[i])
         {
             layer = i;
             break;
@@ -186,18 +186,15 @@ fn get_tile_id(coordinates: vec2<f32>) -> u32
 let ambient_strength:f32 = 0.1;
 
 fn calcPointLightContribution(light: PointLight, position: vec3<f32>, normal: vec3<f32>, view_dir: vec3<f32>, object_color: vec3<f32>) -> vec3<f32> {
-    let norm = normalize(normal);
+    
     let light_direction = normalize(light.position.xyz - position);
 
-    let diffuse_strength = max(dot(light_direction,norm),0.0);
-    let lambert = light.color.xyz * diffuse_strength * object_color;
-
+    let lambert = max(dot(light_direction,normal),0.0);    
     let half_dir = normalize(view_dir + light_direction);
-    let specular_strength = pow(max(dot(normal,half_dir),0.0),10.0);
-    let specular_color = specular_strength * light.color.xyz * object_color;
+    let specular = f32(lambert >0.0) * pow(max(dot(half_dir,normal),0.0),10.0);
     let dist = length(light.position.xyz - position);    
 
-    return  clamp(light.color*pow(1.0-dist / light.radius,2.0) * (object_color * lambert + vec3<f32>(1.0) * specular_color),vec3<f32>(0.0),vec3<f32>(1.0));
+    return  clamp(light.color*pow(1.0-dist / light.radius,2.0) * (object_color * lambert + vec3<f32>(1.0) * specular),vec3<f32>(0.0),vec3<f32>(1.0));
 
 }
 fn addPointLightContributions(position:vec3<f32>,coordinates:vec2<f32>,object_normal:vec3<f32>,view_direction:vec3<f32>,object_color:vec3<f32>) -> vec3<f32>
@@ -225,18 +222,16 @@ fn addPointLightContributions(position:vec3<f32>,coordinates:vec2<f32>,object_no
 
 fn calcDirLightContribution(normal: vec3<f32>, view_direction: vec3<f32>, object_color: vec3<f32>,shadow:f32) -> vec3<f32> {
 
-    let ambient = ambient_strength * object_color;
-    let norm = normalize(normal);
-    let light_direction = normalize(-dirLight.direction.xyz);
+    let light_direction = normalize(dirLight.direction.xyz);
 
-    let diffuse_strength = max(dot(light_direction,norm),0.0);
+    let diffuse_strength = max(dot(normal,light_direction),ambient_strength);
     let diffuse_color = dirLight.color.xyz * diffuse_strength * object_color;
 
-    let half_dir = normalize( light_direction+ view_direction);
-    let specular_strength = pow(max(dot(half_dir,normal),0.0),10.0);
-    let specular_color = specular_strength * dirLight.color.xyz * object_color;
+    //let half_dir = normalize( light_direction+ view_direction);
+    //let specular_strength = pow(max(dot(half_dir,normal),0.0),10.0);
+    //let specular_color = specular_strength * dirLight.color.xyz * object_color;
   
-    return (ambient + ((specular_color + diffuse_color) * shadow));
+    return ( diffuse_color * shadow);
     
 }
 
@@ -257,7 +252,7 @@ fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
     let view_direction = normalize(globals.u_view_position.xyz - position);
     
    
-    let shadow = get_shadow_value(vec4<f32>(position,1.0)); 
+    let shadow = get_shadow_value(vec4<f32>(globals.u_view_position.xyz,1.0)); 
 
     result = result + calcDirLightContribution(object_normal,view_direction,object_color.xyz,shadow);
 

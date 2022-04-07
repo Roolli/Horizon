@@ -1,10 +1,11 @@
+#[cfg(not(target_arch = "wasm32"))]
 use deno_core::{
     Extension, ExtensionBuilder, FsModuleLoader, JsRuntime, ModuleLoader, ModuleSource,
     ModuleSourceFuture, ModuleSpecifier, ModuleType, OpState, RuntimeOptions, Snapshot,
 };
 
 struct TimerPermission;
-
+#[cfg(not(target_arch = "wasm32"))]
 impl deno_web::TimersPermission for TimerPermission {
     fn allow_hrtime(&mut self) -> bool {
         true
@@ -17,6 +18,7 @@ use crate::components::scriptingcallback::ScriptingCallback;
 use crate::scripting::scriptevent::ScriptEvent;
 use crate::scripting::util::horizonentity::HorizonEntity;
 use crate::{ECSContainer, Importer};
+#[cfg(not(target_arch = "wasm32"))]
 use deno_core::v8;
 use futures::{FutureExt, Stream, StreamExt, TryFutureExt};
 use specs::{Builder, Join, WorldExt};
@@ -54,7 +56,7 @@ impl Default for HorizonScriptingEngine {
         runtime
     }
 }
-
+#[cfg(not(target_arch = "wasm32"))]
 impl HorizonScriptingEngine {
     fn create_default_module(&mut self) {
         let scope = &mut self.js_runtime.handle_scope();
@@ -129,17 +131,21 @@ use crate::scripting::scriptingfunctions::ScriptingFunctions;
 use crate::scripting::util::entityinfo::{Component, EntityInfo};
 use crate::scripting::util::glmconversion::Vec3;
 use crate::scripting::util::horizonresource::{ScriptingCamera, ScriptingDirLight};
+#[cfg(not(target_arch = "wasm32"))]
 use deno_core::op;
+#[cfg(not(target_arch = "wasm32"))]
 use deno_web::BlobStore;
 
-#[op]
+#[cfg_attr(not(target_arch = "wasm32"), op)]
+#[cfg(not(target_arch = "wasm32"))]
 async fn op_load_model(model_name: String) -> Result<u32, deno_core::anyhow::Error> {
     ScriptingFunctions::load_model(model_name)
         .await
         .map_err(|e| deno_core::anyhow::Error::msg(format!("{:?}", e)))
         .map(|v| v.get_id())
 }
-#[op]
+#[cfg_attr(not(target_arch = "wasm32"), op)]
+#[cfg(not(target_arch = "wasm32"))]
 fn op_model_exists(model_name: String) -> Result<Option<HorizonEntity>, deno_core::anyhow::Error> {
     let ecs = ECSContainer::global();
     let identifiers = ecs.world.read_component::<AssetIdentifier>();
@@ -151,70 +157,84 @@ fn op_model_exists(model_name: String) -> Result<Option<HorizonEntity>, deno_cor
     }
     Ok(None)
 }
-#[op]
+#[cfg_attr(not(target_arch = "wasm32"), op)]
+#[cfg(not(target_arch = "wasm32"))]
 async fn op_set_skybox_texture(texture_name: String) -> Result<(), deno_core::anyhow::Error> {
     ScriptingFunctions::set_skybox_texture(texture_name)
         .await
         .map_err(|e| deno_core::anyhow::Error::msg(format!("{:?}", e)))
 }
-#[op]
+#[cfg_attr(not(target_arch = "wasm32"), op)]
+#[cfg(not(target_arch = "wasm32"))]
 fn op_camera_get_pos() -> Result<Vec3, deno_core::anyhow::Error> {
     Ok(ScriptingCamera::get_position())
 }
-#[op]
+#[cfg_attr(not(target_arch = "wasm32"), op)]
+#[cfg(not(target_arch = "wasm32"))]
 fn op_camera_set_pos(pos: Vec3) -> Result<(), deno_core::anyhow::Error> {
     ScriptingCamera::set_position(pos);
     Ok(())
 }
-#[op]
+#[cfg_attr(not(target_arch = "wasm32"), op)]
+#[cfg(not(target_arch = "wasm32"))]
 fn op_camera_get_pitch() -> Result<f32, deno_core::anyhow::Error> {
     Ok(ScriptingCamera::get_pitch())
 }
-#[op]
+#[cfg_attr(not(target_arch = "wasm32"), op)]
+#[cfg(not(target_arch = "wasm32"))]
 fn op_camera_set_pitch(pitch: f32) -> Result<(), deno_core::anyhow::Error> {
     ScriptingCamera::set_pitch(pitch);
     Ok(())
 }
-#[op]
+#[cfg_attr(not(target_arch = "wasm32"), op)]
+#[cfg(not(target_arch = "wasm32"))]
 fn op_camera_get_yaw() -> Result<f32, deno_core::anyhow::Error> {
     Ok(ScriptingCamera::get_yaw())
 }
-#[op]
+#[cfg_attr(not(target_arch = "wasm32"), op)]
+#[cfg(not(target_arch = "wasm32"))]
 fn op_camera_set_yaw(yaw: f32) -> Result<(), deno_core::anyhow::Error> {
     ScriptingCamera::set_yaw(yaw);
     Ok(())
 }
-#[op]
+#[cfg_attr(not(target_arch = "wasm32"), op)]
+#[cfg(not(target_arch = "wasm32"))]
 fn op_camera_set_target(target: Option<u32>) -> Result<(), deno_core::anyhow::Error> {
     ScriptingCamera::set_follow_target(target);
     Ok(())
 }
-#[op]
+#[cfg_attr(not(target_arch = "wasm32"), op)]
+#[cfg(not(target_arch = "wasm32"))]
 fn op_dir_light_get_dir() -> Result<Vec3, deno_core::anyhow::Error> {
     Ok(ScriptingDirLight::get_direction())
 }
-#[op]
+#[cfg_attr(not(target_arch = "wasm32"), op)]
+#[cfg(not(target_arch = "wasm32"))]
 fn op_dir_light_get_color() -> Result<Vec3, deno_core::anyhow::Error> {
     Ok(ScriptingDirLight::get_color())
 }
-#[op]
+#[cfg_attr(not(target_arch = "wasm32"), op)]
+#[cfg(not(target_arch = "wasm32"))]
 fn op_dir_light_set_dir(dir: Vec3) -> Result<(), deno_core::anyhow::Error> {
     ScriptingDirLight::set_direction(dir);
     Ok(())
 }
-#[op]
+#[cfg_attr(not(target_arch = "wasm32"), op)]
+#[cfg(not(target_arch = "wasm32"))]
 fn op_dir_light_set_color(color: Vec3) -> Result<(), deno_core::anyhow::Error> {
     ScriptingDirLight::set_color(color);
     Ok(())
 }
-#[op]
+#[cfg_attr(not(target_arch = "wasm32"), op)]
+#[cfg(not(target_arch = "wasm32"))]
 fn op_create_entity(entity_info: String) -> Result<u32, deno_core::anyhow::Error> {
     let entity_data = deno_core::serde_json::from_str::<EntityInfo>(entity_info.as_str())?;
     ScriptingFunctions::create_entity(entity_data)
         .map_err(|e| deno_core::anyhow::Error::msg(format!("{:?}", e)))
         .map(|v| v.get_id())
 }
-#[op]
+#[cfg_attr(not(target_arch = "wasm32"), op)]
+#[cfg(not(target_arch = "wasm32"))]
 fn op_get_component(
     entity_id: u32,
     component_type: u32,
@@ -224,7 +244,8 @@ fn op_get_component(
         entity_id,
     ))
 }
-#[op]
+#[cfg_attr(not(target_arch = "wasm32"), op)]
+#[cfg(not(target_arch = "wasm32"))]
 fn op_set_component(
     entity_id: u32,
     component_data: String,
@@ -233,7 +254,8 @@ fn op_set_component(
     ScriptingFunctions::insert_component(component_data, entity_id)
         .map_err(|e| deno_core::anyhow::Error::msg(format!("{:?}", e)))
 }
-#[op]
+#[cfg_attr(not(target_arch = "wasm32"), op)]
+#[cfg(not(target_arch = "wasm32"))]
 fn op_delete_component(
     entity_id: u32,
     component_type: ComponentTypes,
@@ -241,12 +263,14 @@ fn op_delete_component(
     ScriptingFunctions::delete_component(component_type, entity_id);
     Ok(())
 }
-#[op]
+#[cfg_attr(not(target_arch = "wasm32"), op)]
+#[cfg(not(target_arch = "wasm32"))]
 fn op_apply_force(entity_id: u32, force: Vec3) -> Result<(), deno_core::anyhow::Error> {
     ScriptingFunctions::apply_force_to_entity(force.into(), entity_id)
         .map_err(|e| deno_core::anyhow::Error::msg(format!("{:?}", e)))
 }
-#[op]
+#[cfg_attr(not(target_arch = "wasm32"), op)]
+#[cfg(not(target_arch = "wasm32"))]
 fn op_apply_force_torque(
     entity_id: u32,
     force_torque: Vec3,
@@ -254,12 +278,14 @@ fn op_apply_force_torque(
     ScriptingFunctions::apply_torque_to_entity(force_torque.into(), entity_id)
         .map_err(|e| deno_core::anyhow::Error::msg(format!("{:?}", e)))
 }
-#[op]
+#[cfg_attr(not(target_arch = "wasm32"), op)]
+#[cfg(not(target_arch = "wasm32"))]
 fn op_apply_impulse(entity_id: u32, impulse: Vec3) -> Result<(), deno_core::anyhow::Error> {
     ScriptingFunctions::apply_impulse_to_entity(impulse.into(), entity_id)
         .map_err(|e| deno_core::anyhow::Error::msg(format!("{:?}", e)))
 }
-#[op]
+#[cfg_attr(not(target_arch = "wasm32"), op)]
+#[cfg(not(target_arch = "wasm32"))]
 fn op_apply_impulse_torque(
     entity_id: u32,
     impulse_torque: Vec3,
@@ -267,12 +293,14 @@ fn op_apply_impulse_torque(
     ScriptingFunctions::apply_torque_impulse(impulse_torque.into(), entity_id)
         .map_err(|e| deno_core::anyhow::Error::msg(format!("{:?}", e)))
 }
-#[op]
+#[cfg_attr(not(target_arch = "wasm32"), op)]
+#[cfg(not(target_arch = "wasm32"))]
 fn op_set_lin_vel(entity_id: u32, lin_vel: Vec3) -> Result<(), deno_core::anyhow::Error> {
     ScriptingFunctions::set_linear_velocity(lin_vel.into(), entity_id)
         .map_err(|e| deno_core::anyhow::Error::msg(format!("{:?}", e)))
 }
-#[op]
+#[cfg_attr(not(target_arch = "wasm32"), op)]
+#[cfg(not(target_arch = "wasm32"))]
 fn op_set_ang_vel(entity_id: u32, ang_vel: Vec3) -> Result<(), deno_core::anyhow::Error> {
     ScriptingFunctions::set_angular_velocity(ang_vel.into(), entity_id)
         .map_err(|e| deno_core::anyhow::Error::msg(format!("{:?}", e)))

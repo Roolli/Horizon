@@ -61,7 +61,9 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 use rapier3d::na::{Point3, Quaternion, UnitQuaternion, Vector3};
 use ref_thread_local::RefThreadLocal;
+#[cfg(not(target_arch = "wasm32"))]
 use tokio::runtime::Runtime;
+#[cfg(not(target_arch = "wasm32"))]
 use tokio::task;
 use wgpu::{BlendFactor, ColorWrites};
 
@@ -138,6 +140,7 @@ ref_thread_local::ref_thread_local! {
 pub fn run() {
     #[cfg(target_arch = "wasm32")]
     {
+        let (event_loop, window) = get_winit_resources();
         use web_sys::Window;
         use winit::platform::web::WindowExtWebSys;
         let win: Window = web_sys::window().unwrap();
@@ -169,15 +172,11 @@ pub fn run() {
             use wasm_bindgen::JsCast;
             let state = State::new(&window).await;
             let mut ecs = ECSContainer::global_mut();
-            let platform = Platform::new(PlatformDescriptor {
-                physical_height: state.sc_descriptor.height,
-                physical_width: state.sc_descriptor.width,
-                scale_factor: window.scale_factor(),
-                ..Default::default()
-            });
+            let platform = egui_winit::State::new(4096, &window);
             ecs.world.insert(EguiContainer {
                 render_pass: RenderPass::new(&state.device, state.sc_descriptor.format, 1),
                 state: platform,
+                context: egui::Context::default(),
             });
             ecs.setup(state);
             setup_pipelines(&mut ecs.world);
@@ -186,7 +185,7 @@ pub fn run() {
             // https://github.com/gfx-rs/wgpu/pull/1469/commits/07376d11e8b33639df3e002f2631dff27c289802
 
             let run_closure = Closure::once_into_js(move || {
-                run(event_loop, window);
+                run_event_loop(event_loop, window);
             });
             if let Err(error) = call_catch(&run_closure) {
                 let is_winit_error = error.dyn_ref::<js_sys::Error>().map_or(false, |e| {
@@ -222,7 +221,7 @@ pub fn run_event_loop(event_loop: EventLoop<CustomEvent>, window: winit::window:
             Event::MainEventsCleared => {
                 window.request_redraw();
             }
-            Event::UserEvent(ref event) => {
+            Event::UserEvent(event) => {
                 handle_user_events(event);
             }
             _ => {

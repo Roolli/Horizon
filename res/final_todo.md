@@ -73,5 +73,5 @@ Add CPU time measurement (maybe do a resource in ECS?)
 - use data in buffers to add basic pbr properties and image based lighting (no environment/ reflection mapping)
 
 ## UI Builder
-- use json structure to desrcibe elements
+- use json structure to describe elements
 - hook up events through some sort of id system

@@ -9,6 +9,7 @@ use winit::event::VirtualKeyCode;
 // use crate::scripting::scriptingengine::ScriptingEngineState;
 // #[cfg(not(target_arch = "wasm32"))]
 // use crate::V8ScriptingEngine;
+use crate::scripting::util::horizonentity::HorizonEntity;
 use crate::HorizonScriptingEngine;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -85,6 +86,13 @@ impl<'s> ExecuteFunction<'s> for ScriptingCallback {
                 let num = v8::Integer::new(scope, button_id as i32).into();
                 self.callback.open(scope).call(scope, recv, &[num]);
             }
+            CallbackArgs::EntityCollision(entity_one, entity_two) => {
+                let entity_one = deno_core::serde_v8::to_v8(scope, entity_one).unwrap();
+                let entity_two = deno_core::serde_v8::to_v8(scope, entity_two).unwrap();
+                self.callback
+                    .open(scope)
+                    .call(scope, recv, &[entity_one, entity_two]);
+            }
             CallbackArgs::None => {
                 self.callback.open(scope).call(scope, recv, &[]);
             }
@@ -113,6 +121,7 @@ pub enum CallbackArgs {
     KeyboardEvent(u32),
     MouseClickEvent(u16),
     MouseMoveEvent((f64, f64)),
+    EntityCollision(HorizonEntity, HorizonEntity),
 }
 impl CallbackArgs {
     pub fn from_winit_keycode_to_js(keycode: VirtualKeyCode) -> CallbackArgs {

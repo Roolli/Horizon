@@ -13,7 +13,7 @@ pub enum ScriptEvent {
     OnWindowEvent = 3,
     OnResourceStop = 4,
     BeforeRender = 5,
-    AfterRender = 6,
+    EntityCollision = 6,
     Cleanup = 7,
     OnMouseMove = 8,
     OnKeyDown = 9,

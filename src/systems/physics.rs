@@ -129,11 +129,5 @@ impl<'a> System<'a> for Physics {
             transform.position = body.position().translation.vector;
             transform.rotation = body.position().rotation;
         }
-        while let Ok(intersection_event) = world.intersection_event_receiver.try_recv() {
-            log::info!("intersection event! {:?}", intersection_event);
-        }
-        while let Ok(contact_event) = world.contact_event_receiver.try_recv() {
-            log::info!("contact event! {:?}", contact_event);
-        }
     }
 }

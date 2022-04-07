@@ -104,7 +104,9 @@ use crate::resources::projection::Projection;
 use crate::resources::windowstate::WindowState;
 use crate::scripting::scriptingengine::HorizonScriptingEngine;
 use crate::scripting::ScriptingError;
-use crate::systems::events::handlelifecycleevents::HandleInitCallbacks;
+use crate::systems::events::handlelifecycleevents::{
+    HandleInitCallbacks, InvokeEntityCollisionHandlers,
+};
 use crate::systems::events::handlewindowevents::{
     HandleKeyboardEvent, HandleMouseInputEvent, HandleMouseMoveEvent,
 };
@@ -549,6 +551,9 @@ fn handle_redraw_request(window: &Window, control_flow: &mut winit::event_loop::
         }
         _ => {}
     };
+
+    let mut collision_callbacks = InvokeEntityCollisionHandlers;
+    collision_callbacks.run_now(&container.world);
 }
 fn handle_user_events(event: CustomEvent) {
     match event {

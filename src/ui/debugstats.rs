@@ -1,14 +1,12 @@
 use crate::ui::{UiComponent, ViewComponent};
-use crate::{TextureTypes, TextureViewTypes};
+use crate::TextureViewTypes;
 use egui::{Context, TextureId, Ui};
-use epi::egui::CtxRef;
-use rapier3d::na::{Point3, Vector3};
+use rapier3d::na::Point3;
 use specs::Entity;
 
 pub struct DebugStats {
     pub fps: u16,
     pub unique_model_count: u32,
-    pub messages: Vec<String>,
     pub debug_texture: Option<wgpu::Texture>,
     pub debug_texture_view: Option<wgpu::TextureView>,
     pub cam_pos: Point3<f32>,
@@ -19,6 +17,7 @@ pub struct DebugStats {
     pub selected_entity: Option<Entity>,
     pub selected_material: usize,
     pub selected_texture: usize,
+    pub show_collision_wireframes: bool,
 }
 
 impl UiComponent for DebugStats {
@@ -52,6 +51,7 @@ impl ViewComponent for DebugStats {
                     self.cam_yaw_pitch.1.to_degrees() % 360.0
                 ));
                 ui.end_row();
+                ui.checkbox(&mut self.show_collision_wireframes, "Show collisions");
                 ui.separator();
                 egui::ComboBox::from_label("Select debug texture!")
                     .selected_text(format!("{:?}", &self.selected_texture_name))
@@ -86,11 +86,7 @@ impl ViewComponent for DebugStats {
                     ui.image(tex_id, egui::Vec2::new(480.0, 320.0));
                 }
                 ui.end_row();
-                for message in &self.messages {
-                    ui.label(message);
-                }
             });
-            self.messages.clear();
         });
     }
 }

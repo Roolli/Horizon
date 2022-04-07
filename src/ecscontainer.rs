@@ -146,13 +146,12 @@ impl ECSContainer {
         });
         world.insert(ScriptingState {
             run_physics_simulation: true,
-            show_collision_meshes: true,
         });
         world.insert(SurfaceTexture { texture: None });
         world.insert(DebugStats {
             fps: 0,
             unique_model_count: 1,
-            messages: Vec::new(),
+            show_collision_wireframes: false,
             debug_texture: None,
             debug_texture_view: None,
             cam_pos: rapier3d::na::Point3::new(0.0, 0.0, 0.0),

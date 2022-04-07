@@ -1,4 +1,6 @@
 pub mod debugstats;
+pub mod menu;
+pub mod scriptingconsole;
 
 /// Something that can show some ui
 pub trait UiComponent {

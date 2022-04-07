@@ -1,18 +1,19 @@
 use specs::{Entities, Join, ReadExpect, ReadStorage, System, WriteExpect};
 use wgpu::{BufferAddress, LoadOp};
-use wgpu::LoadOp::Load;
 
-use crate::{components::transform::{Transform, TransformRaw}, DeferredAlbedo, DeferredNormals, DeferredPosition, EguiContainer, Instances, Normals, RawModel, renderer::{
-    bindgroupcontainer::BindGroupContainer,
-    bindgroups::uniforms::UniformBindGroup,
-    model::{HorizonModel},
-    pipelines::gbufferpipeline::GBufferPipeline,
-    state::State,
-}, resources::{
-    bindingresourcecontainer::BindingResourceContainer, commandencoder::HorizonCommandEncoder,
-}};
 use crate::components::gltfmodel::DrawModel;
 use crate::TextureViewTypes::DeferredSpecular;
+use crate::{
+    components::transform::{Transform, TransformRaw},
+    renderer::{
+        bindgroupcontainer::BindGroupContainer, bindgroups::uniforms::UniformBindGroup,
+        model::HorizonModel, pipelines::gbufferpipeline::GBufferPipeline, state::State,
+    },
+    resources::{
+        bindingresourcecontainer::BindingResourceContainer, commandencoder::HorizonCommandEncoder,
+    },
+    DeferredAlbedo, DeferredNormals, DeferredPosition, EguiContainer, Instances, Normals, RawModel,
+};
 
 pub struct WriteGBuffer;
 
@@ -26,7 +27,7 @@ impl<'a> System<'a> for WriteGBuffer {
         ReadStorage<'a, Transform>,
         ReadStorage<'a, RawModel>,
         ReadExpect<'a, GBufferPipeline>,
-        WriteExpect<'a,EguiContainer>,
+        WriteExpect<'a, EguiContainer>,
         Entities<'a>,
     );
 
@@ -41,7 +42,7 @@ impl<'a> System<'a> for WriteGBuffer {
             transforms,
             models,
             gbuffer_pipeline,
-           mut egui_container,
+            mut egui_container,
             entities,
         ): Self::SystemData,
     ) {
@@ -69,8 +70,9 @@ impl<'a> System<'a> for WriteGBuffer {
                         }),
                         store: true,
                     },
-                    view: binding_resource_container
-                        .texture_views[DeferredPosition].as_ref().unwrap()
+                    view: binding_resource_container.texture_views[DeferredPosition]
+                        .as_ref()
+                        .unwrap(),
                 },
                 wgpu::RenderPassColorAttachment {
                     resolve_target: None,
@@ -83,21 +85,24 @@ impl<'a> System<'a> for WriteGBuffer {
                         }),
                         store: true,
                     },
-                    view: binding_resource_container
-                        .texture_views[DeferredNormals].as_ref().unwrap(),
+                    view: binding_resource_container.texture_views[DeferredNormals]
+                        .as_ref()
+                        .unwrap(),
                 },
-                wgpu::RenderPassColorAttachment{
-                    resolve_target:None,
-                    ops: wgpu::Operations{
-                        load:LoadOp::Clear(wgpu::Color{
-                            r:0.0f64,
-                            g:0.0,
-                            b:0.0,
-                            a:0.0,
+                wgpu::RenderPassColorAttachment {
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: LoadOp::Clear(wgpu::Color {
+                            r: 0.0f64,
+                            g: 0.0,
+                            b: 0.0,
+                            a: 0.0,
                         }),
-                        store:true,
+                        store: true,
                     },
-                    view:binding_resource_container.texture_views[DeferredSpecular].as_ref().unwrap()
+                    view: binding_resource_container.texture_views[DeferredSpecular]
+                        .as_ref()
+                        .unwrap(),
                 },
                 wgpu::RenderPassColorAttachment {
                     resolve_target: None,
@@ -110,8 +115,9 @@ impl<'a> System<'a> for WriteGBuffer {
                         }),
                         store: true,
                     },
-                    view: binding_resource_container
-                        .texture_views[DeferredAlbedo].as_ref().unwrap(),
+                    view: binding_resource_container.texture_views[DeferredAlbedo]
+                        .as_ref()
+                        .unwrap(),
                 },
             ],
         });
@@ -121,9 +127,9 @@ impl<'a> System<'a> for WriteGBuffer {
             .unwrap();
         render_pass.set_bind_group(0, &uniform_bind_group_container.bind_group, &[]);
         render_pass.set_pipeline(&gbuffer_pipeline.0);
-        let mut begin_instance_index:u32 = 0;
+        let mut begin_instance_index: u32 = 0;
         for (model, model_ent) in (&models, &*entities).join() {
-            let mut instance_buffer:Vec<TransformRaw> = Vec::new();
+            let mut instance_buffer: Vec<TransformRaw> = Vec::new();
             for transform in transforms.join() {
                 if let Some(model) = transform.model {
                     if model_ent == model {
@@ -133,9 +139,11 @@ impl<'a> System<'a> for WriteGBuffer {
             }
 
             state.queue.write_buffer(
-                binding_resource_container
-                    .buffers[Instances].as_ref().unwrap(),
-                (std::mem::size_of::<TransformRaw>()  *begin_instance_index as usize) as BufferAddress,
+                binding_resource_container.buffers[Instances]
+                    .as_ref()
+                    .unwrap(),
+                (std::mem::size_of::<TransformRaw>() * begin_instance_index as usize)
+                    as BufferAddress,
                 bytemuck::cast_slice(&instance_buffer),
             );
 
@@ -144,15 +152,19 @@ impl<'a> System<'a> for WriteGBuffer {
                 .map(TransformRaw::get_normal_matrix)
                 .collect::<Vec<_>>();
             state.queue.write_buffer(
-                binding_resource_container
-                    .buffers[Normals].as_ref().unwrap(),
-                (std::mem::size_of::<TransformRaw>()  *begin_instance_index as usize) as BufferAddress,
+                binding_resource_container.buffers[Normals]
+                    .as_ref()
+                    .unwrap(),
+                (std::mem::size_of::<TransformRaw>() * begin_instance_index as usize)
+                    as BufferAddress,
                 bytemuck::cast_slice(&normal_matrices),
             );
 
-            render_pass.draw_model_instanced(model,begin_instance_index..begin_instance_index + instance_buffer.len() as u32);
+            render_pass.draw_model_instanced(
+                model,
+                begin_instance_index..begin_instance_index + instance_buffer.len() as u32,
+            );
             begin_instance_index += instance_buffer.len() as u32;
-
         }
         drop(render_pass);
         encoder.finish(&state.device, &state.queue);

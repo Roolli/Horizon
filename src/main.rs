@@ -1,3 +1,5 @@
+#![windows_subsystem = "windows"]
+
 #[cfg(not(target_arch = "wasm32"))]
 use horizon::{run, setup};
 #[cfg(not(target_arch = "wasm32"))]

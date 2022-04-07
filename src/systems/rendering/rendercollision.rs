@@ -6,6 +6,7 @@ use crate::resources::commandencoder::HorizonCommandEncoder;
 use crate::resources::scriptingstate::ScriptingState;
 use crate::resources::surfacetexture::SurfaceTexture;
 use crate::systems::physics::PhysicsWorld;
+use crate::ui::debugstats::DebugStats;
 use crate::BufferTypes::{DebugCollisionUniform, DebugCollisionVertex};
 use crate::{BindGroupContainer, BindingResourceContainer, State, UniformBindGroup};
 use rapier3d::na::Matrix4;
@@ -26,7 +27,7 @@ impl<'a> System<'a> for RenderCollision {
         ReadExpect<'a, BindingResourceContainer>,
         ReadStorage<'a, DebugCollisionBindGroup>,
         ReadStorage<'a, Transform>,
-        ReadExpect<'a, ScriptingState>,
+        ReadExpect<'a, DebugStats>,
     );
 
     fn run(
@@ -43,10 +44,10 @@ impl<'a> System<'a> for RenderCollision {
             binding_resource_container,
             debug_collision_bind_group_marker,
             transforms,
-            scripting_state,
+            debug_stats,
         ): Self::SystemData,
     ) {
-        if !scripting_state.show_collision_meshes {
+        if !debug_stats.show_collision_wireframes {
             return;
         }
         let encoder = cmd_encoder.get_encoder();

@@ -108,6 +108,7 @@ use crate::systems::events::handlelifecycleevents::HandleInitCallbacks;
 use crate::systems::events::handlewindowevents::{
     HandleKeyboardEvent, HandleMouseInputEvent, HandleMouseMoveEvent,
 };
+use crate::ui::menu::Menu;
 use crate::BufferTypes::{DebugCollisionUniform, LightCulling, LightId};
 use crate::TextureViewTypes::DeferredSpecular;
 use ecscontainer::ECSContainer;
@@ -281,40 +282,37 @@ pub async fn setup() -> (EventLoop<CustomEvent>, Window) {
 #[cfg(not(target_arch = "wasm32"))]
 pub fn run(event_loop: EventLoop<CustomEvent>, window: winit::window::Window, runtime: Runtime) {
     run_init();
-    event_loop.run(move |event, _, mut control_flow| {
-        match event {
-            Event::WindowEvent {
-                ref event,
-                window_id,
-                ..
-            } => {
-                if window_id == window.id() {
-                    handle_window_event(event, &window, control_flow);
-                }
+    event_loop.run(move |event, _, mut control_flow| match event {
+        Event::WindowEvent {
+            ref event,
+            window_id,
+            ..
+        } => {
+            if window_id == window.id() {
+                handle_window_event(event, &window, control_flow);
             }
-            Event::DeviceEvent { ref event, .. } => {
-                handle_device_events(event);
-            }
-            Event::RedrawRequested(_) => {
-                handle_redraw_request(&window, control_flow);
-            }
-            Event::MainEventsCleared => {
-                window.request_redraw();
-            }
-            Event::UserEvent(event) => {
-                handle_user_events(event);
-            }
-            _ => {
-                // run once a frame maybe?
-                run_deno_event_loop(&runtime);
-            }
+        }
+        Event::DeviceEvent { ref event, .. } => {
+            handle_device_events(event);
+        }
+        Event::RedrawRequested(_) => {
+            handle_redraw_request(&window, control_flow);
+        }
+        Event::MainEventsCleared => {
+            window.request_redraw();
+        }
+        Event::UserEvent(event) => {
+            handle_user_events(event);
+        }
+        _ => {
+            run_deno_event_loop(&runtime);
         }
     });
 }
 fn run_init() {
     let ecs = ECSContainer::global();
     let mut run_init = HandleInitCallbacks {};
-    run_init.run_now(&ecs.world); // Very nice code... really....
+    run_init.run_now(&ecs.world);
 }
 fn handle_device_events(event: &winit::event::DeviceEvent) {
     if let DeviceEvent::MouseMotion { delta } = event {
@@ -518,18 +516,24 @@ fn handle_skybox_texture_override(skybox_event: CustomEvent) {
 }
 
 fn handle_redraw_request(window: &Window, control_flow: &mut winit::event_loop::ControlFlow) {
-    let ecs = ECSContainer::global();
-    let mut render_callbacks =
-        crate::systems::events::handlelifecycleevents::HandleOnRenderCallbacks {};
-    render_callbacks.run_now(&ecs.world);
-    let mut egui_container = ecs.world.write_resource::<EguiContainer>();
-    let inputs = egui_container.state.take_egui_input(window);
-    egui_container.context.begin_frame(inputs);
-    drop(egui_container);
-    drop(ecs);
-    let mut container = ECSContainer::global_mut();
-    container.dispatch();
-    drop(container);
+    {
+        let ecs = ECSContainer::global();
+        let menu_ui = ecs.world.read_resource::<Menu>();
+        if menu_ui.window_should_close {
+            *control_flow = ControlFlow::Exit;
+            return;
+        }
+        let mut render_callbacks =
+            crate::systems::events::handlelifecycleevents::HandleOnRenderCallbacks {};
+        render_callbacks.run_now(&ecs.world);
+        let mut egui_container = ecs.world.write_resource::<EguiContainer>();
+        let inputs = egui_container.state.take_egui_input(window);
+        egui_container.context.begin_frame(inputs);
+    }
+    {
+        let mut container = ECSContainer::global_mut();
+        container.dispatch();
+    }
     let container = ECSContainer::global();
     let render_result = container.world.read_resource::<RenderResult>();
     match render_result.result {
@@ -571,13 +575,6 @@ fn handle_window_event(event: &WindowEvent, window: &Window, control_flow: &mut 
         WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
         WindowEvent::KeyboardInput { input, .. } => {
             if let KeyboardInput {
-                state: ElementState::Pressed,
-                virtual_keycode: Some(VirtualKeyCode::Return),
-                ..
-            } = input
-            {
-                *control_flow = ControlFlow::Exit
-            } else if let KeyboardInput {
                 state: ElementState::Pressed,
                 virtual_keycode: Some(VirtualKeyCode::M),
                 ..

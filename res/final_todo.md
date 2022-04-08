@@ -1,7 +1,7 @@
 # must have
 
 - lightculling
-- physics
+- ~~physics~~
 - performance testing
 - unit testing??
 - 2 APPS - Marbles on stream + ????
@@ -13,10 +13,10 @@
 - figure out why it's not calculating proper frustums
 - ~~MAYBE do spot lights too.~~
   
-## Physics
+## ~~Physics~~
 - ~~Calculate composite shapes for each object that has more than 1 mesh~~
 - ~~wire-up collision detection user events~~
-- add colshapes
+- ~~add colshapes~~
 - ~~wire-up colshape events~~
 
 ## Performance testing
@@ -54,7 +54,7 @@
 ## Scripting extensions
 -  ~~Add mouse / keyboard events~~ 
 - ~~Hook up collision events~~
-- Add method of creating colshapes 
+- ~~Add method of creating colshapes~~
 - ~~Add attachment to camera and/or~~ lights
 - if UI builder is done add events for closing / interacting with certain elements
 

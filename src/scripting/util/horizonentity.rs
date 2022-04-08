@@ -110,4 +110,13 @@ impl HorizonEntity {
             )
         })
     }
+    #[cfg(target_arch = "wasm32")]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "setAngularVelocity"))]
+    pub fn set_world_position(&self, vec: Vec3) -> Result<(), JsValue> {
+        ScriptingFunctions::set_entity_world_position(vec.into(), self.entity_id).map_err(|e| {
+            JsValue::from_str(
+                format!("failure during script execution, inner error: {:?}", e).as_str(),
+            )
+        })
+    }
 }

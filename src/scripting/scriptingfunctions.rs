@@ -7,6 +7,7 @@ use crate::renderer::primitives::lights::pointlight::PointLight;
 use crate::systems::physics::PhysicsWorld;
 use crate::{CustomEvent, HorizonModel, ModelBuilder, EVENT_LOOP_PROXY};
 
+use deno_core::v8::Script;
 use std::iter::Once;
 use std::mem::size_of_val;
 
@@ -20,8 +21,8 @@ use specs::prelude::*;
 // #[cfg(not(target_arch = "wasm32"))]
 // use v8;
 
-use rapier3d::na::{Point3, UnitQuaternion, Vector3};
-use rapier3d::prelude::{Isometry, RigidBody};
+use rapier3d::na::{Isometry3, Point3, UnitQuaternion, Vector3};
+use rapier3d::prelude::{AngVector, Isometry, RigidBody, Rotation};
 use specs::world::Index;
 
 // #[cfg(not(target_arch = "wasm32"))]
@@ -78,6 +79,7 @@ impl ScriptingFunctions {
             ComponentTypes::AssetIdentifier => {
                 // Not being used currently, might not be the best idea anyways to just remove identifiers,
             }
+            ComponentTypes::CollisionShape => {}
             ComponentTypes::None => {}
         }
     }
@@ -250,6 +252,65 @@ impl ScriptingFunctions {
             .set_angvel(vel, true);
         Ok(())
     }
+    /// sets the entity's world position
+    /// if it has physics it will set it's rigidBody's position instead (though it's still 'teleporting')
+    pub fn set_entity_world_position(
+        pos: Vector3<f32>,
+        entity_id: Index,
+    ) -> Result<(), ScriptingError> {
+        let ecs = ECSContainer::global();
+        let mut transforms = ecs.world.write_storage::<Transform>();
+        let entity = ecs.world.entities().entity(entity_id);
+        let transform = transforms
+            .get_mut(entity)
+            .ok_or(ScriptingError::MissingComponent("Transform"))?;
+
+        let physics_handles = ecs.world.read_storage::<PhysicsHandle>();
+        if let Some(physics_handles) = physics_handles.get(entity) {
+            let mut physics = ecs.world.write_resource::<PhysicsWorld>();
+            let mut body = physics
+                .body_set
+                .get_mut(physics_handles.rigid_body_handle)
+                .unwrap();
+            body.set_position(Isometry3::new(pos, body.rotation().scaled_axis()), true);
+        } else {
+            transform.position = pos;
+        }
+        Ok(())
+    }
+    pub fn set_entity_rotation(
+        euler_angles: Vector3<f32>,
+        enttiy_id: Index,
+    ) -> Result<(), ScriptingError> {
+        let ecs = ECSContainer::global();
+        let mut transforms = ecs.world.write_storage::<Transform>();
+        let entity = ecs.world.entities().entity(entity_id);
+        let transform = transforms
+            .get_mut(entity)
+            .ok_or(ScriptingError::MissingComponent("Transform"))?;
+
+        let physics_handles = ecs.world.read_storage::<PhysicsHandle>();
+        if let Some(physics_handles) = physics_handles.get(entity) {
+            let mut physics = ecs.world.write_resource::<PhysicsWorld>();
+            let mut body = physics
+                .body_set
+                .get_mut(physics_handles.rigid_body_handle)
+                .unwrap();
+
+            body.set_rotation(
+                Rotation::from_euler_angles(euler_angles[0], euler_angles[1], euler_angles[2])
+                    .scaled_axis(),
+                true,
+            );
+        } else {
+            transform.rotation = UnitQuaternion::from_euler_angles(
+                euler_angles[0],
+                euler_angles[1],
+                euler_angles[2],
+            );
+        }
+        Ok(())
+    }
 
     pub async fn load_model(model_name: String) -> Result<HorizonEntity, ScriptingError> {
         log::info!(target: "model_load","loading model {}",model_name);
@@ -265,7 +326,6 @@ impl ScriptingFunctions {
             })
             .unwrap();
         model.name = Some(model_name);
-        log::info!("imported model");
         let val = ref_thread_local::RefThreadLocal::borrow(&EVENT_LOOP_PROXY);
         let (sender, receiver) =
             futures::channel::oneshot::channel::<Result<Entity, ScriptingError>>();

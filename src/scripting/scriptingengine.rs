@@ -305,3 +305,9 @@ fn op_set_ang_vel(entity_id: u32, ang_vel: Vec3) -> Result<(), deno_core::anyhow
     ScriptingFunctions::set_angular_velocity(ang_vel.into(), entity_id)
         .map_err(|e| deno_core::anyhow::Error::msg(format!("{:?}", e)))
 }
+#[cfg_attr(not(target_arch = "wasm32"), op)]
+#[cfg(not(target_arch = "wasm32"))]
+fn op_set_entity_world_pos(entity_id: u32, pos: Vec3) -> Result<(), deno_core::anyhow::Error> {
+    ScriptingFunctions::set_entity_world_position(pos.into(), entity_id)
+        .map_err(|e| deno_core::anyhow::Error::msg(format!("{:?}", e)))
+}

@@ -23,8 +23,18 @@ pub struct Component {
     pub color: Option<Vec3>,
     pub body_type: Option<RigidBodyType>,
     pub mass: Option<f64>,
+    pub collision_shape: Option<ColliderInfo>,
     pub lock_rotation: Option<LockRotation>,
     pub damping: Option<Vec<Damping>>,
+}
+#[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ColliderInfo {
+    pub collision_shape_type: Option<String>,
+    pub half_extents: Option<Vec3>,
+    pub half_height: Option<f32>,
+    pub capsule_type: Option<String>,
+    pub radius: Option<f32>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]

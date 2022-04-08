@@ -7,6 +7,7 @@ use std::borrow::{Borrow, BorrowMut};
 use std::collections::HashSet;
 
 use crate::components::assetidentifier::AssetIdentifier;
+use crate::components::collisionshape::CollisionShape;
 use crate::components::modelcollider::ModelCollider;
 use crate::resources::scriptingstate::ScriptingState;
 use crate::resources::surfacetexture::SurfaceTexture;
@@ -192,6 +193,7 @@ impl ECSContainer {
         world.register::<AssetIdentifier>();
         world.register::<RawModel>();
         world.register::<HorizonModel>();
+        world.register::<CollisionShape>();
     }
     pub fn global<'a>() -> Ref<'a, ECSContainer> {
         ref_thread_local::RefThreadLocal::borrow(&ECS_CONTAINER)

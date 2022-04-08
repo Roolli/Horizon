@@ -1,4 +1,5 @@
 pub mod assetidentifier;
+pub mod collisionshape;
 pub mod componentparser;
 pub mod componenttypes;
 pub mod gltfmodel;

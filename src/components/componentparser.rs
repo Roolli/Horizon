@@ -1,3 +1,4 @@
+use crate::components::collisionshape::CollisionShape;
 use crate::components::physicshandle::PhysicsHandle;
 use crate::components::transform::Transform;
 use crate::renderer::model::HorizonModel;
@@ -309,6 +310,101 @@ impl ParseComponent for PointLightComponentParser {
                 )
                 .unwrap();
             Ok(())
+        } else if let Some(ref next) = self.next {
+            next.parse(component_data, entity, world)
+        } else {
+            Err(ComponentParserError::NotFound(
+                component_data.component_type,
+            ))
+        }
+    }
+}
+pub struct CollisionShapeParser {
+    next: Option<Box<dyn ParseComponent>>,
+}
+impl ParseComponent for CollisionShapeParser {
+    fn parse(
+        &self,
+        component_data: Component,
+        entity: Entity,
+        world: &World,
+    ) -> Result<(), ComponentParserError> {
+        if component_data.component_type == "CollisionShape" {
+            let transform = if let Some(val) = world.read_storage::<Transform>().get(entity) {
+                val
+            } else {
+                return Err(ComponentParserError::MissingDependantComponent("Transform"));
+            };
+            if let Some(collider_info) = component_data.collision_shape {
+                let shape = match collider_info
+                    .collision_shape_type
+                    .unwrap_or_default()
+                    .as_str()
+                {
+                    "Cuboid" => {
+                        let half_extents = if let Some(extents) = collider_info.half_extents {
+                            extents
+                        } else {
+                            return Err(ComponentParserError::InvalidData("halfExtents"));
+                        };
+                        SharedShape::new(Cuboid::new(half_extents.into()))
+                    }
+                    "Ball" => {
+                        let radius = if let Some(radius) = collider_info.radius {
+                            radius
+                        } else {
+                            return Err(ComponentParserError::InvalidData("Radius"));
+                        };
+                        SharedShape::new(Ball::new(radius))
+                    }
+                    "Capsule" => {
+                        if let Some(half_height) = collider_info.half_height {
+                            let radius = if let Some(radius) = collider_info.radius {
+                                radius
+                            } else {
+                                return Err(ComponentParserError::InvalidData("Radius"));
+                            };
+                            let shape = match collider_info
+                                .capsule_type
+                                .unwrap_or_default()
+                                .as_str()
+                            {
+                                "x" => Capsule::new_x(half_height, radius),
+                                "y" => Capsule::new_y(half_height, radius),
+                                "z" => Capsule::new_z(half_height, radius),
+                                _ => return Err(ComponentParserError::InvalidData("capsuleType")),
+                            };
+                            SharedShape::new(shape)
+                        } else {
+                            return Err(ComponentParserError::InvalidData("half_height"));
+                        }
+                    }
+                    _ => return Err(ComponentParserError::InvalidData("CollisionShape")),
+                };
+
+                let collision = ColliderBuilder::new(shape)
+                    .position(Isometry3::new(
+                        transform.position,
+                        transform.rotation.scaled_axis(),
+                    ))
+                    .active_events(ActiveEvents::CONTACT_EVENTS | ActiveEvents::INTERSECTION_EVENTS)
+                    .user_data(entity.id() as u128)
+                    .sensor(true)
+                    .build();
+
+                let mut physics_world = world.write_resource::<PhysicsWorld>();
+                let collider_handle = physics_world.collider_set.insert(collision);
+                let mut collision_shape_storage = world.write_storage::<CollisionShape>();
+                collision_shape_storage.insert(
+                    entity,
+                    CollisionShape {
+                        collider: collider_handle,
+                    },
+                );
+                Ok(())
+            } else {
+                Err(ComponentParserError::InvalidData("CollisionShape"))
+            }
         } else if let Some(ref next) = self.next {
             next.parse(component_data, entity, world)
         } else {

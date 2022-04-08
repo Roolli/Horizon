@@ -1,5 +1,7 @@
 use crate::components::physicshandle::PhysicsValues;
-use crate::scripting::util::componentconversions::{PointLightComponent, TransformComponent};
+use crate::scripting::util::componentconversions::{
+    CollisionShapeComponent, PointLightComponent, TransformComponent,
+};
 use serde::{Deserialize, Serialize};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -11,6 +13,7 @@ pub enum ComponentTypes {
     PhysicsHandle,
     Transform,
     PointLight,
+    CollisionShape,
     None,
 }
 impl From<u32> for ComponentTypes {
@@ -20,6 +23,7 @@ impl From<u32> for ComponentTypes {
             1 => ComponentTypes::PhysicsHandle,
             2 => ComponentTypes::Transform,
             3 => ComponentTypes::PointLight,
+            4 => ComponentTypes::CollisionShape,
             _ => ComponentTypes::None,
         }
     }
@@ -31,4 +35,5 @@ pub enum ComponentData {
     Physics(PhysicsValues),
     AssetIdentifier(String),
     PointLight(PointLightComponent),
+    CollisionShape(CollisionShapeComponent),
 }

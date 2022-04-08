@@ -73,3 +73,7 @@ impl From<PointLight> for PointLightComponent {
         )
     }
 }
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CollisionShapeComponent {
+    pub pos: Vec3,
+}

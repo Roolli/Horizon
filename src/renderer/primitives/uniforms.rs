@@ -92,7 +92,7 @@ pub struct LightCullingUniforms {
 impl LightCullingUniforms {
     pub fn new(projection: &Projection, view: &Camera) -> Self {
         LightCullingUniforms {
-            projection: projection.calc_proj_matrix_rh_zo(100.0).data.0,
+            projection: projection.calc_proj_matrix_rh_zo(1000.0).data.0,
             view: view.get_view_matrix().data.0,
         }
     }

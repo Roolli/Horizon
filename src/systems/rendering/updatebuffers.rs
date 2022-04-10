@@ -88,8 +88,6 @@ impl<'a> System<'a> for UpdateBuffers {
             .collect::<Vec<_>>();
         globals.set_point_light_count(point_light_raw.len() as u32);
         globals.set_spot_light_count(spot_light_raw.len() as u32);
-
-        //TODO: figure out how to convert infinite reversed projection to light culling compute
         state.queue.write_buffer(
             binding_resource_container.buffers[BufferTypes::LightCulling]
                 .as_ref()
@@ -100,7 +98,7 @@ impl<'a> System<'a> for UpdateBuffers {
                     state.sc_descriptor.width,
                     state.sc_descriptor.height,
                     f32::to_radians(45.0),
-                    0.01,
+                    0.00,
                 ),
                 &cam,
             )),

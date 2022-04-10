@@ -128,6 +128,25 @@ impl<'a> System<'a> for WriteGBuffer {
         render_pass.set_bind_group(0, &uniform_bind_group_container.bind_group, &[]);
         render_pass.set_pipeline(&gbuffer_pipeline.0);
         let mut begin_instance_index: u32 = 0;
+
+        let query_set = state.device.create_query_set(&wgpu::QuerySetDescriptor {
+            label: Some("Timestamp QuerySet"),
+            ty: wgpu::QueryType::Timestamp,
+            count: 2,
+        });
+
+        let timestamp_period = state.queue.get_timestamp_period();
+
+        let query_buffer = state.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("query_buffer"),
+            size: (std::mem::size_of::<[u64; 2]>() as wgpu::BufferAddress)
+                .max(wgpu::QUERY_RESOLVE_BUFFER_ALIGNMENT),
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+            mapped_at_creation: false,
+        });
+
+        render_pass.write_timestamp(&query_set, 0);
+
         for (model, model_ent) in (&models, &*entities).join() {
             let mut instance_buffer: Vec<TransformRaw> = Vec::new();
             for transform in transforms.join() {
@@ -166,7 +185,22 @@ impl<'a> System<'a> for WriteGBuffer {
             );
             begin_instance_index += instance_buffer.len() as u32;
         }
+        render_pass.write_timestamp(&query_set, 1);
         drop(render_pass);
+        #[cfg(not(target_arch = "wasm32"))]
+        cmd_encoder.resolve_query_set(&query_set, 0..2, &query_buffer, 0);
         encoder.finish(&state.device, &state.queue);
+        if !cfg!(target_arch = "wasm32") {
+            let _ = query_buffer.slice(..).map_async(wgpu::MapMode::Read);
+            state.device.poll(wgpu::Maintain::Wait);
+            let timestamp_view = query_buffer
+                .slice(..std::mem::size_of::<[u64; 2]>() as wgpu::BufferAddress)
+                .get_mapped_range();
+            let timestamp_data: &[u64; 2] = bytemuck::from_bytes(&*timestamp_view);
+
+            let nanos = (timestamp_data[1] - timestamp_data[0]) as f32 * timestamp_period;
+            let micros = nanos / 1000.0;
+            log::info!(target:"performance","gbuffer generation took {:.3} μs", micros);
+        }
     }
 }

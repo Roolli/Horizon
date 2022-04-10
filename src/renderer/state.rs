@@ -20,7 +20,7 @@ impl State {
         [0.0, 0.0, 0.5, 0.0],
         [0.0, 0.0, 0.5, 1.0],
     ];
-    pub const CASCADE_DISTS: (f32, f32) = (0.1, 250.0);
+    pub const CASCADE_DISTS: (f32, f32) = (0.01, 1000.0);
 
     pub const MAX_ENTITY_COUNT: wgpu::BufferAddress =
         (std::mem::size_of::<TransformRaw>() * 2048) as wgpu::BufferAddress;
@@ -48,7 +48,8 @@ impl State {
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
-                    features: wgpu::Features::default(),
+                    features: wgpu::Features::TIMESTAMP_QUERY
+                        | wgpu::Features::PIPELINE_STATISTICS_QUERY,
                     limits: wgpu::Limits::default(),
                     label: Some("Device descriptor"),
                 },

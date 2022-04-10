@@ -36,7 +36,9 @@ impl Default for ComponentParser {
         ComponentParser {
             next: Box::new(TransformComponentParser {
                 next: Some(Box::new(PhysicsComponentParser {
-                    next: Some(Box::new(PointLightComponentParser { next: None })),
+                    next: Some(Box::new(PointLightComponentParser {
+                        next: Some(Box::new(CollisionShapeParser { next: None })),
+                    })),
                 })),
             }),
         }
@@ -192,7 +194,7 @@ impl ParseComponent for PhysicsComponentParser {
                     }
                     // use tri-mesh for static rigid Bodies.
                     Some(crate::scripting::util::RigidBodyType::Static) => {
-                        let rigid_body = RigidBodyBuilder::new_static()
+                        let rigid_body = RigidBodyBuilder::new_kinematic_velocity_based()
                             .position(Isometry3::new(
                                 Vector3::new(
                                     transform.position.x,
@@ -331,7 +333,7 @@ impl ParseComponent for CollisionShapeParser {
     ) -> Result<(), ComponentParserError> {
         if component_data.component_type == "CollisionShape" {
             let transform = if let Some(val) = world.read_storage::<Transform>().get(entity) {
-                val
+                *val
             } else {
                 return Err(ComponentParserError::MissingDependantComponent("Transform"));
             };
@@ -395,12 +397,14 @@ impl ParseComponent for CollisionShapeParser {
                 let mut physics_world = world.write_resource::<PhysicsWorld>();
                 let collider_handle = physics_world.collider_set.insert(collision);
                 let mut collision_shape_storage = world.write_storage::<CollisionShape>();
-                collision_shape_storage.insert(
-                    entity,
-                    CollisionShape {
-                        collider: collider_handle,
-                    },
-                );
+                collision_shape_storage
+                    .insert(
+                        entity,
+                        CollisionShape {
+                            collider: collider_handle,
+                        },
+                    )
+                    .unwrap();
                 Ok(())
             } else {
                 Err(ComponentParserError::InvalidData("CollisionShape"))

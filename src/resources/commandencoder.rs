@@ -1,5 +1,3 @@
-
-
 pub struct HorizonCommandEncoder {
     cmd_encoder: wgpu::CommandEncoder,
 }

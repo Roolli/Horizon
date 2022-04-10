@@ -38,6 +38,7 @@ impl HorizonEntity {
             ComponentData::PointLight(d) => JsValue::from_serde(&d).unwrap(),
             ComponentData::AssetIdentifier(name) => JsValue::from_serde(&name).unwrap(),
             ComponentData::Physics(physics) => JsValue::from_serde(&physics).unwrap(),
+            ComponentData::CollisionShape(collision) => JsValue::NULL,
             ComponentData::Empty => JsValue::NULL,
         }
     }
@@ -111,7 +112,7 @@ impl HorizonEntity {
         })
     }
     #[cfg(target_arch = "wasm32")]
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "setAngularVelocity"))]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "setWorldPosition"))]
     pub fn set_world_position(&self, vec: Vec3) -> Result<(), JsValue> {
         ScriptingFunctions::set_entity_world_position(vec.into(), self.entity_id).map_err(|e| {
             JsValue::from_str(

@@ -61,7 +61,7 @@ impl DirectionalLight {
 
         let mut last_split_dist = 0.0;
         for split in cascade_splits {
-            let proj = Perspective3::new(1.0, 90.0_f32.to_radians(), z_near, z_far);
+            let proj = Perspective3::new(1.0, 45.0_f32.to_radians(), z_near, z_far);
 
             let view_proj_inverse = (proj.as_matrix() * cam.get_view_matrix())
                 .try_inverse()
@@ -122,10 +122,10 @@ impl DirectionalLight {
                 max_extent.x,
                 min_extent.y,
                 max_extent.y,
-                0.0_f32,
-                max_extent.z - min_extent.z,
+                max_extent.z,
+                min_extent.z,
             );
-            let split_depth = (z_near + split * clip_range) * -1.0;
+            let split_depth = (z_near + split * clip_range); // may not be necessary to multiply by -1.
             let view_proj = ortho * light_view;
             cascades.push((split_depth, view_proj));
 

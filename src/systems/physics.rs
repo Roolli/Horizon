@@ -129,5 +129,13 @@ impl<'a> System<'a> for Physics {
             transform.position = body.position().translation.vector;
             transform.rotation = body.position().rotation;
         }
+        for rigid_body_handle in world.island_manager.active_kinematic_bodies() {
+            let body = world.body_set.get(*rigid_body_handle).unwrap();
+            let mut transform = transforms
+                .get_mut(entities.entity(body.user_data as u32))
+                .unwrap();
+            transform.position = body.position().translation.vector;
+            transform.rotation = body.position().rotation;
+        }
     }
 }

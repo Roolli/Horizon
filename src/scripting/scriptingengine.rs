@@ -122,6 +122,9 @@ impl HorizonScriptingEngine {
             op_apply_impulse_torque::decl(),
             op_set_lin_vel::decl(),
             op_set_ang_vel::decl(),
+            op_set_entity_rotation::decl(),
+            op_set_entity_world_pos::decl(),
+            op_get_forward_vector::decl(),
         ])
     }
 }
@@ -310,4 +313,18 @@ fn op_set_ang_vel(entity_id: u32, ang_vel: Vec3) -> Result<(), deno_core::anyhow
 fn op_set_entity_world_pos(entity_id: u32, pos: Vec3) -> Result<(), deno_core::anyhow::Error> {
     ScriptingFunctions::set_entity_world_position(pos.into(), entity_id)
         .map_err(|e| deno_core::anyhow::Error::msg(format!("{:?}", e)))
+}
+#[cfg_attr(not(target_arch = "wasm32"), op)]
+#[cfg(not(target_arch = "wasm32"))]
+fn op_set_entity_rotation(entity_id: u32, rot: Vec3) -> Result<(), deno_core::anyhow::Error> {
+    ScriptingFunctions::set_entity_rotation(rot.into(), entity_id)
+        .map_err(|e| deno_core::anyhow::Error::msg(format!("{:?}", e)))
+}
+
+#[cfg_attr(not(target_arch = "wasm32"), op)]
+#[cfg(not(target_arch = "wasm32"))]
+fn op_get_forward_vector(entity_id: u32) -> Result<Vec3, deno_core::anyhow::Error> {
+    ScriptingFunctions::get_entity_forward_vector(entity_id)
+        .map_err(|e| deno_core::anyhow::Error::msg(format!("{:?}", e)))
+        .map(|v| v.into())
 }

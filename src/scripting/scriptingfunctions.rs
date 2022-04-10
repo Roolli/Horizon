@@ -7,11 +7,6 @@ use crate::renderer::primitives::lights::pointlight::PointLight;
 use crate::systems::physics::PhysicsWorld;
 use crate::{CustomEvent, HorizonModel, ModelBuilder, EVENT_LOOP_PROXY};
 
-use deno_core::v8::Script;
-use std::iter::Once;
-use std::mem::size_of_val;
-
-use super::scriptevent::ScriptEvent;
 // #[cfg(not(target_arch = "wasm32"))]
 // use super::scriptingengine::V8ScriptingEngine;
 use super::util::entityinfo::EntityInfo;
@@ -280,7 +275,7 @@ impl ScriptingFunctions {
     }
     pub fn set_entity_rotation(
         euler_angles: Vector3<f32>,
-        enttiy_id: Index,
+        entity_id: Index,
     ) -> Result<(), ScriptingError> {
         let ecs = ECSContainer::global();
         let mut transforms = ecs.world.write_storage::<Transform>();
@@ -296,10 +291,16 @@ impl ScriptingFunctions {
                 .body_set
                 .get_mut(physics_handles.rigid_body_handle)
                 .unwrap();
-
-            body.set_rotation(
-                Rotation::from_euler_angles(euler_angles[0], euler_angles[1], euler_angles[2])
+            body.set_position(
+                Isometry3::new(
+                    body.position().translation.vector,
+                    UnitQuaternion::from_euler_angles(
+                        euler_angles[0],
+                        euler_angles[1],
+                        euler_angles[2],
+                    )
                     .scaled_axis(),
+                ),
                 true,
             );
         } else {
@@ -310,6 +311,33 @@ impl ScriptingFunctions {
             );
         }
         Ok(())
+    }
+    pub fn get_entity_forward_vector(entity_id: Index) -> Result<Vector3<f32>, ScriptingError> {
+        let ecs = ECSContainer::global();
+        let handle_storage = ecs.world.read_storage::<PhysicsHandle>();
+        let physics_handle = handle_storage
+            .get(ecs.world.entities().entity(entity_id))
+            .ok_or(ScriptingError::MissingComponent("Physics"))?;
+        let physics_world = ecs.world.read_resource::<PhysicsWorld>();
+        let rigid_body = physics_world
+            .body_set
+            .get(physics_handle.rigid_body_handle)
+            .unwrap();
+        log::info!(
+            "rot for entity {}, rot: {:?}",
+            entity_id,
+            rigid_body.position().rotation
+        );
+        let origin = rigid_body.position().translation.vector;
+        let forward = rigid_body.position().transform_vector(&-Vector3::z());
+        let direction = (forward - origin).normalize();
+
+        log::info!(
+            "rot for entity {}, direction matrix: {:?}",
+            entity_id,
+            direction
+        );
+        Ok(direction)
     }
 
     pub async fn load_model(model_name: String) -> Result<HorizonEntity, ScriptingError> {

@@ -5,10 +5,14 @@ use ref_thread_local::{Ref, RefMut, RefThreadLocal};
 use specs::{DispatcherBuilder, RunNow, System, World, WorldExt};
 use std::borrow::{Borrow, BorrowMut};
 use std::collections::HashSet;
+use wgpu::{PipelineStatisticsTypes, QueryType};
 
 use crate::components::assetidentifier::AssetIdentifier;
 use crate::components::collisionshape::CollisionShape;
 use crate::components::modelcollider::ModelCollider;
+use crate::resources::gpuquerysets::{
+    GpuQuerySet, GpuQuerySetContainer, PipelineStatisticsQueries,
+};
 use crate::resources::scriptingstate::ScriptingState;
 use crate::resources::surfacetexture::SurfaceTexture;
 use crate::scripting::scriptevent::ScriptEvent;
@@ -45,6 +49,7 @@ use crate::systems::rendering::renderforwardpass::RenderForwardPass;
 use crate::systems::rendering::rendershadowpass::RenderShadowPass;
 use crate::systems::rendering::renderskybox::RenderSkyBox;
 use crate::systems::rendering::renderuipass::RenderUIPass;
+use crate::systems::rendering::resolvequerysets::ResolveQuerySets;
 use crate::systems::rendering::updatebuffers::UpdateBuffers;
 use crate::systems::rendering::updatecamera::UpdateCamera;
 use crate::systems::rendering::writegbuffer::WriteGBuffer;
@@ -77,6 +82,7 @@ impl Default for ECSContainer {
             .with_thread_local(RenderCollision)
             .with_thread_local(RenderSkyBox)
             .with_thread_local(RenderUIPass)
+            .with_thread_local(ResolveQuerySets)
             .build();
         dispatcher.setup(&mut world);
         ECSContainer::register_components(&mut world);
@@ -120,6 +126,45 @@ impl ECSContainer {
             f32::to_radians(45.0),
             0.01,
         );
+        let gpu_query_set_container = if state
+            .device
+            .features()
+            .contains(wgpu::Features::TIMESTAMP_QUERY | wgpu::Features::PIPELINE_STATISTICS_QUERY)
+        {
+            let timestamp_query_set = state.device.create_query_set(&wgpu::QuerySetDescriptor {
+                label: Some("Timestamp QuerySet"),
+                ty: wgpu::QueryType::Timestamp,
+                count: (State::NUM_PASSES + State::SHADOW_SIZE.depth_or_array_layers) * 2, // begin time & end time
+            });
+            let pipeline_query_set = state.device.create_query_set(&wgpu::QuerySetDescriptor {
+                label: Some("pipeline querySet"),
+                ty: QueryType::PipelineStatistics(PipelineStatisticsTypes::all()),
+                count: (State::NUM_PASSES + State::SHADOW_SIZE.depth_or_array_layers),
+            });
+
+            let timestamp_period = state.queue.get_timestamp_period();
+
+            let query_buffer = state.device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("query_buffer"),
+                size: GpuQuerySet::pipeline_statistics_offset()
+                    + std::mem::size_of::<PipelineStatisticsQueries>() as wgpu::BufferAddress,
+                usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+                mapped_at_creation: false,
+            });
+            let gpu_query_sets = GpuQuerySet {
+                query_buffer,
+                timestamp_period,
+                pipeline_queries: pipeline_query_set,
+                timestamp_queries: timestamp_query_set,
+                next_query_index: 0,
+            };
+            GpuQuerySetContainer {
+                container: Some(gpu_query_sets),
+            }
+        } else {
+            GpuQuerySetContainer { container: None }
+        };
+
         let cam_controller = CameraController::new(10.0, 2.0);
         globals.update_view_proj_matrix(&cam, &proj);
         drop(state);
@@ -128,6 +173,7 @@ impl ECSContainer {
         world.insert(proj);
         world.insert(globals);
         world.insert(cam);
+        world.insert(gpu_query_set_container);
         world.insert(DirectionalLight::new(
             0.0,
             45.0_f32.to_radians(),

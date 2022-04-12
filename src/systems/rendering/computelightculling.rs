@@ -2,6 +2,7 @@ use std::convert::TryInto;
 
 use specs::{Join, ReadExpect, ReadStorage, System, WriteExpect};
 
+use crate::resources::gpuquerysets::GpuQuerySetContainer;
 use crate::{
     renderer::{
         bindgroupcontainer::BindGroupContainer,
@@ -27,6 +28,7 @@ impl<'a> System<'a> for ComputeLightCulling {
         ReadExpect<'a, LightCullingPipeline>,
         ReadStorage<'a, TilingBindGroup>,
         ReadExpect<'a, BindingResourceContainer>,
+        WriteExpect<'a, GpuQuerySetContainer>,
     );
 
     fn run(
@@ -40,6 +42,7 @@ impl<'a> System<'a> for ComputeLightCulling {
             pipeline,
             tiling_bind_group,
             binding_resource_container,
+            mut query_sets,
         ): Self::SystemData,
     ) {
         let command_encoder = cmd_encoder.get_encoder();
@@ -50,9 +53,18 @@ impl<'a> System<'a> for ComputeLightCulling {
             0,
             None,
         );
+
         let mut compute_pass = command_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("Light Culling pass"),
         });
+        if let Some(ref query_set) = query_sets.container {
+            compute_pass
+                .write_timestamp(&query_set.timestamp_queries, query_set.next_query_index * 2); // use manual indexing for now
+            compute_pass.begin_pipeline_statistics_query(
+                &query_set.pipeline_queries,
+                query_set.next_query_index,
+            );
+        }
         let (_, uniform_bind_group_container) = (&uniform_bind_group, &bind_group_container)
             .join()
             .next()
@@ -75,6 +87,14 @@ impl<'a> System<'a> for ComputeLightCulling {
             1,
             1,
         );
+        if let Some(ref mut query_set) = query_sets.container {
+            compute_pass.write_timestamp(
+                &query_set.timestamp_queries,
+                query_set.next_query_index * 2 + 1,
+            ); // use manual indexing for now
+            compute_pass.end_pipeline_statistics_query();
+            query_set.next_query_index += 1;
+        }
         drop(compute_pass);
 
         cmd_encoder.finish(&state.device, &state.queue);

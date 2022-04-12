@@ -7,6 +7,7 @@ use wgpu::{FilterMode, Texture, TextureView};
 use crate::renderer::utils::texturerenderer::TextureRenderer;
 use crate::resources::commandencoder::HorizonCommandEncoder;
 use crate::resources::eguicontainer::EguiContainer;
+use crate::resources::gpuquerysets::{GpuQuerySet, GpuQuerySetContainer};
 use crate::resources::surfacetexture::SurfaceTexture;
 use crate::ui::debugstats::DebugStats;
 use crate::ui::menu::Menu;
@@ -33,6 +34,7 @@ impl<'a> System<'a> for RenderUIPass {
         ReadExpect<'a, DebugTexturePipeline>,
         Write<'a, Menu>,
         Write<'a, ScriptingConsole>,
+        WriteExpect<'a, GpuQuerySetContainer>,
     );
 
     fn run(
@@ -49,6 +51,7 @@ impl<'a> System<'a> for RenderUIPass {
             debug_texture_pipeline,
             mut menu_ui,
             mut console,
+            mut query_sets,
         ): Self::SystemData,
     ) {
         let encoder = command_encoder.get_encoder();
@@ -169,19 +172,52 @@ impl<'a> System<'a> for RenderUIPass {
             physical_width: state.sc_descriptor.width,
         };
 
-        let render_pass = &mut egui_container.render_pass;
-        render_pass
+        let egui_render_pass = &mut egui_container.render_pass;
+
+        egui_render_pass
             .add_textures(&state.device, &state.queue, &output.textures_delta)
             .unwrap();
-        render_pass.remove_textures(output.textures_delta).unwrap();
-        render_pass.update_buffers(&state.device, &state.queue, &paint_jobs, &screen_desc);
+        egui_render_pass
+            .remove_textures(output.textures_delta)
+            .unwrap();
+        egui_render_pass.update_buffers(&state.device, &state.queue, &paint_jobs, &screen_desc);
         let output = surface_texture.texture.take().unwrap();
         let color_attachment = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
-        render_pass
-            .execute(encoder, &color_attachment, &paint_jobs, &screen_desc, None)
+        let mut horizon_render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Ui render pass"),
+            color_attachments: &[wgpu::RenderPassColorAttachment {
+                view: &color_attachment,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Load,
+                    store: true,
+                },
+                resolve_target: None,
+            }],
+            depth_stencil_attachment: None,
+        });
+        if let Some(ref query_set) = query_sets.container {
+            horizon_render_pass
+                .write_timestamp(&query_set.timestamp_queries, query_set.next_query_index * 2);
+            horizon_render_pass.begin_pipeline_statistics_query(
+                &query_set.pipeline_queries,
+                query_set.next_query_index,
+            );
+        }
+
+        egui_render_pass
+            .execute_with_renderpass(&mut horizon_render_pass, &paint_jobs, &screen_desc)
             .unwrap();
+        if let Some(ref query_set) = query_sets.container {
+            horizon_render_pass.write_timestamp(
+                &query_set.timestamp_queries,
+                query_set.next_query_index * 2 + 1,
+            );
+            horizon_render_pass.end_pipeline_statistics_query();
+        }
+        drop(horizon_render_pass);
+
         command_encoder.finish(&state.device, &state.queue);
         output.present();
     }

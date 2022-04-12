@@ -14,6 +14,7 @@ use crate::{
 };
 
 use crate::resources::bindingresourcecontainer::BufferTypes::DeferredVao;
+use crate::resources::gpuquerysets::GpuQuerySetContainer;
 use crate::resources::surfacetexture::SurfaceTexture;
 use specs::prelude::*;
 
@@ -31,6 +32,7 @@ impl<'a> System<'a> for RenderForwardPass {
         Write<'a, RenderResult>,
         ReadStorage<'a, DeferredBindGroup>,
         ReadExpect<'a, SurfaceTexture>,
+        WriteExpect<'a, GpuQuerySetContainer>,
     );
 
     fn run(
@@ -46,6 +48,7 @@ impl<'a> System<'a> for RenderForwardPass {
             render_result,
             deferred_bind_group,
             surface_texture,
+            mut query_sets,
         ): Self::SystemData,
     ) {
         if render_result.result.is_some() {
@@ -78,7 +81,14 @@ impl<'a> System<'a> for RenderForwardPass {
             }],
             depth_stencil_attachment: None,
         });
-
+        if let Some(ref query_set) = query_sets.container {
+            render_pass
+                .write_timestamp(&query_set.timestamp_queries, query_set.next_query_index * 2); // use manual indexing for now
+            render_pass.begin_pipeline_statistics_query(
+                &query_set.pipeline_queries,
+                query_set.next_query_index,
+            );
+        }
         render_pass.set_pipeline(&forward_pipeline.0);
         let (_, deffered_bind_group_container) = (&deferred_bind_group, &bind_group_containers)
             .join()
@@ -104,6 +114,14 @@ impl<'a> System<'a> for RenderForwardPass {
                 .slice(..),
         );
         render_pass.draw(0..6, 0..1);
+        if let Some(ref mut query_set) = query_sets.container {
+            render_pass.write_timestamp(
+                &query_set.timestamp_queries,
+                query_set.next_query_index * 2 + 1,
+            ); // use manual indexing for now
+            render_pass.end_pipeline_statistics_query();
+            query_set.next_query_index += 1;
+        }
         drop(render_pass);
     }
 }

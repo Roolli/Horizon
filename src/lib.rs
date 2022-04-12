@@ -5,6 +5,7 @@ use gltf::{buffer, Document};
 use image::DynamicImage;
 use rand::{random, Rng};
 use std::collections::HashMap;
+use std::time::Duration;
 
 use crate::{
     renderer::bindgroups::gbuffer::GBuffer,
@@ -65,7 +66,8 @@ use ref_thread_local::RefThreadLocal;
 use tokio::runtime::Runtime;
 #[cfg(not(target_arch = "wasm32"))]
 use tokio::task;
-use wgpu::{BlendFactor, ColorWrites};
+use tokio::time::timeout;
+use wgpu::{BlendFactor, ColorWrites, Maintain};
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -100,6 +102,7 @@ use crate::resources::camera::CameraController;
 use crate::resources::defaulttexturecontainer::{DefaultTextureContainer, DefaultTextureTypes};
 use crate::resources::deltatime::DeltaTime;
 use crate::resources::eguicontainer::EguiContainer;
+use crate::resources::gpuquerysets::GpuQuerySetContainer;
 use crate::resources::projection::Projection;
 use crate::resources::windowstate::WindowState;
 use crate::scripting::scriptingengine::HorizonScriptingEngine;

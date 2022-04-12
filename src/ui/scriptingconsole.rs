@@ -21,6 +21,7 @@ impl ViewComponent for ScriptingConsole {
                 for message in &self.messages {
                     ui.colored_label(Color32::from_rgb(128, 140, 255), message);
                 }
+                self.messages.clear();
             },
         );
     }

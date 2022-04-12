@@ -292,22 +292,20 @@ impl ParseComponent for PointLightComponentParser {
         world: &World,
     ) -> Result<(), ComponentParserError> {
         if component_data.component_type == "pointLight" {
-            let pos = if let Some(val) = world.read_storage::<Transform>().get(entity) {
-                val.position
-            } else {
-                return Err(ComponentParserError::MissingDependantComponent("Transform"));
-            };
             let radius = component_data.radius.unwrap();
             let color = component_data.color.unwrap();
             let mut point_light_storage = world.write_component::<PointLight>();
+
+            let attached_entity = component_data
+                .attached_to
+                .map(|val| world.entities().entity(val));
             point_light_storage
                 .insert(
                     entity,
                     PointLight::new(
-                        Point3::from(pos),
                         Vector3::new(color.x as f32, color.y as f32, color.z as f32),
                         radius,
-                        None, //TODO: add attachment
+                        attached_entity,
                     ),
                 )
                 .unwrap();

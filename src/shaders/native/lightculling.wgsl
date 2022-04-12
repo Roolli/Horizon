@@ -96,7 +96,7 @@ fn main([[builtin(global_invocation_id)]] Global_Invocation_Id: vec3<u32>) {
      let proj = light_culling_uniforms.u_proj;
 
 
-     let view_near =  -proj[3][2] / (-1.0 + proj[2][2]);
+     let view_near =  -proj[3][2] / (proj[2][2]);
      let view_far = -proj[3][2] / (1.0 + proj[2][2]);
 
     var lightPos = pointLights.elements[index].position;
@@ -106,8 +106,8 @@ fn main([[builtin(global_invocation_id)]] Global_Invocation_Id: vec3<u32>) {
     var bounding_box_min = lightPos - vec4<f32>(vec3<f32>(lightRadius),0.0);
     var bounding_box_max = lightPos + vec4<f32>(vec3<f32>(lightRadius),0.0);
     var frustums: array<vec4<f32>,6>;
-    frustums[4] = vec4<f32>(0.0,0.0,-1.0,view_near); // near plane
-    frustums[5] = vec4<f32>(0.0,0.0,1.0,-view_far); // far plane
+    frustums[4] = vec4<f32>(0.0,0.0,0.0,-view_near); // near
+    frustums[5] = vec4<f32>(0.0,0.0,1.0,-view_far); // far 
 
     for(var y: i32 = 0; y < tileInfo.tile_count_y; y= y +1)
     {

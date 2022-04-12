@@ -1,7 +1,7 @@
 
 struct VertexOutput {
-@builtin(position) fragPos: vec4<f32>;
-@location(0) fragUV:vec2<f32>;
+@builtin(position) fragPos: vec4<f32>,
+@location(0) fragUV:vec2<f32>,
 };
 
 @stage(vertex)
@@ -13,53 +13,53 @@ fn vs_main(@location(0) pos: vec4<f32>,@location(1) uv:vec2<f32>) -> VertexOutpu
 }
 
 struct SpotLight {
-    position: vec4<f32>;
-    direction: vec4<f32>;
-    color: vec3<f32>;
-    radius:f32;
-    cutoffs: vec4<f32>;  // X inner , Y outer
+    position: vec4<f32>,
+    direction: vec4<f32>,
+    color: vec3<f32>,
+    radius:f32,
+    cutoffs: vec4<f32>,  // X inner , Y outer
 };
 
 struct PointLight {
-    position: vec4<f32>;
-    color: vec3<f32>;
-    radius: f32;
+    position: vec4<f32>,
+    color: vec3<f32>,
+    radius: f32,
 };
 
 struct DirectionalLight {
-    direction: vec4<f32>;
-    color: vec4<f32>;
+    direction: vec4<f32>,
+    color: vec4<f32>,
 };
 
 struct PointLightContainer {
-    elements: array<PointLight>;
+    elements: array<PointLight>,
 };
 
 struct SpotLightContainer {
-    elements: array<SpotLight>;
+    elements: array<SpotLight>,
 };
 struct Globals {
-    u_view_position: vec4<f32>;
-    u_view_proj: mat4x4<f32>;
-    lights_num: vec4<u32>;
+    u_view_position: vec4<f32>,
+    u_view_proj: mat4x4<f32>,
+    lights_num: vec4<u32>,
 };
 
 // determines the number of lights a tile can be influenced by.
 let num_tile_light_slot:u32 = 128u; // needs to be a constant as you can't create a runtime array with an atomic next to it. pipeline overrides would solve this issue this being a constant but they are not implemeneted.
 
 struct TileLightData {
-    light_count: atomic<u32>;
-   light_ids: array<u32,128>;
+    light_count: atomic<u32>,
+   light_ids: array<u32,128>,
 };
 struct Tiles {
-    data: array<TileLightData>;
+    data: array<TileLightData>,
 };
 struct TileInfo {
-     tile_size: i32;
-     tile_count_x: i32;
-     tile_count_y: i32;
-     num_tiles: u32;
-     num_tile_light_slot: u32;
+     tile_size: i32,
+     tile_count_x: i32,
+     tile_count_y: i32,
+     num_tiles: u32,
+     num_tile_light_slot: u32,
 };
 
 
@@ -81,7 +81,7 @@ var specular:texture_2d<f32>;
 var albedo: texture_2d<f32>;
 
 struct CanvasSize {
-     canvasConstants: vec2<f32>;
+     canvasConstants: vec2<f32>,
 };
 @group(0)
 @binding(5)
@@ -109,11 +109,11 @@ var t_shadow_single: texture_depth_2d;
 var s_shadow: sampler_comparison;
 
 struct CascadeTransforms{
-    elements: array<mat4x4<f32>>;
+    elements: array<mat4x4<f32>>,
 };
 
 struct CascadeLengths {
-    elements: array<f32>;
+    elements: array<f32>,
 };
 
 @group(1)
@@ -233,7 +233,7 @@ fn calcDirLightContribution(normal: vec3<f32>, view_direction: vec3<f32>, object
     let diffuse_color = dirLight.color.xyz * diffuse_strength * object_color;
 
     let half_dir = normalize( light_direction+ view_direction);
-    let specular_strength = pow(max(dot(half_dir,normal),0.0),10.0);
+    let specular_strength = pow(max(dot(half_dir,normal),0.0),32.0);
     let specular_color = specular_strength * dirLight.color.xyz * object_color;
   
     return ( diffuse_color * shadow + specular_color);
@@ -276,12 +276,12 @@ fn fs_main_web(in:VertexOutput) -> @location(0) vec4<f32>{
     }
     let object_normal = textureLoad(normals,coordinates,0).xyz;
     let object_color = textureLoad(albedo,coordinates,0).xyz;
-    let view_direction = normalize(-position);
+    let view_direction = normalize(globals.u_view_position.xyz-position);
 
     let shadow = get_shadow_value_web(cascade_transforms.elements[0]* vec4<f32>(position,1.0));
     result = result + calcDirLightContribution(object_normal.xyz,view_direction,object_color.xyz,shadow);
 
-    result = result + addPointLightContributions(position,in.fragUV,object_normal.xyz,view_direction,object_color.xyz);
+    result = result + addPointLightContributions(position,in.fragUV,object_normal,view_direction,object_color.xyz);
    
     return vec4<f32>(result,1.0);
 }

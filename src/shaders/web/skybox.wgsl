@@ -1,10 +1,10 @@
 struct SkyVertexOutput {
-    @builtin(position) position: vec4<f32>;
-    @location(0) uv: vec3<f32>;
+    @builtin(position) position: vec4<f32>,
+    @location(0) uv: vec3<f32>,
 };
 struct ReflectionData {
-    projection_inverse: mat4x4<f32>;
-    view: mat4x4<f32>;
+    projection_inverse: mat4x4<f32>,
+    view: mat4x4<f32>,
 };
 
 @group(0)

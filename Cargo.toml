@@ -38,6 +38,7 @@ lazy_static = "1.4.0"
 ref_thread_local = "0.1.1"
 ddsfile = "0.5.0"
 enum-map = "2.0.2"
+nalgebra-glm = "0.16.0"
 gltf = {version= "1.0.0",features= ["KHR_materials_transmission","KHR_materials_unlit"]}
 egui_wgpu_backend = {path="../egui_wgpu_backend"}
 

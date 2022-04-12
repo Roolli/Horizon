@@ -26,6 +26,7 @@ pub struct Component {
     pub collision_shape: Option<ColliderInfo>,
     pub lock_rotation: Option<LockRotation>,
     pub damping: Option<Vec<Damping>>,
+    pub attached_to: Option<u32>,
 }
 #[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]

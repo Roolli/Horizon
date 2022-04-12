@@ -2,25 +2,25 @@
 
 
 struct SpotLight {
-    position: vec4<f32>;
-    direction: vec4<f32>;
-    color: vec3<f32>;
-    radius:f32;
-    cutoffs: vec4<f32>;  // X inner , Y outer
+    position: vec4<f32>,
+    direction: vec4<f32>,
+    color: vec3<f32>,
+    radius:f32,
+    cutoffs: vec4<f32>,  // X inner , Y outer
 };
 
 struct PointLight {
-    position: vec4<f32>;
-    color: vec3<f32>;
-    radius: f32;
+    position: vec4<f32>,
+    color: vec3<f32>,
+    radius: f32,
 };
 
 struct TileInfo {
-     tile_size: i32;
-     tile_count_x: i32;
-     tile_count_y: i32;
-     num_tiles: u32;
-     num_tile_light_slot: u32;
+     tile_size: i32,
+     tile_count_x: i32,
+     tile_count_y: i32,
+     num_tiles: u32,
+     num_tile_light_slot: u32,
 };
 
 // determines the number of lights a tile can be influenced by.
@@ -30,34 +30,34 @@ let num_tile_light_slot:u32 = 128u; // needs to be a constant as you can't creat
 // @override(0)
 // let TILE_SIZE :i32;
 struct TileLightData {
-    light_count: atomic<u32>;
-   light_ids: array<u32,num_tile_light_slot>;
+    light_count: atomic<u32>,
+   light_ids: array<u32,num_tile_light_slot>,
 };
 struct Tiles {
-    data: array<TileLightData>;
+    data: array<TileLightData>,
 };
 
 struct PointLightContainer {
-    elements: array<PointLight>;
+    elements: array<PointLight>,
 };
 
 struct SpotLightContainer {
-    elements: array<SpotLight>;
+    elements: array<SpotLight>,
 };
 
 
 struct Globals {
-    u_view_position: vec4<f32>;
-    u_view_proj: mat4x4<f32>;
-    lights_num: vec4<u32>;
+    u_view_position: vec4<f32>,
+    u_view_proj: mat4x4<f32>,
+    lights_num: vec4<u32>,
 };
 struct LightCullingUniforms {
-    u_proj: mat4x4<f32>;
-    u_view: mat4x4<f32>;
+    u_proj: mat4x4<f32>,
+    u_view: mat4x4<f32>,
 };
 
 struct CanvasSize {
-     canvasConstants: vec2<f32>;
+     canvasConstants: vec2<f32>,
 };
 
 @group(0)

@@ -34,7 +34,7 @@ impl Camera {
     }
     pub fn get_view_matrix(&self) -> Matrix4<f32> {
         let f = Vector3::new(self.yaw.cos(), self.pitch.sin(), self.yaw.sin()).normalize();
-        if let Some(_) = self.follow_target {
+        if self.follow_target.is_some() {
             return Matrix4::look_at_rh(
                 &(self.position - f),
                 &self.follow_target_pos,
@@ -74,16 +74,16 @@ impl CameraController {
                 0.0
             };
             match key_code {
-                VirtualKeyCode::W | VirtualKeyCode::Up => {
+                VirtualKeyCode::W => {
                     self.move_forward = state;
                 }
-                VirtualKeyCode::A | VirtualKeyCode::Left => {
+                VirtualKeyCode::A => {
                     self.move_left = state;
                 }
-                VirtualKeyCode::D | VirtualKeyCode::Right => {
+                VirtualKeyCode::D => {
                     self.move_right = state;
                 }
-                VirtualKeyCode::S | VirtualKeyCode::Down => {
+                VirtualKeyCode::S => {
                     self.move_backward = state;
                 }
                 VirtualKeyCode::Space => {

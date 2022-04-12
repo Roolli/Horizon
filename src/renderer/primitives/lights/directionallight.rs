@@ -61,9 +61,14 @@ impl DirectionalLight {
 
         let mut last_split_dist = 0.0;
         for split in cascade_splits {
-            let proj = Perspective3::new(1.0, 45.0_f32.to_radians(), z_near, z_far);
+            let proj = nalgebra_glm::perspective_rh_zo(
+                1920.0 / 1080.0,
+                45.0_f32.to_radians(),
+                z_near,
+                z_far,
+            );
 
-            let view_proj_inverse = (proj.as_matrix() * cam.get_view_matrix())
+            let view_proj_inverse = (Matrix4::from(proj.data.0) * cam.get_view_matrix())
                 .try_inverse()
                 .unwrap();
             let mut corners = vec![
@@ -122,8 +127,8 @@ impl DirectionalLight {
                 max_extent.x,
                 min_extent.y,
                 max_extent.y,
-                max_extent.z,
-                min_extent.z,
+                0.0,
+                max_extent.z - min_extent.z,
             );
             let split_depth = (z_near + split * clip_range); // may not be necessary to multiply by -1.
             let view_proj = ortho * light_view;

@@ -1,6 +1,6 @@
 struct TextureRendererVertexOutputs {
-    @builtin(position) pos: vec4<f32>;
-    @location(0) out_coords: vec2<f32>;
+    @builtin(position) pos: vec4<f32>,
+    @location(0) out_coords: vec2<f32>,
 };
 
 

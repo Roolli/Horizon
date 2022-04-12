@@ -4,7 +4,6 @@ use specs::*;
 #[derive(Component, Copy, Clone)]
 #[storage(VecStorage)]
 pub struct PointLight {
-    pub position: Point3<f32>,
     pub color: Vector3<f32>,
     pub radius: f32,
     pub attached_to: Option<Entity>,
@@ -18,14 +17,8 @@ pub struct PointLightRaw {
 }
 
 impl PointLight {
-    pub fn new(
-        position: Point3<f32>,
-        color: Vector3<f32>,
-        radius: f32,
-        attached_to: Option<Entity>,
-    ) -> Self {
+    pub fn new(color: Vector3<f32>, radius: f32, attached_to: Option<Entity>) -> Self {
         Self {
-            position,
             color,
             radius,
             attached_to,
@@ -34,11 +27,11 @@ impl PointLight {
     pub fn attach_to(&mut self, ent: Entity) {
         self.attached_to = Some(ent);
     }
-    pub fn to_raw(&self) -> PointLightRaw {
+    pub fn to_raw(&self, pos: Vector3<f32>) -> PointLightRaw {
         PointLightRaw {
             radius: self.radius,
             color: [self.color.x, self.color.y, self.color.z],
-            pos: [self.position.x, self.position.y, self.position.z, 1.0],
+            pos: [pos.x, pos.y, pos.z, 1.0],
         }
     }
 }

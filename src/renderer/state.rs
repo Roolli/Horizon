@@ -20,7 +20,7 @@ impl State {
         [0.0, 0.0, 0.5, 0.0],
         [0.0, 0.0, 0.5, 1.0],
     ];
-    pub const CASCADE_DISTS: (f32, f32) = (0.01, 1000.0);
+    pub const CASCADE_DISTS: (f32, f32) = (0.1, 100.0);
     pub const NUM_PASSES: u32 = 6;
     pub const MAX_ENTITY_COUNT: wgpu::BufferAddress =
         (std::mem::size_of::<TransformRaw>() * 2048) as wgpu::BufferAddress;

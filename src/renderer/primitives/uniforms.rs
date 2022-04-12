@@ -1,5 +1,6 @@
 use bytemuck::{Pod, Zeroable};
-use rapier3d::na::Matrix4;
+use nalgebra_glm::proj;
+use rapier3d::na::{Matrix4, Perspective3};
 
 use crate::resources::camera::Camera;
 use crate::resources::projection::Projection;
@@ -20,7 +21,18 @@ impl Globals {
     }
     pub fn update_view_proj_matrix(&mut self, cam: &Camera, proj: &Projection) {
         self.view_position = cam.position.to_homogeneous().into();
-        self.view_proj = (proj.calc_proj_matrix() * cam.get_view_matrix()).into();
+        //proj.calc_proj_matrix()
+        self.view_proj = (Matrix4::from(
+            nalgebra_glm::reversed_perspective_rh_zo(
+                proj.aspect_ratio,
+                proj.fov_y,
+                proj.z_near,
+                100.0,
+            )
+            .data
+            .0,
+        ) * cam.get_view_matrix())
+        .into();
     }
     pub fn set_point_light_count(&mut self, new_count: u32) {
         self.num_lights[0] = new_count;
@@ -92,7 +104,14 @@ pub struct LightCullingUniforms {
 impl LightCullingUniforms {
     pub fn new(projection: &Projection, view: &Camera) -> Self {
         LightCullingUniforms {
-            projection: projection.calc_proj_matrix_rh_zo(1000.0).data.0,
+            projection: nalgebra_glm::perspective_rh_zo(
+                projection.aspect_ratio,
+                projection.fov_y,
+                projection.z_near,
+                100.0,
+            )
+            .data
+            .0,
             view: view.get_view_matrix().data.0,
         }
     }

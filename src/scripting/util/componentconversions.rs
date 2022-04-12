@@ -38,21 +38,14 @@ impl From<Transform> for TransformComponent {
 }
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PointLightComponent {
-    position: Vec3,
     color: Vec3,
     radius: f32,
     attached_to: Option<HorizonEntity>,
 }
 
 impl PointLightComponent {
-    pub fn new(
-        position: Vec3,
-        color: Vec3,
-        radius: f32,
-        attached_to: Option<HorizonEntity>,
-    ) -> Self {
+    pub fn new(color: Vec3, radius: f32, attached_to: Option<HorizonEntity>) -> Self {
         PointLightComponent {
-            position,
             color,
             radius,
             attached_to,
@@ -65,12 +58,7 @@ impl From<PointLight> for PointLightComponent {
         let attached_ent = val
             .attached_to
             .map(|model| HorizonEntity::from_entity_id(model.id()));
-        PointLightComponent::new(
-            val.position.into(),
-            val.color.into(),
-            val.radius,
-            attached_ent,
-        )
+        PointLightComponent::new(val.color.into(), val.radius, attached_ent)
     }
 }
 #[derive(Serialize, Deserialize, Debug)]

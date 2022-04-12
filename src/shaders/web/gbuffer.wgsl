@@ -1,40 +1,40 @@
 
 struct GBufferInputs {
-@location(0) a_pos: vec3<f32>;
-@location(1) a_normal: vec3<f32>;
-@location(2) tangent: vec4<f32>;
-@location(3) tex_coord: vec2<f32>;
-@location(4) vertex_color: u32;
-@location(5) joint_weight: vec4<f32>;
-@location(6) joint_id: u32;
-@builtin(instance_index) instance_index: u32;
+@location(0) a_pos: vec3<f32>,
+@location(1) a_normal: vec3<f32>,
+@location(2) tangent: vec4<f32>,
+@location(3) tex_coord: vec2<f32>,
+@location(4) vertex_color: u32,
+@location(5) joint_weight: vec4<f32>,
+@location(6) joint_id: u32,
+@builtin(instance_index) instance_index: u32,
 };
 
 struct VertexOutputs {
-    @builtin(position) pos: vec4<f32>;
-    @location(0) v_tex_coord: vec2<f32>;
-    @location(1) world_frag_pos: vec3<f32>;
-    @location(2) tangent: vec4<f32>;
-    @location(3) normal: vec3<f32>;
+    @builtin(position) pos: vec4<f32>,
+    @location(0) v_tex_coord: vec2<f32>,
+    @location(1) world_frag_pos: vec3<f32>,
+    @location(2) tangent: vec4<f32>,
+    @location(3) normal: vec3<f32>,
 };
 
 
 struct GBufferOutputs {
-    @location(0) position: vec4<f32>;
-    @location(1) normal: vec4<f32>;
-    @location(2) specular:vec4<f32>;
-    @location(3) albedo: vec4<f32>;
+    @location(0) position: vec4<f32>,
+    @location(1) normal: vec4<f32>,
+    @location(2) specular:vec4<f32>,
+    @location(3) albedo: vec4<f32>,
 };
 struct Globals {
-    u_view_position: vec4<f32>;
-    u_view_proj: mat4x4<f32>;
-    lights_num: vec4<u32>;
+    u_view_position: vec4<f32>,
+    u_view_proj: mat4x4<f32>,
+    lights_num: vec4<u32>,
 };
 
 struct MaterialUniforms {
-    base_color_factor: vec4<f32>;
-    roughness_metallic_double_sided: vec4<f32>;
-    emissive_color: vec4<f32>;
+    base_color_factor: vec4<f32>,
+    roughness_metallic_double_sided: vec4<f32>,
+    emissive_color: vec4<f32>,
 };
 
 @group(0)
@@ -42,10 +42,10 @@ struct MaterialUniforms {
 var<uniform> globals: Globals;
 
 struct Transforms {
- elements: array<mat4x4<f32> >;
+ elements: array<mat4x4<f32>>,
 }; 
 struct Normals {
-    elements: array<mat4x4<f32> >;
+    elements: array<mat4x4<f32> >,
 };
 
 @group(0)

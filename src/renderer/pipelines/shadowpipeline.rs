@@ -21,13 +21,12 @@ impl<'a> HorizonPipeline<'a> for ShadowPipeline {
             push_constant_ranges: &[],
         });
 
-        let module_descriptor = wgpu::ShaderModuleDescriptor {
-            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(include_str!(
-                "../../shaders/shadow.wgsl"
-            ))),
-            label: Some("shadow shader"),
+        let wgsl = if cfg!(target_arch = "wasm32") {
+            wgpu::include_wgsl!("../../shaders/web/shadow.wgsl")
+        } else {
+            wgpu::include_wgsl!("../../shaders/native/shadow.wgsl")
         };
-        let module = device.create_shader_module(&module_descriptor);
+        let module = device.create_shader_module(&wgsl);
         let depth_stencil_state = wgpu::DepthStencilState {
             format: wgpu::TextureFormat::Depth32Float,
             bias: wgpu::DepthBiasState {

@@ -27,14 +27,12 @@ impl<'a> HorizonPipeline<'a> for ForwardPipeline {
                 label: Some("forward render pipeline layout"),
                 push_constant_ranges: &[],
             });
-
-        let module_descriptor = wgpu::ShaderModuleDescriptor {
-            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(include_str!(
-                "../../shaders/forward.wgsl"
-            ))),
-            label: Some("forward shader"),
+        let wgsl = if cfg!(target_arch = "wasm32") {
+            wgpu::include_wgsl!("../../shaders/web/forward.wgsl")
+        } else {
+            wgpu::include_wgsl!("../../shaders/native/forward.wgsl")
         };
-        let module = device.create_shader_module(&module_descriptor);
+        let module = device.create_shader_module(&wgsl);
 
         let vbo_layout = wgpu::vertex_attr_array![0=>Float32x4,1=>Float32x2];
 

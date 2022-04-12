@@ -21,13 +21,13 @@ impl<'a> HorizonComputePipeline<'a> for LightCullingPipeline {
             label: Some("Light Culling Pipeline Layout"),
             push_constant_ranges: &[],
         });
-        let module_descriptor = wgpu::ShaderModuleDescriptor {
-            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(include_str!(
-                "../../shaders/lightculling.wgsl"
-            ))),
-            label: Some("light culling shader"),
+
+        let wgsl = if cfg!(target_arch = "wasm32") {
+            wgpu::include_wgsl!("../../shaders/web/lightculling.wgsl")
+        } else {
+            wgpu::include_wgsl!("../../shaders/native/lightculling.wgsl")
         };
-        let module = device.create_shader_module(&module_descriptor);
+        let module = device.create_shader_module(&wgsl);
 
         device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             entry_point: "main",

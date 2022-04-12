@@ -16,8 +16,12 @@ impl<'a> HorizonPipeline<'a> for DebugTexturePipeline {
             bind_group_layouts: &[bind_group_layouts],
             push_constant_ranges: &[],
         });
-        let module =
-            device.create_shader_module(&wgpu::include_wgsl!("../../shaders/textureRenderer.wgsl"));
+        let wgsl = if cfg!(target_arch = "wasm32") {
+            wgpu::include_wgsl!("../../shaders/web/textureRenderer.wgsl")
+        } else {
+            wgpu::include_wgsl!("../../shaders/native/textureRenderer.wgsl")
+        };
+        let module = device.create_shader_module(&wgsl);
         let attribs = wgpu::vertex_attr_array![0=>Float32x4,1=>Float32x2];
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             multiview: None,

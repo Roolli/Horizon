@@ -16,8 +16,12 @@ impl<'a> HorizonPipeline<'a> for DebugCollisionPipeline {
             bind_group_layouts: &[uniform_bind_group_layout, debug_collision_uniform_layout],
             push_constant_ranges: &[],
         });
-        let module = device
-            .create_shader_module(&wgpu::include_wgsl!("../../shaders/colliderRenderer.wgsl"));
+        let wgsl = if cfg!(target_arch = "wasm32") {
+            wgpu::include_wgsl!("../../shaders/web/colliderRenderer.wgsl")
+        } else {
+            wgpu::include_wgsl!("../../shaders/native/colliderRenderer.wgsl")
+        };
+        let module = device.create_shader_module(&wgsl);
         let attribs = wgpu::vertex_attr_array![0=>Float32x3];
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("debug collision pipeline"),

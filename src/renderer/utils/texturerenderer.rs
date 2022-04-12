@@ -1,4 +1,3 @@
-
 use wgpu::SamplerBindingType;
 
 /// Debug renderer for textures like shadow maps
@@ -8,34 +7,30 @@ pub struct TextureRenderer {
 }
 
 impl TextureRenderer {
-    pub fn new_depth_texture_visualizer( device: &wgpu::Device,
-                                         texture_view: &wgpu::TextureView,
-                                         swap_chain_descriptor: &wgpu::SurfaceConfiguration) ->(wgpu::BindGroup,wgpu::RenderPipeline)
-    {
+    pub fn new_depth_texture_visualizer(
+        device: &wgpu::Device,
+        texture_view: &wgpu::TextureView,
+        swap_chain_descriptor: &wgpu::SurfaceConfiguration,
+    ) -> (wgpu::BindGroup, wgpu::RenderPipeline) {
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Depth_debug_renderer"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    count: None,
-                    ty: wgpu::BindingType::Texture {
-                        multisampled: false,
-                        sample_type: wgpu::TextureSampleType::Depth,
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                    },
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                count: None,
+                ty: wgpu::BindingType::Texture {
+                    multisampled: false,
+                    sample_type: wgpu::TextureSampleType::Depth,
+                    view_dimension: wgpu::TextureViewDimension::D2,
                 },
-            ],
+            }],
         });
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(texture_view),
-                },
-
-            ],
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::TextureView(texture_view),
+            }],
             label: Some("Depth_texture_bind_group"),
             layout: &bind_group_layout,
         });
@@ -46,9 +41,12 @@ impl TextureRenderer {
             push_constant_ranges: &[],
         });
 
-        let module =
-            device.create_shader_module(&wgpu::include_wgsl!("../../shaders/textureRenderer.wgsl"));
-
+        let wgsl = if cfg!(target_arch = "wasm32") {
+            wgpu::include_wgsl!("../../shaders/web/textureRenderer.wgsl")
+        } else {
+            wgpu::include_wgsl!("../../shaders/native/textureRenderer.wgsl")
+        };
+        let module = device.create_shader_module(&wgsl);
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             multiview: None,
@@ -72,12 +70,12 @@ impl TextureRenderer {
                 cull_mode: Some(wgpu::Face::Back),
                 front_face: wgpu::FrontFace::Ccw,
                 polygon_mode: wgpu::PolygonMode::Fill,
-                strip_index_format:None,
+                strip_index_format: None,
                 topology: wgpu::PrimitiveTopology::TriangleList,
                 ..Default::default()
             },
         });
 
-        (bind_group,pipeline)
+        (bind_group, pipeline)
     }
 }

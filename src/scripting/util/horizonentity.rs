@@ -120,4 +120,15 @@ impl HorizonEntity {
             )
         })
     }
+    #[cfg(target_arch = "wasm32")]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "getForwardVector"))]
+    pub fn get_forward_vector(&self) -> Result<Vec3, JsValue> {
+        ScriptingFunctions::get_entity_forward_vector(self.entity_id)
+            .map_err(|e| {
+                JsValue::from_str(
+                    format!("failure during script execution, inner error: {:?}", e).as_str(),
+                )
+            })
+            .map(|v| v.into())
+    }
 }

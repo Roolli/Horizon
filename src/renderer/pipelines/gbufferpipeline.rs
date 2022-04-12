@@ -25,13 +25,12 @@ impl<'a> HorizonPipeline<'a> for GBufferPipeline {
                 label: Some("GBuffer pipeline layout"),
                 push_constant_ranges: &[],
             });
-        let module_descriptor = wgpu::ShaderModuleDescriptor {
-            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(include_str!(
-                "../../shaders/gbuffer.wgsl"
-            ))),
-            label: Some("GBuffer shader"),
+        let wgsl = if cfg!(target_arch = "wasm32") {
+            wgpu::include_wgsl!("../../shaders/web/gbuffer.wgsl")
+        } else {
+            wgpu::include_wgsl!("../../shaders/native/gbuffer.wgsl")
         };
-        let module = device.create_shader_module(&module_descriptor);
+        let module = device.create_shader_module(&wgsl);
         let vertex_state = wgpu::VertexState {
             buffers: &[MeshVertexData::desc()],
             entry_point: "vs_main",

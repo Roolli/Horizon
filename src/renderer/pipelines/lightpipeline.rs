@@ -23,13 +23,12 @@ impl<'a> HorizonPipeline<'a> for LightPipeline {
             push_constant_ranges: &[],
         });
 
-        let module_descriptor = wgpu::ShaderModuleDescriptor {
-            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(include_str!(
-                "../../shaders/light.wgsl"
-            ))),
-            label: Some("light shader"),
+        let wgsl = if cfg!(target_arch = "wasm32") {
+            wgpu::include_wgsl!("../../shaders/web/light.wgsl")
+        } else {
+            wgpu::include_wgsl!("../../shaders/native/light.wgsl")
         };
-        let module = device.create_shader_module(&module_descriptor);
+        let module = device.create_shader_module(&wgsl);
         let vertex_state = wgpu::VertexState {
             buffers: &[],
             entry_point: "vs_main",

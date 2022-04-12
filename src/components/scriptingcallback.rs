@@ -38,10 +38,37 @@ impl<'a> ExecuteFunction<'a> for ScriptingCallback {
     }
 
     fn execute_with_args(&self, scripting_engine: Self::ScriptingEngine, args: CallbackArgs) {
-        if let CallbackArgs::Tick(dt) = args {
-            self.get_callback()
-                .call1(&JsValue::NULL, &JsValue::from(dt))
-                .unwrap();
+        match args {
+            CallbackArgs::None => {}
+            CallbackArgs::Tick(dt) => {
+                self.get_callback()
+                    .call1(&JsValue::NULL, &JsValue::from(dt))
+                    .unwrap();
+            }
+            CallbackArgs::KeyboardEvent(ev) => {
+                self.get_callback()
+                    .call1(&JsValue::NULL, &JsValue::from(ev))
+                    .unwrap();
+            }
+            CallbackArgs::MouseClickEvent(ev) => {
+                self.get_callback()
+                    .call1(&JsValue::NULL, &JsValue::from(ev))
+                    .unwrap();
+            }
+            CallbackArgs::MouseMoveEvent((x, y)) => {
+                self.get_callback()
+                    .call2(&JsValue::NULL, &JsValue::from(x), &JsValue::from(y))
+                    .unwrap();
+            }
+            CallbackArgs::EntityCollision(ent_1, ent_2) => {
+                self.get_callback()
+                    .call2(
+                        &JsValue::NULL,
+                        &JsValue::from_serde(&ent_1).unwrap(),
+                        &JsValue::from_serde(&ent_2).unwrap(),
+                    )
+                    .unwrap();
+            }
         }
     }
 }

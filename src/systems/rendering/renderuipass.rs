@@ -10,6 +10,7 @@ use crate::resources::eguicontainer::EguiContainer;
 use crate::resources::gpuquerysets::{GpuQuerySet, GpuQuerySetContainer};
 use crate::resources::surfacetexture::SurfaceTexture;
 use crate::ui::debugstats::DebugStats;
+use crate::ui::gpustats::Passes;
 use crate::ui::menu::Menu;
 use crate::ui::scriptingconsole::ScriptingConsole;
 use crate::ui::UiComponent;
@@ -209,12 +210,15 @@ impl<'a> System<'a> for RenderUIPass {
         egui_render_pass
             .execute_with_renderpass(&mut horizon_render_pass, &paint_jobs, &screen_desc)
             .unwrap();
-        if let Some(ref query_set) = query_sets.container {
+        if let Some(ref mut query_set) = query_sets.container {
             horizon_render_pass.write_timestamp(
                 &query_set.timestamp_queries,
                 query_set.next_query_index * 2 + 1,
             );
             horizon_render_pass.end_pipeline_statistics_query();
+            query_set
+                .pass_indices
+                .insert(Passes::Ui, query_set.next_query_index);
         }
         drop(horizon_render_pass);
 

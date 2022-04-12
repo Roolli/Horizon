@@ -2,6 +2,7 @@ use crate::renderer::bindgroupcontainer::BindGroupContainer;
 use crate::resources::commandencoder::HorizonCommandEncoder;
 use crate::resources::gpuquerysets::GpuQuerySetContainer;
 use crate::resources::surfacetexture::SurfaceTexture;
+use crate::ui::gpustats::Passes;
 use crate::{LightBindGroup, RenderResult, SkyboxBindGroup, SkyboxPipeline, State};
 use specs::{Join, ReadExpect, ReadStorage, System, Write, WriteExpect};
 use wgpu::{RenderPassColorAttachment, RenderPassDepthStencilAttachment};
@@ -82,6 +83,9 @@ impl<'a> System<'a> for RenderSkyBox {
                 query_set.next_query_index * 2 + 1,
             );
             render_pass.end_pipeline_statistics_query();
+            query_set
+                .pass_indices
+                .insert(Passes::Skybox, query_set.next_query_index);
             query_set.next_query_index += 1;
         }
     }

@@ -17,6 +17,7 @@ use crate::components::transform::TransformRaw;
 use crate::renderer::primitives::uniforms::ShadowUniforms;
 use crate::resources::bindingresourcecontainer::*;
 use crate::resources::gpuquerysets::GpuQuerySetContainer;
+use crate::ui::gpustats::Passes;
 
 pub struct RenderShadowPass;
 impl<'a> System<'a> for RenderShadowPass {
@@ -170,8 +171,12 @@ impl<'a> System<'a> for RenderShadowPass {
                 pass.write_timestamp(
                     &query_set.timestamp_queries,
                     query_set.next_query_index * 2 + 1,
-                ); 
+                );
                 pass.end_pipeline_statistics_query();
+                query_set.pass_indices.insert(
+                    Passes::ShadowPassWithCascade(index as u32),
+                    query_set.next_query_index,
+                );
                 query_set.next_query_index += 1;
             }
         }

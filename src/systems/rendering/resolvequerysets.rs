@@ -2,14 +2,21 @@ use crate::resources::commandencoder::HorizonCommandEncoder;
 use crate::resources::gpuquerysets::{
     GpuQuerySet, GpuQuerySetContainer, PipelineStatisticsQueries, TimestampQueries,
 };
+use crate::ui::gpustats::Passes;
 use crate::ui::scriptingconsole::ScriptingConsole;
 use crate::State;
 use specs::{ReadExpect, System, Write, WriteExpect};
-use std::fmt::format;
-use wgpu::Maintain;
 
 pub struct ResolveQuerySets;
-
+impl ResolveQuerySets {
+    pub const STAT_TYPES: [&'static str; 5] = [
+        "vertex invocation",
+        "clipper invocations",
+        " clipper primitives count",
+        "fragment shader invocation count",
+        "compute shader invocation count",
+    ];
+}
 impl<'a> System<'a> for ResolveQuerySets {
     type SystemData = (
         WriteExpect<'a, HorizonCommandEncoder>,
@@ -51,39 +58,47 @@ impl<'a> System<'a> for ResolveQuerySets {
             .query_buffer
             .slice(..std::mem::size_of::<TimestampQueries>() as wgpu::BufferAddress)
             .get_mapped_range();
-        let timestamp_data: &TimestampQueries = bytemuck::from_bytes(&*timestamp_view);
-        // for (index, data) in timestamp_data.iter().enumerate() {
-        //     let nanos = (data.end - data.begin) as f32 * query_set.timestamp_period;
-        //     let micros = nanos / 1000.0;
-        //     log::info!("pass #{} took {:.3} μs ", index, micros);
-        // }
+        let timestamp_queries: &TimestampQueries = bytemuck::from_bytes(&*timestamp_view);
+
         let pipeline_stats_view = query_set
             .query_buffer
             .slice(GpuQuerySet::pipeline_statistics_offset()..)
             .get_mapped_range();
         let pipeline_stats_data: &PipelineStatisticsQueries =
             bytemuck::from_bytes(&*pipeline_stats_view);
-        for (index, (timestamp_data, query_stats)) in timestamp_data
-            .iter()
-            .zip(pipeline_stats_data.iter())
-            .enumerate()
-        {
-            log::info!(
-                r#"pass #{} pipeline_stats: \n
-            vertex invocation:{}\n
-            clipper invocations:{}\n
-            clipper primitives count:{}\n
-            fragment shader invocation count:{}\n
-            compute shader invocation count:{}
-             "#,
-                index,
-                query_stats[0],
-                query_stats[1],
-                query_stats[2],
-                query_stats[3],
-                query_stats[4]
-            )
+        for (key, values) in &query_set.pass_indices {
+            let pass_data = match key {
+                Passes::ShadowPassWithCascade(i) => format!("Shadow cascade #{}", i),
+                Passes::GBuffer => String::from("G Buffer "),
+                Passes::LightCulling => String::from("Light culling"),
+                Passes::Forward => String::from("Forward"),
+                Passes::Collision => String::from("Collision"),
+                Passes::Skybox => String::from("Skybox"),
+                Passes::Ui => String::from("Ui"),
+            };
+            let timestamp_data = timestamp_queries[*values as usize];
+            let nanos =
+                (timestamp_data.end - timestamp_data.begin) as f32 * query_set.timestamp_period;
+            let micros = nanos / 1000.0;
+            let mut output_str = format!(
+                "pass: #{} took {:.3} μs  \n pipeline_stats: \n",
+                pass_data, micros
+            );
+            for (index, stat_type) in ResolveQuerySets::STAT_TYPES.into_iter().enumerate() {
+                if pipeline_stats_data[*values as usize][index] > 0 {
+                    output_str.push_str(
+                        format!(
+                            "{}: {}\n",
+                            stat_type, pipeline_stats_data[*values as usize][index]
+                        )
+                        .as_str(),
+                    );
+                }
+            }
+            output_str.push('\n');
+            scripting_console.messages.push(output_str);
         }
+        query_set.pass_indices.clear();
         drop(pipeline_stats_view);
         query_set.next_query_index = 0;
         drop(timestamp_view);

@@ -5,6 +5,7 @@ use crate::components::gltfmodel::DrawModel;
 use crate::resources::gpuquerysets::{
     GpuQuerySet, GpuQuerySetContainer, PipelineStatisticsQueries, TimestampQueries,
 };
+use crate::ui::gpustats::Passes;
 use crate::TextureViewTypes::DeferredSpecular;
 use crate::{
     components::transform::{Transform, TransformRaw},
@@ -182,8 +183,11 @@ impl<'a> System<'a> for WriteGBuffer {
             render_pass.write_timestamp(
                 &query_set.timestamp_queries,
                 query_set.next_query_index * 2 + 1,
-            ); // use manual indexing for now
+            );
             render_pass.end_pipeline_statistics_query();
+            query_set
+                .pass_indices
+                .insert(Passes::GBuffer, query_set.next_query_index);
             query_set.next_query_index += 1;
         }
         drop(render_pass);

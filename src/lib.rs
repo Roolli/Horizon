@@ -66,7 +66,6 @@ use ref_thread_local::RefThreadLocal;
 use tokio::runtime::Runtime;
 #[cfg(not(target_arch = "wasm32"))]
 use tokio::task;
-use tokio::time::timeout;
 use wgpu::{BlendFactor, ColorWrites, Maintain};
 
 #[cfg(target_arch = "wasm32")]

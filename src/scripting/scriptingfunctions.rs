@@ -401,7 +401,10 @@ impl ScriptingFunctions {
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "registerCallback"))]
 #[cfg(target_arch = "wasm32")]
-pub fn register_callback(event_type: ScriptEvent, callback: js_sys::Function) {
+pub fn register_callback(
+    event_type: crate::scripting::scriptevent::ScriptEvent,
+    callback: js_sys::Function,
+) {
     let ecs = ECSContainer::global();
     let builder = ecs.world.create_entity_unchecked();
     builder

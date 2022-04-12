@@ -3,6 +3,7 @@ use std::convert::TryInto;
 use specs::{Join, ReadExpect, ReadStorage, System, WriteExpect};
 
 use crate::resources::gpuquerysets::GpuQuerySetContainer;
+use crate::ui::gpustats::Passes;
 use crate::{
     renderer::{
         bindgroupcontainer::BindGroupContainer,
@@ -93,6 +94,9 @@ impl<'a> System<'a> for ComputeLightCulling {
                 query_set.next_query_index * 2 + 1,
             ); // use manual indexing for now
             compute_pass.end_pipeline_statistics_query();
+            query_set
+                .pass_indices
+                .insert(Passes::LightCulling, query_set.next_query_index);
             query_set.next_query_index += 1;
         }
         drop(compute_pass);

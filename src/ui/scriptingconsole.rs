@@ -13,17 +13,18 @@ impl ViewComponent for ScriptingConsole {
         }
         ui.separator();
         ui.text_style_height(&TextStyle::Body);
-        ScrollArea::vertical().stick_to_bottom().show_rows(
-            ui,
-            2.0,
-            self.messages.len(),
-            |ui, _row_range| {
-                for message in &self.messages {
-                    ui.colored_label(Color32::from_rgb(128, 140, 255), message);
-                }
-                self.messages.clear();
-            },
-        );
+        for message in &self.messages {
+            ui.colored_label(Color32::from_rgb(128, 140, 255), message);
+        }
+        self.messages.clear();
+        // ScrollArea::vertical().stick_to_bottom().show_rows(
+        //     ui,
+        //     2.0,
+        //     self.messages.len(),
+        //     |ui, _row_range| {
+        //
+        //     },
+        // );
     }
 }
 impl UiComponent for ScriptingConsole {

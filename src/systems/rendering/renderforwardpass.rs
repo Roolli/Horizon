@@ -16,6 +16,7 @@ use crate::{
 use crate::resources::bindingresourcecontainer::BufferTypes::DeferredVao;
 use crate::resources::gpuquerysets::GpuQuerySetContainer;
 use crate::resources::surfacetexture::SurfaceTexture;
+use crate::ui::gpustats::Passes;
 use specs::prelude::*;
 
 pub struct RenderForwardPass;
@@ -118,8 +119,11 @@ impl<'a> System<'a> for RenderForwardPass {
             render_pass.write_timestamp(
                 &query_set.timestamp_queries,
                 query_set.next_query_index * 2 + 1,
-            ); // use manual indexing for now
+            );
             render_pass.end_pipeline_statistics_query();
+            query_set
+                .pass_indices
+                .insert(Passes::Forward, query_set.next_query_index);
             query_set.next_query_index += 1;
         }
         drop(render_pass);

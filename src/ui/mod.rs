@@ -1,4 +1,5 @@
 pub mod debugstats;
+pub mod gpustats;
 pub mod menu;
 pub mod scriptingconsole;
 

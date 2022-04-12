@@ -8,6 +8,7 @@ use crate::resources::scriptingstate::ScriptingState;
 use crate::resources::surfacetexture::SurfaceTexture;
 use crate::systems::physics::PhysicsWorld;
 use crate::ui::debugstats::DebugStats;
+use crate::ui::gpustats::Passes;
 use crate::BufferTypes::{DebugCollisionUniform, DebugCollisionVertex};
 use crate::{BindGroupContainer, BindingResourceContainer, State, UniformBindGroup};
 use rapier3d::na::Matrix4;
@@ -29,7 +30,7 @@ impl<'a> System<'a> for RenderCollision {
         ReadStorage<'a, DebugCollisionBindGroup>,
         ReadStorage<'a, Transform>,
         ReadExpect<'a, DebugStats>,
-        ReadExpect<'a, GpuQuerySetContainer>,
+        WriteExpect<'a, GpuQuerySetContainer>,
     );
 
     fn run(
@@ -47,7 +48,7 @@ impl<'a> System<'a> for RenderCollision {
             debug_collision_bind_group_marker,
             transforms,
             debug_stats,
-            query_sets,
+            mut query_sets,
         ): Self::SystemData,
     ) {
         if !debug_stats.show_collision_wireframes {
@@ -76,8 +77,12 @@ impl<'a> System<'a> for RenderCollision {
             label: Some("collision renderer"),
         });
         if let Some(ref query_set) = query_sets.container {
-            render_pass.write_timestamp(&query_set.timestamp_queries, 14); // use manual indexing for now
-            render_pass.begin_pipeline_statistics_query(&query_set.pipeline_queries, 7);
+            render_pass
+                .write_timestamp(&query_set.timestamp_queries, query_set.next_query_index * 2); // use manual indexing for now
+            render_pass.begin_pipeline_statistics_query(
+                &query_set.pipeline_queries,
+                query_set.next_query_index,
+            );
         }
         let (_, uniform_bind_group_container) = (&uniform_bind_group_marker, &bind_group_container)
             .join()
@@ -169,9 +174,16 @@ impl<'a> System<'a> for RenderCollision {
                 }
             }
         }
-        if let Some(ref query_set) = query_sets.container {
-            render_pass.write_timestamp(&query_set.timestamp_queries, 15); // use manual indexing for now
+        if let Some(ref mut query_set) = query_sets.container {
+            render_pass.write_timestamp(
+                &query_set.timestamp_queries,
+                query_set.next_query_index * 2 + 1,
+            );
             render_pass.end_pipeline_statistics_query();
+            query_set
+                .pass_indices
+                .insert(Passes::Collision, query_set.next_query_index);
+            query_set.next_query_index += 1;
         }
     }
 }

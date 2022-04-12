@@ -1,5 +1,7 @@
+use crate::ui::gpustats::Passes;
 use crate::State;
 use bytemuck::*;
+use std::collections::HashMap;
 
 pub struct GpuQuerySetContainer {
     pub container: Option<GpuQuerySet>,
@@ -10,6 +12,7 @@ pub struct GpuQuerySet {
     pub query_buffer: wgpu::Buffer,
     pub timestamp_period: f32,
     pub next_query_index: u32,
+    pub pass_indices: HashMap<Passes, u32>,
 }
 #[repr(C)]
 #[derive(Copy, Clone, Pod, Zeroable)]

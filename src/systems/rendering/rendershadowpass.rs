@@ -93,11 +93,6 @@ impl<'a> System<'a> for RenderShadowPass {
                     .as_slice(),
             ),
         );
-        cmd_encoder.clear_buffer(
-            &query_sets.container.as_ref().unwrap().query_buffer,
-            0,
-            None,
-        );
         for (index, cascade) in binding_resource_container.texture_array_views
             [TextureArrayViewTypes::Shadow]
             .iter()

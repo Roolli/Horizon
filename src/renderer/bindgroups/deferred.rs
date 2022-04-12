@@ -97,7 +97,7 @@ impl<'a> HorizonBindGroup<'a> for DeferredBindGroup {
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     binding: 6,
                     ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        ty: wgpu::BufferBindingType::Storage { read_only: false },
                         has_dynamic_offset: false,
                         min_binding_size: None,
                     },

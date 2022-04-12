@@ -1,11 +1,11 @@
 
 struct VertexOutput {
-[[builtin(position)]] fragPos: vec4<f32>;
-[[location(0)]] fragUV:vec2<f32>;
+@builtin(position) fragPos: vec4<f32>;
+@location(0) fragUV:vec2<f32>;
 };
 
-[[stage(vertex)]]
-fn vs_main([[location(0)]] pos: vec4<f32>,[[location(1)]] uv:vec2<f32>) -> VertexOutput {
+@stage(vertex)
+fn vs_main(@location(0) pos: vec4<f32>,@location(1) uv:vec2<f32>) -> VertexOutput {
     var vertex_output: VertexOutput;
         vertex_output.fragUV = uv;
         vertex_output.fragPos = pos;
@@ -49,7 +49,7 @@ let num_tile_light_slot:u32 = 128u; // needs to be a constant as you can't creat
 
 struct TileLightData {
     light_count: atomic<u32>;
-   light_ids: array<u32,num_tile_light_slot>;
+   light_ids: array<u32,128>;
 };
 struct Tiles {
     data: array<TileLightData>;
@@ -63,46 +63,49 @@ struct TileInfo {
 };
 
 
-[[group(0)
-,binding(0)]]
+@group(0)
+@binding(0)
 var  texture_sampler: sampler;
 
-[[group(0)
-,binding(1)]]
+@group(0)
+@binding(1)
 var positions:texture_2d<f32>;
-[[group(0)
-,binding(2)]]
+@group(0)
+@binding(2)
 var normals: texture_2d<f32>;
-[[group(0),binding(3)]]
+@group(0)
+@binding(3)
 var specular:texture_2d<f32>;
-[[group(0)
-,binding(4)]]
+@group(0)
+@binding(4)
 var albedo: texture_2d<f32>;
 
 struct CanvasSize {
      canvasConstants: vec2<f32>;
 };
-[[group(0)
-,binding(5)]]
+@group(0)
+@binding(5)
 var<uniform> canvasSize: CanvasSize;
-[[group(0),binding(6)]]
+@group(0)
+@binding(6)
 var<storage,read_write> tile_light_data:Tiles;
 
-[[group(0),
-binding(7)]]
+@group(0)
+@binding(7)
 var<uniform> tile_info:TileInfo;
 
-[[group(1)
-,binding(0)]]
+@group(1)
+@binding(0)
 var<uniform> globals: Globals;
 
-[[group(1)
-,binding(3)]]
+@group(1)
+@binding(3)
 var t_shadow: texture_depth_2d_array;
-[[group(1),binding(3)]]
+@group(1)
+@binding(3)
 var t_shadow_single: texture_depth_2d;
-[[group(1)
-,binding(4)]]
+@group(1)
+@binding(4)
 var s_shadow: sampler_comparison;
 
 struct CascadeTransforms{
@@ -113,21 +116,23 @@ struct CascadeLengths {
     elements: array<f32>;
 };
 
-[[group(1),binding(5)]]
+@group(1)
+@binding(5)
 var<storage,read> cascade_transforms: CascadeTransforms;
-[[group(1),binding(6)]]
+@group(1)
+@binding(6)
 var<storage,read> cascade_lengths: CascadeLengths;
 
-[[group(2)
-,binding(0)]]
+@group(2)
+@binding(0)
 var<uniform> dirLight: DirectionalLight;
 
-[[group(2)
-,binding(1)]]
+@group(2)
+@binding(1)
 var<storage,read> pointLights: PointLightContainer;
 
-[[group(2),
-binding(2)]]
+@group(2)
+@binding(2)
 var<storage,read> spotLights: SpotLightContainer;
 
 
@@ -227,17 +232,17 @@ fn calcDirLightContribution(normal: vec3<f32>, view_direction: vec3<f32>, object
     let diffuse_strength = max(dot(normal,light_direction),ambient_strength);
     let diffuse_color = dirLight.color.xyz * diffuse_strength * object_color;
 
-    //let half_dir = normalize( light_direction+ view_direction);
-    //let specular_strength = pow(max(dot(half_dir,normal),0.0),10.0);
-    //let specular_color = specular_strength * dirLight.color.xyz * object_color;
+    let half_dir = normalize( light_direction+ view_direction);
+    let specular_strength = pow(max(dot(half_dir,normal),0.0),10.0);
+    let specular_color = specular_strength * dirLight.color.xyz * object_color;
   
-    return ( diffuse_color * shadow);
+    return ( diffuse_color * shadow + specular_color);
     
 }
 
 
-[[stage(fragment)]]
-fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
+@stage(fragment)
+fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var result = vec3<f32>(0.0);
     let coordinates = vec2<i32>(floor(in.fragPos.xy)); // / canvasSize.canvasConstants;
 
@@ -260,8 +265,8 @@ fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
     
     return vec4<f32>(result,1.0);
 }
-[[stage(fragment)]]
-fn fs_main_web(in:VertexOutput) -> [[location(0)]] vec4<f32>{
+@stage(fragment)
+fn fs_main_web(in:VertexOutput) -> @location(0) vec4<f32>{
      var result = vec3<f32>(0.0);
     let coordinates = vec2<i32>(floor(in.fragPos.xy)); // / canvasSize.canvasConstants;
       let position = textureLoad(positions,coordinates,0).xyz;

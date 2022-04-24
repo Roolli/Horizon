@@ -376,7 +376,7 @@ impl ParseComponent for CollisionShapeParser {
                             };
                             SharedShape::new(shape)
                         } else {
-                            return Err(ComponentParserError::InvalidData("half_height"));
+                            return Err(ComponentParserError::InvalidData("HalfHeight"));
                         }
                     }
                     _ => return Err(ComponentParserError::InvalidData("CollisionShape")),

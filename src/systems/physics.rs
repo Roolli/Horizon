@@ -137,5 +137,11 @@ impl<'a> System<'a> for Physics {
             transform.position = body.position().translation.vector;
             transform.rotation = body.position().rotation;
         }
+        for handle in (&handles).join() {
+            let body = world.body_set.get_mut(handle.rigid_body_handle).unwrap();
+            if body.position().translation.y < -900.0 {
+                body.set_body_type(RigidBodyType::Static);
+            }
+        }
     }
 }

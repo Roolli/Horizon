@@ -194,9 +194,9 @@ fn calcPointLightContribution(light: PointLight, position: vec3<f32>, normal: ve
     
     let light_direction = normalize(light.position.xyz - position);
 
-    let lambert = max(dot(light_direction,normal),0.0);    
+    let lambert = max(dot(normal,light_direction),0.0);    
     let half_dir = normalize(view_dir + light_direction);
-    let specular = f32(lambert >0.0) * pow(max(dot(half_dir,normal),0.0),10.0);
+    let specular = f32(lambert >0.0) * pow(max(dot(half_dir,normal),0.0),32.0);
     let dist = length(light.position.xyz - position);    
 
     return  clamp(light.color*pow(1.0-dist / light.radius,2.0) * (object_color * lambert + vec3<f32>(1.0) * specular),vec3<f32>(0.0),vec3<f32>(1.0));
@@ -227,44 +227,22 @@ fn addPointLightContributions(position:vec3<f32>,coordinates:vec2<f32>,object_no
 
 fn calcDirLightContribution(normal: vec3<f32>, view_direction: vec3<f32>, object_color: vec3<f32>,shadow:f32) -> vec3<f32> {
 
+    let ambient = vec3<f32>(0.2);
     let light_direction = normalize(dirLight.direction.xyz);
 
-    let diffuse_strength = max(dot(normal,light_direction),ambient_strength);
-    let diffuse_color = dirLight.color.xyz * diffuse_strength * object_color;
+    let diffuse_strength = max(dot(normal,light_direction),0.0);
+
+    let diffuse_color = diffuse_strength * dirLight.color.xyz * shadow;
 
     let half_dir = normalize( light_direction+ view_direction);
     let specular_strength = pow(max(dot(half_dir,normal),0.0),32.0);
-    let specular_color = specular_strength * dirLight.color.xyz * object_color;
+    let specular_color = specular_strength *  dirLight.color.xyz;
   
-    return ( diffuse_color * shadow + specular_color);
+    return ( ambient + diffuse_color + specular_color)   * object_color.xyz;
     
 }
 
 
-@stage(fragment)
-fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    var result = vec3<f32>(0.0);
-    let coordinates = vec2<i32>(floor(in.fragPos.xy)); // / canvasSize.canvasConstants;
-
-    // TODO: get occlusion factor & roughness from their respective channels
-    let position = textureLoad(positions,coordinates,0).xyz;
-    if(position.z > 10000.0)
-    {
-        discard;
-    }
-    let object_normal = textureLoad(normals,coordinates,0).xyz;
-    let object_color = textureLoad(albedo,coordinates,0).xyz;
-    let view_direction = normalize(globals.u_view_position.xyz - position);
-    
-   
-    let shadow = get_shadow_value(vec4<f32>(globals.u_view_position.xyz,1.0)); 
-
-    result = result + calcDirLightContribution(object_normal,view_direction,object_color.xyz,shadow);
-
-   result = result + addPointLightContributions(position,in.fragUV,object_normal,view_direction,object_color.xyz);
-    
-    return vec4<f32>(result,1.0);
-}
 @stage(fragment)
 fn fs_main_web(in:VertexOutput) -> @location(0) vec4<f32>{
      var result = vec3<f32>(0.0);
@@ -276,13 +254,12 @@ fn fs_main_web(in:VertexOutput) -> @location(0) vec4<f32>{
     }
     let object_normal = textureLoad(normals,coordinates,0).xyz;
     let object_color = textureLoad(albedo,coordinates,0).xyz;
-    let view_direction = normalize(globals.u_view_position.xyz-position);
+    let view_direction = normalize(globals.u_view_position.xyz - position);
 
-    let shadow = get_shadow_value_web(cascade_transforms.elements[0]* vec4<f32>(position,1.0));
-    result = result + calcDirLightContribution(object_normal.xyz,view_direction,object_color.xyz,shadow);
+    //let shadow = get_shadow_value_web(cascade_transforms.elements[0]* vec4<f32>(position,1.0));
+    result = result + calcDirLightContribution(object_normal.xyz,view_direction,object_color.xyz,1.0);
 
-    result = result + addPointLightContributions(position,in.fragUV,object_normal,view_direction,object_color.xyz);
+    result = result + addPointLightContributions(position,in.fragUV,object_normal.xyz,view_direction,object_color.xyz);
    
     return vec4<f32>(result,1.0);
 }
-

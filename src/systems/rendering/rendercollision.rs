@@ -1,3 +1,4 @@
+use crate::components::collisionshape::CollisionShape;
 use crate::components::physicshandle::PhysicsHandle;
 use crate::components::transform::Transform;
 use crate::renderer::bindgroups::debugcollision::DebugCollisionBindGroup;
@@ -11,7 +12,6 @@ use crate::ui::debugstats::DebugStats;
 use crate::ui::gpustats::Passes;
 use crate::BufferTypes::{DebugCollisionUniform, DebugCollisionVertex};
 use crate::{BindGroupContainer, BindingResourceContainer, State, UniformBindGroup};
-use rapier3d::na::Matrix4;
 use specs::{Join, ReadExpect, ReadStorage, System, WriteExpect};
 
 pub struct RenderCollision;
@@ -31,6 +31,7 @@ impl<'a> System<'a> for RenderCollision {
         ReadStorage<'a, Transform>,
         ReadExpect<'a, DebugStats>,
         WriteExpect<'a, GpuQuerySetContainer>,
+        ReadStorage<'a, CollisionShape>,
     );
 
     fn run(
@@ -49,6 +50,7 @@ impl<'a> System<'a> for RenderCollision {
             transforms,
             debug_stats,
             mut query_sets,
+            collisions,
         ): Self::SystemData,
     ) {
         if !debug_stats.show_collision_wireframes {
@@ -109,7 +111,7 @@ impl<'a> System<'a> for RenderCollision {
             }
         };
         let mut shape_count = 0;
-        for handles in physics_handles.join() {
+        for handles in (&physics_handles).join() {
             for collider_handle in physics_world
                 .body_set
                 .get(handles.rigid_body_handle)
@@ -174,6 +176,13 @@ impl<'a> System<'a> for RenderCollision {
                 }
             }
         }
+        // for collision in (&collisions).join() {
+        //     let collider = physics_world.collider_set.get(collision.collider).unwrap();
+        //     let shape = collider.shared_shape();
+        //     if let Some(c) = shape.as_cuboid() {
+        //
+        //     }
+        // }
         if let Some(ref mut query_set) = query_sets.container {
             render_pass.write_timestamp(
                 &query_set.timestamp_queries,

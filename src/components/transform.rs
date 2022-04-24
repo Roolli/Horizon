@@ -1,5 +1,5 @@
 use bytemuck::{Pod, Zeroable};
-use rapier3d::na::{Matrix4, Unit, UnitQuaternion, Vector3};
+use rapier3d::na::{Matrix3, Matrix4, Unit, UnitQuaternion, Vector3};
 
 use specs::prelude::*;
 use specs::{Component, VecStorage};
@@ -57,7 +57,6 @@ impl Transform {
                 * self.rotation.to_rotation_matrix().to_homogeneous())
             .append_nonuniform_scaling(&self.scale)
             .into(),
-            //data: Isometry3::new(self.position, self.rotation.scaled_axis()),
         }
     }
 }

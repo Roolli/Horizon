@@ -1,4 +1,5 @@
 use crate::renderer::primitives::texture::Texture;
+use std::ops::BitAnd;
 
 use crate::components::transform::*;
 use specs::WorldExt;
@@ -20,7 +21,7 @@ impl State {
         [0.0, 0.0, 0.5, 0.0],
         [0.0, 0.0, 0.5, 1.0],
     ];
-    pub const CASCADE_DISTS: (f32, f32) = (0.1, 100.0);
+    pub const CASCADE_DISTS: (f32, f32) = (0.1, 10.0);
     pub const NUM_PASSES: u32 = 6;
     pub const MAX_ENTITY_COUNT: wgpu::BufferAddress =
         (std::mem::size_of::<TransformRaw>() * 2048) as wgpu::BufferAddress;
@@ -45,11 +46,13 @@ impl State {
             })
             .await
             .unwrap();
+
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
-                    features: wgpu::Features::TIMESTAMP_QUERY
-                        | wgpu::Features::PIPELINE_STATISTICS_QUERY,
+                    features: adapter.features().bitand(
+                        wgpu::Features::TIMESTAMP_QUERY | wgpu::Features::PIPELINE_STATISTICS_QUERY,
+                    ),
                     limits: wgpu::Limits::default(),
                     label: Some("Device descriptor"),
                 },

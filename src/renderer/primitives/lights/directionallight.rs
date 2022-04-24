@@ -30,7 +30,12 @@ impl DirectionalLight {
         }
     }
     fn get_direction(&self) -> Vector3<f32> {
-        Vector3::new(self.yaw.cos(), self.pitch.sin(), self.yaw.sin()).normalize()
+        Vector3::new(
+            self.yaw.cos() * self.pitch.cos(),
+            self.pitch.sin(),
+            self.yaw.sin() * self.pitch.cos(),
+        )
+        .normalize()
     }
     pub fn get_view_and_proj_matrices(
         &self,
@@ -61,12 +66,8 @@ impl DirectionalLight {
 
         let mut last_split_dist = 0.0;
         for split in cascade_splits {
-            let proj = nalgebra_glm::perspective_rh_zo(
-                1920.0 / 1080.0,
-                45.0_f32.to_radians(),
-                z_near,
-                z_far,
-            );
+            let proj =
+                nalgebra_glm::perspective_rh(16.0 / 9.0, 45.0_f32.to_radians(), z_near, z_far);
 
             let view_proj_inverse = (Matrix4::from(proj.data.0) * cam.get_view_matrix())
                 .try_inverse()
@@ -130,7 +131,7 @@ impl DirectionalLight {
                 0.0,
                 max_extent.z - min_extent.z,
             );
-            let split_depth = (z_near + split * clip_range); // may not be necessary to multiply by -1.
+            let split_depth = (z_near + split * clip_range) * -1.; // may not be necessary to multiply by -1.
             let view_proj = ortho * light_view;
             cascades.push((split_depth, view_proj));
 

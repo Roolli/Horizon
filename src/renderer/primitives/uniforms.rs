@@ -21,13 +21,11 @@ impl Globals {
     }
     pub fn update_view_proj_matrix(&mut self, cam: &Camera, proj: &Projection) {
         self.view_position = cam.position.to_homogeneous().into();
-        //proj.calc_proj_matrix()
         self.view_proj = (Matrix4::from(
-            nalgebra_glm::reversed_perspective_rh_zo(
+            nalgebra_glm::reversed_infinite_perspective_rh_zo(
                 proj.aspect_ratio,
                 proj.fov_y,
                 proj.z_near,
-                100.0,
             )
             .data
             .0,
@@ -39,6 +37,9 @@ impl Globals {
     }
     pub fn set_spot_light_count(&mut self, new_count: u32) {
         self.num_lights[1] = new_count;
+    }
+    pub fn get_point_light_count(&self) -> u32 {
+        self.num_lights[0]
     }
 }
 #[repr(C)]
@@ -104,7 +105,7 @@ pub struct LightCullingUniforms {
 impl LightCullingUniforms {
     pub fn new(projection: &Projection, view: &Camera) -> Self {
         LightCullingUniforms {
-            projection: nalgebra_glm::perspective_rh_zo(
+            projection: nalgebra_glm::perspective_rh(
                 projection.aspect_ratio,
                 projection.fov_y,
                 projection.z_near,

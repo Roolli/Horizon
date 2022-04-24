@@ -62,10 +62,9 @@ fn vs_main(in: GBufferInputs) -> VertexOutputs {
     output.v_tex_coord = in.tex_coord; 
     var model_matrix: mat4x4<f32> = transform.elements[in.instance_index];
     var normal: mat4x4<f32> = normals.elements[in.instance_index];
-    let frag_tangent = (normal * in.tangent);
-    let frag_normal = vec3<f32>((normal * vec4<f32>(in.a_normal,0.0)).xyz);
-    output.tangent = frag_tangent;
-    output.normal = frag_normal;
+    let frag_tangent = normalize(normal * in.tangent);
+    output.normal = normalize(vec3<f32>((normal * vec4<f32>(in.a_normal,0.0)).xyz));
+    output.tangent = frag_tangent;   
     var model_space: vec4<f32>  = model_matrix * vec4<f32>(in.a_pos,1.0);
     output.world_frag_pos = model_space.xyz;    
     output.pos= globals.u_view_proj* model_space;
@@ -100,23 +99,22 @@ fn fs_main(in: VertexOutputs, [[builtin(front_facing)]] front_facing: bool) -> G
     albedo = vec4<f32>(material_uniforms.base_color_factor.xyz * texture_color.xyz,1.0);
     out.albedo = albedo;
     out.position = vec4<f32>(in.world_frag_pos,textureSample(t_roughness,t_sampler,in.v_tex_coord).b * material_uniforms.roughness_metallic_double_sided.y);
-    var tangent_normal:vec3<f32> = textureSample(t_normal,t_sampler,in.v_tex_coord).xyz;
-    tangent_normal = tangent_normal * 2.0 - 1.0;
+
+      var normal_map:vec3<f32> = textureSample(t_normal,t_sampler,in.v_tex_coord).xyz;
+    normal_map = 2.0 * normal_map  -vec3<f32>(1.0,1.0,1.0);
      var frag_normal: vec3<f32>;
     if(!front_facing)
     {
         frag_normal= normalize(in.normal * material_uniforms.roughness_metallic_double_sided.z);
     }    
     else {
-        frag_normal= normalize(in.normal);
+        frag_normal= in.normal;
     }
-    var tangent:  vec3<f32> = normalize(in.tangent.xyz);
-   
-    var bitangent: vec3<f32> = cross(tangent,frag_normal) * in.tangent.w;
-    tangent = normalize(tangent - dot(tangent,frag_normal) * frag_normal);
-    tangent_normal= normalize(mat3x3<f32>(tangent,bitangent,frag_normal) * tangent_normal);
-
+    var tangent:  vec3<f32> = in.tangent.xyz;   
+    var bitangent: vec3<f32> = cross(tangent,frag_normal); // * in.tangent.w;
+    //tangent = normalize(tangent - dot(tangent,frag_normal) * frag_normal);
+    normal_map= normalize(mat3x3<f32>(tangent,bitangent,frag_normal) * normal_map);
     out.specular = vec4<f32>((textureSample(t_emissive,t_sampler,in.v_tex_coord).xyz*material_uniforms.emissive_color.xyz) ,1.0);
-    out.normal = vec4<f32>(tangent_normal,textureSample(t_roughness,t_sampler,in.v_tex_coord).r * material_uniforms.roughness_metallic_double_sided.x);
+    out.normal = vec4<f32>(normal_map,textureSample(t_roughness,t_sampler,in.v_tex_coord).r * material_uniforms.roughness_metallic_double_sided.x);
     return out;
 }

@@ -131,4 +131,15 @@ impl HorizonEntity {
             })
             .map(|v| v.into())
     }
+    #[cfg(target_arch = "wasm32")]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = "setEntityRotation"))]
+    pub fn get_entity_rotation(&self, angles: Vec3) -> Result<(), JsValue> {
+        ScriptingFunctions::set_entity_rotation(angles.into(), self.entity_id)
+            .map_err(|e| {
+                JsValue::from_str(
+                    format!("failure during script execution, inner error: {:?}", e).as_str(),
+                )
+            })
+            .map(|v| v.into())
+    }
 }

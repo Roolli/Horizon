@@ -33,10 +33,15 @@ impl Camera {
         self.follow_target_pos = pos;
     }
     pub fn get_view_matrix(&self) -> Matrix4<f32> {
-        let f = Vector3::new(self.yaw.cos(), self.pitch.sin(), self.yaw.sin()).normalize();
+        let f = Vector3::new(
+            self.yaw.cos() * self.pitch.cos(),
+            self.pitch.sin(),
+            self.yaw.sin() * self.pitch.cos(),
+        )
+        .normalize();
         if self.follow_target.is_some() {
             return Matrix4::look_at_rh(
-                &(self.position - f),
+                &(self.position + f),
                 &self.follow_target_pos,
                 &Vector3::y(),
             );

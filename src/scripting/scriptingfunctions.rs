@@ -323,20 +323,7 @@ impl ScriptingFunctions {
             .body_set
             .get(physics_handle.rigid_body_handle)
             .unwrap();
-        log::info!(
-            "rot for entity {}, rot: {:?}",
-            entity_id,
-            rigid_body.position().rotation
-        );
-        let origin = rigid_body.position().translation.vector;
-        let forward = rigid_body.position().transform_vector(&-Vector3::z());
-        let direction = (forward - origin).normalize();
-
-        log::info!(
-            "rot for entity {}, direction matrix: {:?}",
-            entity_id,
-            direction
-        );
+        let direction = rigid_body.rotation().scaled_axis();
         Ok(direction)
     }
 

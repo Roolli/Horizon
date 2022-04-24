@@ -29,7 +29,7 @@ impl ViewComponent for ScriptingConsole {
 }
 impl UiComponent for ScriptingConsole {
     fn name(&self) -> &'static str {
-        "Scripting Console"
+        "Pipeline stats"
     }
 
     fn show(&mut self, ctx: &Context, open: &mut bool) {
